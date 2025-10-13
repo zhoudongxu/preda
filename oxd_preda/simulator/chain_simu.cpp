@@ -30,11 +30,11 @@ bool ChainSimulator::Init(const os::CommandLine& cmd)
 	rt::String repo_dir(rt::SS(homeDir, strlen(homeDir)) + PREDA_DATA_FOLDER + "chsimu_repo");
 	os::File::RemovePath(repo_dir);
 
-	bool isWasmReady = _InitEngine(rvm::EngineId::PREDA_WASM, "./preda_engine", repo_dir + "/wasm", "-wasm");
+	// bool isWasmReady = _InitEngine(rvm::EngineId::PREDA_WASM, "./preda_engine", repo_dir + "/wasm", "-wasm");
 	bool isNativeReady = _InitEngine(rvm::EngineId::PREDA_NATIVE, "./preda_engine", repo_dir + "/native", "-native");
-	bool isEvmReady = _InitEngine(rvm::EngineId::SOLIDITY_EVM, "./preda_engine", repo_dir + "/evm", "-evm");
+	// bool isEvmReady = _InitEngine(rvm::EngineId::SOLIDITY_EVM, "./preda_engine", repo_dir + "/evm", "-evm");
 
-	if(!isWasmReady && ! isNativeReady && !isEvmReady)
+	if(!isNativeReady)
 	{
 		_LOG_ERROR("No execution engine available.");
 		return false;
