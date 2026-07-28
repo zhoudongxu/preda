@@ -1,6 +1,7 @@
 #pragma once
 
 #include "RelayProtocolIR.h"
+#include "analysis/RelayDependencyAnalyzer.h"
 #include "../antlr_generated/PredaParser.h"
 
 #include <cstdint>
@@ -51,6 +52,28 @@ public:
 	explicit RelayProtocolCollector(PredaTranspilerContext &context);
 
 	void Reset(const std::string &dappName, const std::string &contractName);
+	void RegisterStateVariable(const std::string &name);
+	void RegisterConstant(const std::string &name);
+	void RegisterTypeSymbol(const std::string &name);
+	void BeginFunctionDependencyAnalysis(
+		const std::string &functionId,
+		ScopeType scope,
+		const std::vector<std::string> &parameterNames);
+	void EndFunctionDependencyAnalysis();
+	void PushDependencyScope();
+	void PopDependencyScope();
+	void DeclareLocalDependency(
+		const std::string &name,
+		PredaParser::ExpressionContext *initializer);
+	void DeclareLoopVariableDependency(
+		const std::string &name,
+		PredaParser::ExpressionContext *initializer);
+	void PromoteLoopVariableDependency(
+		PredaParser::ExpressionContext *update);
+	void RecordExpressionEffects(
+		PredaParser::ExpressionContext *expression);
+	void WidenLoopDependencies(
+		antlr4::ParserRuleContext *loopContext);
 	std::string CollectRelay(const RelaySiteInput &input);
 	void ResolveLambdaHandler(
 		const std::string &relaySiteId,
@@ -74,6 +97,7 @@ public:
 
 private:
 	RelayProtocolIR &m_ir;
+	analysis::RelayDependencyAnalyzer m_dependencyAnalyzer;
 	std::map<std::string, size_t> m_namedHandlers;
 	bool m_finalized = false;
 

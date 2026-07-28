@@ -1,0 +1,14 @@
+contract ProtocolDependencyMember {
+    struct Holder {
+        address owner;
+    }
+
+    @address Holder holder;
+
+    @address function receive() {
+    }
+
+    @address function send() export {
+        relay@holder.owner receive();
+    }
+}

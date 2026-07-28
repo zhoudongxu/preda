@@ -1,0 +1,8 @@
+contract ProtocolDependencyUnary {
+    @uint32 function receive() {
+    }
+
+    @address function send(uint32 target) export {
+        relay@(~target) receive();
+    }
+}

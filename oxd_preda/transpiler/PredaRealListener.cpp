@@ -64,6 +64,15 @@ static std::string RelayProtocolFunctionSignature(
 	return result;
 }
 
+static std::string RelayProtocolFunctionId(
+	const std::string &dappName,
+	const std::string &contractName,
+	const transpiler::FunctionRef &function)
+{
+	return dappName + "." + contractName + "::" +
+		RelayProtocolFunctionSignature(function);
+}
+
 transpiler::DefinedIdentifierPtr PredaRealListener::DefineFunctionLocalVariable(ConcreteTypePtr pType, PredaParser::IdentifierContext *identifierCtx, bool bIsConst, uint32_t flags)
 {
 	m_errorPortal.SetAnchor(identifierCtx->start);
@@ -839,6 +848,11 @@ void PredaRealListener::enterVariableDeclarationStatement(PredaParser::VariableD
 	std::string line;
 	if (ProcessLocalVariableDeclaration(ctx->localVariableDeclaration(), line))
 	{
+		PredaParser::LocalVariableDeclarationContext *declaration =
+			ctx->localVariableDeclaration();
+		m_relayProtocolCollector.DeclareLocalDependency(
+			declaration->identifier()->getText(),
+			declaration->expression());
 		line += ";";
 		codeSerializer.AddLine(line);
 	}
@@ -849,6 +863,8 @@ void PredaRealListener::enterExpressionStatement(PredaParser::ExpressionStatemen
 	ExpressionParser::ExpressionResult expRes;
 	if (m_expressionParser.ParseExpression(ctx->expression(), expRes))
 	{
+		m_relayProtocolCollector.RecordExpressionEffects(
+			ctx->expression());
 		codeSerializer.AddLine(expRes.text + ";");
 	}
 }
@@ -909,10 +925,12 @@ void PredaRealListener::enterReturnStatement(PredaParser::ReturnStatementContext
 void PredaRealListener::enterIfWithBlock(PredaParser::IfWithBlockContext *ctx)
 {
 	m_transpilerCtx.functionCtx.PushAddtionalLocalScope(transpiler::FunctionContext::LocalScope::Scope_If, "if");
+	m_relayProtocolCollector.PushDependencyScope();
 
 	ExpressionParser::ExpressionResult expRes;
 	if (!m_expressionParser.ParseExpression(ctx->expression(), expRes))
 		return;
+	m_relayProtocolCollector.RecordExpressionEffects(ctx->expression());
 
 	if (expRes.type.baseConcreteType != m_transpilerCtx.GetBuiltInBoolType())
 	{
@@ -928,6 +946,7 @@ void PredaRealListener::enterIfWithBlock(PredaParser::IfWithBlockContext *ctx)
 void PredaRealListener::exitIfWithBlock(PredaParser::IfWithBlockContext *ctx)
 {
 	m_transpilerCtx.functionCtx.PopScope();
+	m_relayProtocolCollector.PopDependencyScope();
 
 	codeSerializer.PopIndent();
 	codeSerializer.AddLine("}");
@@ -936,6 +955,7 @@ void PredaRealListener::exitIfWithBlock(PredaParser::IfWithBlockContext *ctx)
 void PredaRealListener::enterElseWithBlock(PredaParser::ElseWithBlockContext *ctx)
 {
 	m_transpilerCtx.functionCtx.PushAddtionalLocalScope(transpiler::FunctionContext::LocalScope::Scope_Else, "else");
+	m_relayProtocolCollector.PushDependencyScope();
 
 	codeSerializer.AddLine("else {");
 	codeSerializer.PushIndent();
@@ -944,6 +964,7 @@ void PredaRealListener::enterElseWithBlock(PredaParser::ElseWithBlockContext *ct
 void PredaRealListener::exitElseWithBlock(PredaParser::ElseWithBlockContext *ctx)
 {
 	AUTO_POP_FUNCTION_CONTEXT_LOCAL_SCOPE_STACK;
+	m_relayProtocolCollector.PopDependencyScope();
 
 	codeSerializer.PopIndent();
 	codeSerializer.AddLine("}");
@@ -952,10 +973,12 @@ void PredaRealListener::exitElseWithBlock(PredaParser::ElseWithBlockContext *ctx
 void PredaRealListener::enterElseIfWithBlock(PredaParser::ElseIfWithBlockContext *ctx)
 {
 	m_transpilerCtx.functionCtx.PushAddtionalLocalScope(transpiler::FunctionContext::LocalScope::Scope_ElseIf, "elseif");
+	m_relayProtocolCollector.PushDependencyScope();
 
 	ExpressionParser::ExpressionResult expRes;
 	if (!m_expressionParser.ParseExpression(ctx->expression(), expRes))
 		return;
+	m_relayProtocolCollector.RecordExpressionEffects(ctx->expression());
 
 	if (expRes.type.baseConcreteType != m_transpilerCtx.GetBuiltInBoolType())
 	{
@@ -971,6 +994,7 @@ void PredaRealListener::enterElseIfWithBlock(PredaParser::ElseIfWithBlockContext
 void PredaRealListener::exitElseIfWithBlock(PredaParser::ElseIfWithBlockContext *ctx)
 {
 	AUTO_POP_FUNCTION_CONTEXT_LOCAL_SCOPE_STACK;
+	m_relayProtocolCollector.PopDependencyScope();
 
 	codeSerializer.PopIndent();
 	codeSerializer.AddLine("}");
@@ -979,10 +1003,12 @@ void PredaRealListener::exitElseIfWithBlock(PredaParser::ElseIfWithBlockContext 
 void PredaRealListener::enterWhileStatement(PredaParser::WhileStatementContext *ctx)
 {
 	m_transpilerCtx.functionCtx.PushAddtionalLocalScope(transpiler::FunctionContext::LocalScope::Scope_While, "while");
+	m_relayProtocolCollector.PushDependencyScope();
 
 	ExpressionParser::ExpressionResult expRes;
 	if (!m_expressionParser.ParseExpression(ctx->expression(), expRes))
 		return;
+	m_relayProtocolCollector.RecordExpressionEffects(ctx->expression());
 
 	if (expRes.type.baseConcreteType != m_transpilerCtx.GetBuiltInBoolType())
 	{
@@ -998,6 +1024,8 @@ void PredaRealListener::enterWhileStatement(PredaParser::WhileStatementContext *
 void PredaRealListener::exitWhileStatement(PredaParser::WhileStatementContext *ctx)
 {
 	AUTO_POP_FUNCTION_CONTEXT_LOCAL_SCOPE_STACK;
+	m_relayProtocolCollector.WidenLoopDependencies(ctx);
+	m_relayProtocolCollector.PopDependencyScope();
 
 	codeSerializer.PopIndent();
 	codeSerializer.AddLine("}");
@@ -1006,6 +1034,7 @@ void PredaRealListener::exitWhileStatement(PredaParser::WhileStatementContext *c
 void PredaRealListener::enterDoWhileStatement(PredaParser::DoWhileStatementContext *ctx)
 {
 	m_transpilerCtx.functionCtx.PushAddtionalLocalScope(transpiler::FunctionContext::LocalScope::Scope_DoWhile, "dowhile");
+	m_relayProtocolCollector.PushDependencyScope();
 
 	codeSerializer.AddLine("do { prlrt::burn_gas_loop();");
 	codeSerializer.PushIndent();
@@ -1017,14 +1046,21 @@ void PredaRealListener::exitDoWhileStatement(PredaParser::DoWhileStatementContex
 
 	ExpressionParser::ExpressionResult expRes;
 	if (!m_expressionParser.ParseExpression(ctx->expression(), expRes))
+	{
+		m_relayProtocolCollector.PopDependencyScope();
 		return;
+	}
+	m_relayProtocolCollector.RecordExpressionEffects(ctx->expression());
 
 	if (expRes.type.baseConcreteType != m_transpilerCtx.GetBuiltInBoolType())
 	{
 		m_errorPortal.SetAnchor(ctx->expression()->start);
 		m_errorPortal.AddBooleanExpressionExpectedError(expRes.type.baseConcreteType);
+		m_relayProtocolCollector.PopDependencyScope();
 		return;
 	}
+	m_relayProtocolCollector.WidenLoopDependencies(ctx);
+	m_relayProtocolCollector.PopDependencyScope();
 
 	codeSerializer.PopIndent();
 	codeSerializer.AddLine("} while (" + expRes.text + ");");
@@ -1033,6 +1069,7 @@ void PredaRealListener::exitDoWhileStatement(PredaParser::DoWhileStatementContex
 void PredaRealListener::enterForStatement(PredaParser::ForStatementContext *ctx)
 {
 	m_transpilerCtx.functionCtx.PushAddtionalLocalScope(transpiler::FunctionContext::LocalScope::Scope_For, "for");
+	m_relayProtocolCollector.PushDependencyScope();
 
 	std::string codeOutput = "for (";
 
@@ -1043,6 +1080,11 @@ void PredaRealListener::enterForStatement(PredaParser::ForStatementContext *ctx)
 		if (!ProcessLocalVariableDeclaration(ctx->localVariableDeclaration(), res))
 			return;
 
+		m_relayProtocolCollector.RecordExpressionEffects(
+			ctx->localVariableDeclaration()->expression());
+		m_relayProtocolCollector.DeclareLoopVariableDependency(
+			ctx->localVariableDeclaration()->identifier()->getText(),
+			ctx->localVariableDeclaration()->expression());
 		codeOutput += res;
 	}
 	else if (ctx->firstExpression)
@@ -1050,6 +1092,8 @@ void PredaRealListener::enterForStatement(PredaParser::ForStatementContext *ctx)
 		ExpressionParser::ExpressionResult expRes;
 		if (!m_expressionParser.ParseExpression(ctx->firstExpression, expRes))
 			return;
+		m_relayProtocolCollector.RecordExpressionEffects(
+			ctx->firstExpression);
 		codeOutput += expRes.text;
 	}
 	codeOutput += ";";
@@ -1060,6 +1104,8 @@ void PredaRealListener::enterForStatement(PredaParser::ForStatementContext *ctx)
 		ExpressionParser::ExpressionResult expRes;
 		if (!m_expressionParser.ParseExpression(ctx->secondExpression, expRes))
 			return;
+		m_relayProtocolCollector.RecordExpressionEffects(
+			ctx->secondExpression);
 		if (expRes.type.baseConcreteType != m_transpilerCtx.GetBuiltInBoolType())
 		{
 			m_errorPortal.SetAnchor(ctx->secondExpression->start);
@@ -1075,6 +1121,10 @@ void PredaRealListener::enterForStatement(PredaParser::ForStatementContext *ctx)
 		ExpressionParser::ExpressionResult expRes;
 		if (!m_expressionParser.ParseExpression(ctx->thirdExpression, expRes))
 			return;
+		m_relayProtocolCollector.RecordExpressionEffects(
+			ctx->thirdExpression);
+		m_relayProtocolCollector.PromoteLoopVariableDependency(
+			ctx->thirdExpression);
 
 		codeOutput += " " + expRes.text;
 	}
@@ -1088,6 +1138,8 @@ void PredaRealListener::enterForStatement(PredaParser::ForStatementContext *ctx)
 void PredaRealListener::exitForStatement(PredaParser::ForStatementContext *ctx)
 {
 	AUTO_POP_FUNCTION_CONTEXT_LOCAL_SCOPE_STACK;
+	m_relayProtocolCollector.WidenLoopDependencies(ctx);
+	m_relayProtocolCollector.PopDependencyScope();
 
 	codeSerializer.PopIndent();
 	codeSerializer.AddLine("}");
@@ -1096,6 +1148,7 @@ void PredaRealListener::exitForStatement(PredaParser::ForStatementContext *ctx)
 void PredaRealListener::enterUserBlockStatement(PredaParser::UserBlockStatementContext *ctx)
 {
 	m_transpilerCtx.functionCtx.PushAddtionalLocalScope(transpiler::FunctionContext::LocalScope::Scope_UserBlock, "userblock");
+	m_relayProtocolCollector.PushDependencyScope();
 
 	codeSerializer.AddLine("{");
 	codeSerializer.PushIndent();
@@ -1104,6 +1157,7 @@ void PredaRealListener::enterUserBlockStatement(PredaParser::UserBlockStatementC
 void PredaRealListener::exitUserBlockStatement(PredaParser::UserBlockStatementContext *ctx)
 {
 	AUTO_POP_FUNCTION_CONTEXT_LOCAL_SCOPE_STACK;
+	m_relayProtocolCollector.PopDependencyScope();
 
 	codeSerializer.PopIndent();
 	codeSerializer.AddLine("}");
@@ -1946,6 +2000,8 @@ void PredaRealListener::DefineStateVariable(PredaParser::StateVariableDeclaratio
 	transpiler::DefinedIdentifierPtr pDefinedVariable = m_transpilerCtx.thisPtrStack.stack.back().thisType->DefineMemberVariable(pType, ctx->identifier()->getText(), flags, false, true, false);
 	if (pDefinedVariable != nullptr){
 		m_definedStateVariables.push_back(std::make_pair(ctx, *pDefinedVariable));
+		m_relayProtocolCollector.RegisterStateVariable(
+			ctx->identifier()->getText());
 		if(pDefinedVariable->qualifiedType.baseConcreteType->nestingPropagatableFlags & uint32_t(transpiler::PredaTypeNestingPropagatableFlags::IsScatteredType))
 			DefineScatteredStateVariable(pDefinedVariable, ctx);
 	}
@@ -1981,7 +2037,11 @@ void PredaRealListener::DefineConstVariable(PredaParser::ConstVariableDeclaratio
 
 	transpiler::DefinedIdentifierPtr pDefinedVariable = m_transpilerCtx.thisPtrStack.stack.back().thisType->DefineMemberVariable(pType, ctx->identifier()->getText(), 0, true, false, false);
 	if (pDefinedVariable != nullptr)
+	{
 		m_identifierHub.AddConstMemberVar(pDefinedVariable, outResult.text);
+		m_relayProtocolCollector.RegisterConstant(
+			ctx->identifier()->getText());
+	}
 }
 
 void PredaRealListener::DefineStruct(PredaParser::StructDefinitionContext *ctx)
@@ -2026,6 +2086,7 @@ void PredaRealListener::DefineStruct(PredaParser::StructDefinitionContext *ctx)
 		m_errorPortal.AddInternalError(ctx->identifier()->start, "struct type \"" + structTypeName + "\" cannot be defined. Unknown error.");
 		return;
 	}
+	m_relayProtocolCollector.RegisterTypeSymbol(structTypeName);
 
 	//doxygen comment
 	if(ctx->doxygen()){
@@ -2116,6 +2177,7 @@ void PredaRealListener::DefineEnum(PredaParser::EnumDefinitionContext *ctx)
 		m_errorPortal.AddInternalError(identifiers[0]->start, "enum type \"" + enumTypeName + "\" cannot be defined. Unknown error.");
 		return;
 	}
+	m_relayProtocolCollector.RegisterTypeSymbol(enumTypeName);
 
 	m_transpilerCtx.thisPtrStack.Push(enumType, false);
 	AUTO_POP_THIS_PTR_STACK;
@@ -2576,6 +2638,22 @@ void PredaRealListener::DefinePendingRelayLambdas()
 		// Copy the function signature to the current scope on the stack. (return statement will rely on this info to check return type
 		m_transpilerCtx.functionCtx.functionRef = m_exportedFunctions[lambda.exportFuncSlot];
 
+		std::vector<std::string> dependencyParameterNames;
+		dependencyParameterNames.reserve(vParamNameCtxs.size());
+		for (PredaParser::RelayLambdaParameterContext *parameter :
+			vParamNameCtxs)
+		{
+			dependencyParameterNames.push_back(
+				parameter->identifier()->getText());
+		}
+		m_relayProtocolCollector.BeginFunctionDependencyAnalysis(
+			RelayProtocolFunctionId(
+				m_currentDAppName,
+				m_currentContractName,
+				m_transpilerCtx.functionCtx.functionRef),
+			lambda.funcScope,
+			dependencyParameterNames);
+
 		m_lastStatementInFunctionIsReturnStatement = false;
 
 		m_transpilerCtx.thisPtrStack.Push(thisType, (functionSignature.flags & uint32_t(transpiler::FunctionFlags::IsConst)) != 0);
@@ -2615,6 +2693,7 @@ void PredaRealListener::DefinePendingRelayLambdas()
 		SetWalker(&newWalker);
 		m_pWalker->walk(this, ctx);
 		SetWalker(oldWalker);
+		m_relayProtocolCollector.EndFunctionDependencyAnalysis();
 
 		if (m_transpilerCtx.functionCtx.GetFunctionSignature()->returnType.baseConcreteType != nullptr && !m_lastStatementInFunctionIsReturnStatement)
 		{
@@ -3553,6 +3632,21 @@ void PredaRealListener::enterFunctionDefinition(PredaParser::FunctionDefinitionC
 		// Here there's no need to check parameter const qualifier for transaction and relay functions, it's already done at forward declaration
 	}
 
+	std::vector<std::string> dependencyParameterNames;
+	dependencyParameterNames.reserve(vParamCtx.size());
+	for (PredaParser::FunctionParameterContext *parameter : vParamCtx)
+		dependencyParameterNames.push_back(
+			parameter->identifier()->getText());
+	m_relayProtocolCollector.BeginFunctionDependencyAnalysis(
+		RelayProtocolFunctionId(
+			m_currentDAppName,
+			m_currentContractName,
+			m_transpilerCtx.functionCtx.functionRef),
+		transpiler::ScopeType(
+			functionSignature.flags &
+			uint32_t(transpiler::ScopeType::Mask)),
+		dependencyParameterNames);
+
 	m_lastStatementInFunctionIsReturnStatement = false;
 
 	{
@@ -3589,6 +3683,7 @@ void PredaRealListener::exitFunctionDefinition(PredaParser::FunctionDefinitionCo
 {
 	assert(m_transpilerCtx.functionCtx.localScopes.size() == 1);
 
+	m_relayProtocolCollector.EndFunctionDependencyAnalysis();
 	AUTO_POP_FUNCTION_CONTEXT_LOCAL_SCOPE_STACK;
 
 	// This could happen if the function failed forward declaration

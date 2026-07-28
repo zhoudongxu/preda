@@ -1,0 +1,8 @@
+contract ProtocolDependencyLiteral {
+    @uint32 function receive() {
+    }
+
+    @address function send() export {
+        relay@7u32 receive();
+    }
+}

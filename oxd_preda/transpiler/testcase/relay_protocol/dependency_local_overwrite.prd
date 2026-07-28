@@ -1,0 +1,12 @@
+contract ProtocolDependencyLocalOverwrite {
+    @address address owner;
+
+    @address function receive() {
+    }
+
+    @address function send(address target) export {
+        address local_target = target;
+        local_target = owner;
+        relay@local_target receive();
+    }
+}

@@ -1,0 +1,10 @@
+contract ProtocolDependencyStateOwner {
+    @address address owner;
+
+    @address function receive() {
+    }
+
+    @address function send() export {
+        relay@owner receive();
+    }
+}

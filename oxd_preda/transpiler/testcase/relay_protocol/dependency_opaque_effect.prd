@@ -1,0 +1,21 @@
+contract ProtocolDependencyOpaqueEffect {
+    @address address owner;
+
+    @address function address choose(address target) {
+        owner = target;
+        return target;
+    }
+
+    @address function receive() {
+    }
+
+    @address function send(
+        bool use_first,
+        address first,
+        address second
+    ) export {
+        address selected =
+            use_first ? choose(first) : choose(second);
+        relay@owner receive();
+    }
+}

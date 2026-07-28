@@ -1,0 +1,8 @@
+contract ProtocolDependencyCurrentScopeKey {
+    @address function receive() {
+    }
+
+    @address function send() export {
+        relay@__transaction.get_self_address() receive();
+    }
+}

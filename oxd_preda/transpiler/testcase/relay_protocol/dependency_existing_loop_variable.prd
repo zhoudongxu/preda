@@ -1,0 +1,11 @@
+contract ProtocolDependencyExistingLoopVariable {
+    @uint32 function receive() {
+    }
+
+    @address function send() export {
+        uint32 i = 0u32;
+        for (i = 0u32; i < 3u32; i++) {
+            relay@i receive();
+        }
+    }
+}

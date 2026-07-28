@@ -1,0 +1,12 @@
+contract ProtocolDependencyConditionalInitialization {
+    @address function receive() {
+    }
+
+    @address function send(bool enabled, address target) export {
+        address local_target;
+        if (enabled) {
+            local_target = target;
+        }
+        relay@local_target receive();
+    }
+}

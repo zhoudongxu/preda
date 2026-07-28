@@ -173,6 +173,46 @@ bool ParseTreeHasEarlyLoopExit(antlr4::tree::ParseTree *tree)
 	return false;
 }
 
+void CollectAssignmentExpressions(
+	antlr4::tree::ParseTree *tree,
+	std::vector<PredaParser::ExpressionContext *> &expressions)
+{
+	if (tree == nullptr ||
+		dynamic_cast<PredaParser::RelayLambdaDefinitionContext *>(tree) !=
+			nullptr)
+	{
+		return;
+	}
+
+	if (auto *expression =
+		dynamic_cast<PredaParser::ExpressionContext *>(tree))
+	{
+		if (expression->expressionType >=
+				static_cast<int>(PredaExpressionTypes::Assignment) &&
+			expression->expressionType <=
+				static_cast<int>(
+					PredaExpressionTypes::AssignmentBitwiseOr))
+		{
+			expressions.push_back(expression);
+			// RecordExpressionEffects recursively handles nested assignments.
+			return;
+		}
+	}
+
+	for (antlr4::tree::ParseTree *child : tree->children)
+		CollectAssignmentExpressions(child, expressions);
+}
+
+bool ContainsDependencyClass(
+	const analysis::RelayExpressionDependency &dependency,
+	analysis::RelayDependencyClass dependencyClass)
+{
+	return std::find(
+		dependency.classes.begin(),
+		dependency.classes.end(),
+		dependencyClass) != dependency.classes.end();
+}
+
 RelayExprIR MissingLoopExpression(
 	const char *reason,
 	const SourceLocation &loopLocation)
@@ -196,8 +236,168 @@ void RelayProtocolCollector::Reset(
 	const std::string &contractName)
 {
 	m_ir.Reset(dappName, contractName);
+	m_dependencyAnalyzer.Reset();
 	m_namedHandlers.clear();
 	m_finalized = false;
+}
+
+void RelayProtocolCollector::RegisterStateVariable(
+	const std::string &name)
+{
+	m_dependencyAnalyzer.RegisterStateVariable(name);
+}
+
+void RelayProtocolCollector::RegisterConstant(
+	const std::string &name)
+{
+	m_dependencyAnalyzer.RegisterConstant(name);
+}
+
+void RelayProtocolCollector::RegisterTypeSymbol(
+	const std::string &name)
+{
+	m_dependencyAnalyzer.RegisterTypeSymbol(name);
+}
+
+void RelayProtocolCollector::BeginFunctionDependencyAnalysis(
+	const std::string &functionId,
+	ScopeType scope,
+	const std::vector<std::string> &parameterNames)
+{
+	m_dependencyAnalyzer.BeginFunction(
+		functionId,
+		scope,
+		parameterNames);
+}
+
+void RelayProtocolCollector::EndFunctionDependencyAnalysis()
+{
+	m_dependencyAnalyzer.EndFunction();
+}
+
+void RelayProtocolCollector::PushDependencyScope()
+{
+	m_dependencyAnalyzer.PushScope();
+}
+
+void RelayProtocolCollector::PopDependencyScope()
+{
+	m_dependencyAnalyzer.PopScope();
+}
+
+void RelayProtocolCollector::DeclareLocalDependency(
+	const std::string &name,
+	PredaParser::ExpressionContext *initializer)
+{
+	if (initializer == nullptr)
+	{
+		m_dependencyAnalyzer.DeclareLocal(name);
+		return;
+	}
+	const RelayExprIR expression = BuildExpression(initializer);
+	m_dependencyAnalyzer.DeclareLocal(name, &expression);
+	m_dependencyAnalyzer.RecordExpressionEffects(expression);
+}
+
+void RelayProtocolCollector::DeclareLoopVariableDependency(
+	const std::string &name,
+	PredaParser::ExpressionContext *initializer)
+{
+	if (initializer == nullptr)
+	{
+		m_dependencyAnalyzer.DeclareLoopVariable(name);
+		return;
+	}
+	const RelayExprIR expression = BuildExpression(initializer);
+	m_dependencyAnalyzer.DeclareLoopVariable(name, &expression);
+}
+
+void RelayProtocolCollector::PromoteLoopVariableDependency(
+	PredaParser::ExpressionContext *update)
+{
+	if (update == nullptr || update->expression().empty())
+		return;
+	const std::string name =
+		PrimaryIdentifier(update->expression(0));
+	if (!name.empty())
+		m_dependencyAnalyzer.PromoteLoopVariable(name);
+}
+
+void RelayProtocolCollector::RecordExpressionEffects(
+	PredaParser::ExpressionContext *expression)
+{
+	if (expression == nullptr)
+		return;
+	m_dependencyAnalyzer.RecordExpressionEffects(
+		BuildExpression(expression));
+}
+
+void RelayProtocolCollector::WidenLoopDependencies(
+	antlr4::ParserRuleContext *loopContext)
+{
+	if (loopContext == nullptr)
+		return;
+
+	std::vector<PredaParser::ExpressionContext *> assignments;
+	CollectAssignmentExpressions(loopContext, assignments);
+	// The dependency lattice is finite. Replaying a loop's monotone transfer
+	// functions to a fixed point prevents a write late in one iteration from
+	// being missed by a relay early in the next iteration. N + 1 rounds are
+	// sufficient for a chain of N assignment transfer functions.
+	for (size_t round = 0; round <= assignments.size(); ++round)
+	{
+		for (PredaParser::ExpressionContext *assignment : assignments)
+		{
+			m_dependencyAnalyzer.RecordExpressionEffects(
+				BuildExpression(assignment));
+		}
+	}
+
+	const SourceLocation loopLocation = GetLocation(loopContext);
+	for (RelaySite &site : m_ir.relaySites)
+	{
+		if (site.location.startOffset < loopLocation.startOffset ||
+			site.location.endOffset > loopLocation.endOffset)
+		{
+			continue;
+		}
+
+		const analysis::RelayExpressionDependency widenedTarget =
+			m_dependencyAnalyzer.Analyze(site.target);
+		// A block-local binding may already be out of scope at loop exit.
+		// Its site-local result is more informative and remains conservative,
+		// so do not poison it solely because the textual name is now absent.
+		if (!ContainsDependencyClass(
+				widenedTarget,
+				analysis::RelayDependencyClass::Opaque) ||
+			ContainsDependencyClass(
+				site.targetDependency,
+				analysis::RelayDependencyClass::Opaque))
+		{
+			site.targetDependency =
+				analysis::RelayDependencyAnalyzer::Union(
+					site.targetDependency,
+					widenedTarget);
+		}
+
+		for (RelayArgument &argument : site.arguments)
+		{
+			const analysis::RelayExpressionDependency widenedArgument =
+				m_dependencyAnalyzer.Analyze(argument.expression);
+			if (!ContainsDependencyClass(
+					widenedArgument,
+					analysis::RelayDependencyClass::Opaque) ||
+				ContainsDependencyClass(
+					argument.dependency,
+					analysis::RelayDependencyClass::Opaque))
+			{
+				argument.dependency =
+					analysis::RelayDependencyAnalyzer::Union(
+						argument.dependency,
+						widenedArgument);
+			}
+		}
+	}
 }
 
 RelayExprIR RelayProtocolCollector::BuildExpression(
@@ -234,14 +434,15 @@ RelayExprIR RelayProtocolCollector::BuildExpression(
 		return result;
 	}
 
-	// Ternaries are intentionally retained as expression-level Opaque in
-	// schema v2. They are valid PREDA, but preserving branch evaluation
-	// semantics requires a later expression-IR version. The complete source
-	// range and text remain available.
+	// Ternaries are intentionally retained as expression-level Opaque. They
+	// are valid PREDA, but preserving branch evaluation semantics requires a
+	// later expression-IR extension. The complete source range and text
+	// remain available.
 	if (expressionType == static_cast<int>(PredaExpressionTypes::TernaryConditional))
 	{
 		result.kind = RelayExprKind::Opaque;
-		result.opaqueReason = "ternary expression is not structurally modeled by relay protocol IR v2";
+		result.opaqueReason =
+			"ternary expression is not structurally modeled by the current relay protocol expression IR";
 		return result;
 	}
 
@@ -704,6 +905,8 @@ std::string RelayProtocolCollector::CollectRelay(const RelaySiteInput &input)
 		site.target.location = GetLocation(
 			input.context == nullptr ? nullptr : input.context->relayType());
 	}
+	site.targetDependency =
+		m_dependencyAnalyzer.Analyze(site.target);
 	for (const RelayArgumentInput &argumentInput : input.arguments)
 	{
 		RelayArgument argument;
@@ -713,7 +916,28 @@ std::string RelayProtocolCollector::CollectRelay(const RelaySiteInput &input)
 			argumentInput.expression,
 			argumentInput.text,
 			argumentInput.type);
+		argument.dependency =
+			m_dependencyAnalyzer.Analyze(argument.expression);
 		site.arguments.push_back(std::move(argument));
+	}
+	// Assignment expressions are valid PREDA expressions. Freeze the facts
+	// first, then apply their effects so later relay sites see the updated
+	// environment. Rejoining a post-effect analysis also conservatively
+	// handles evaluation-order interactions among this relay's target and
+	// arguments without changing generated code.
+	m_dependencyAnalyzer.RecordExpressionEffects(site.target);
+	for (const RelayArgument &argument : site.arguments)
+		m_dependencyAnalyzer.RecordExpressionEffects(argument.expression);
+	site.targetDependency =
+		analysis::RelayDependencyAnalyzer::Union(
+			site.targetDependency,
+			m_dependencyAnalyzer.Analyze(site.target));
+	for (RelayArgument &argument : site.arguments)
+	{
+		argument.dependency =
+			analysis::RelayDependencyAnalyzer::Union(
+				argument.dependency,
+				m_dependencyAnalyzer.Analyze(argument.expression));
 	}
 	site.branches = CollectBranches(input.context);
 	site.loops = CollectLoops(input.context);

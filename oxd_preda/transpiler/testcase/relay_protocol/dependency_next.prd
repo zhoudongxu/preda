@@ -1,0 +1,8 @@
+contract ProtocolDependencyNext {
+    @address function receive() {
+    }
+
+    @address function send() export {
+        relay@next receive();
+    }
+}

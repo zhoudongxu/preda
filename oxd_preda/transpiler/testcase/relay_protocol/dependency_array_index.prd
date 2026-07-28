@@ -1,0 +1,10 @@
+contract ProtocolDependencyArrayIndex {
+    @address array<address> targets;
+
+    @address function receive() {
+    }
+
+    @address function send(uint32 i) export {
+        relay@targets[i] receive();
+    }
+}

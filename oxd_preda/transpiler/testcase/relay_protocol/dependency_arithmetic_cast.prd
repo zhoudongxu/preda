@@ -1,0 +1,8 @@
+contract ProtocolDependencyArithmeticCast {
+    @uint32 function receive() {
+    }
+
+    @address function send(uint16 x, uint16 y) export {
+        relay@(uint32(x) * 65536u32 + uint32(y)) receive();
+    }
+}

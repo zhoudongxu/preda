@@ -28,6 +28,9 @@ set(RELAY_PROTOCOL_FILES
   ./relay_protocol/RelayManifestEmitter.h
   ./relay_protocol/RelayManifestEmitter.cpp
   ./relay_protocol/analysis/RelayCardinalityExpr.h
+  ./relay_protocol/analysis/RelayExpressionDependency.h
+  ./relay_protocol/analysis/RelayDependencyAnalyzer.h
+  ./relay_protocol/analysis/RelayDependencyAnalyzer.cpp
   ./relay_protocol/analysis/RelayDepthExpr.h
   ./relay_protocol/analysis/RelayProtocolSummary.h
   ./relay_protocol/analysis/RelaySummaryBuilder.h

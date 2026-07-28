@@ -1,0 +1,9 @@
+contract ProtocolDependencyLocalParameter {
+    @address function receive() {
+    }
+
+    @address function send(address target) export {
+        address local_target = target;
+        relay@local_target receive();
+    }
+}

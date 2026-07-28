@@ -382,6 +382,27 @@ void CheckSummaryOrdering(
 	CHECK(!RequireString(ordering, "reason").empty());
 }
 
+void CheckDependency(
+	const Json& dependency,
+	const Json& expectedClasses,
+	const std::string& expectedAvailability,
+	bool expectedAdmissionTimeEvaluable)
+{
+	CHECK(dependency.is_object());
+	CHECK(
+		RequireArray(dependency, "dependencies") ==
+		expectedClasses);
+	CHECK(
+		RequireString(dependency, "earliest_availability") ==
+		expectedAvailability);
+	const Json& admission =
+		RequireField(dependency, "admission_time_evaluable");
+	CHECK(admission.is_boolean());
+	CHECK(
+		admission.get<bool>() ==
+		expectedAdmissionTimeEvaluable);
+}
+
 void CheckSummaryRequiredFields(const Json& summary)
 {
 	CHECK(RequireField(summary, "relay_count").is_object());
@@ -405,7 +426,7 @@ void CheckTopLevel(const CompileResult& result, const std::string& contract)
 	const Json& manifest = result.manifest;
 	CHECK(manifest.is_object());
 	CHECK(RequireField(manifest, "schema_version").is_number_unsigned());
-	CHECK(RequireField(manifest, "schema_version").get<uint64_t>() == 2);
+	CHECK(RequireField(manifest, "schema_version").get<uint64_t>() == 3);
 	CHECK(RequireString(manifest, "dapp") == "RelayProtocolTests");
 	CHECK(RequireString(manifest, "contract") == contract);
 	RequireArray(manifest, "relay_sites");
@@ -438,8 +459,11 @@ void CheckSiteCommon(
 	CHECK(RequireString(site, "target_scope") == targetScope);
 	CHECK(HasPositiveLine(RequireField(site, "location")));
 	CHECK(RequireField(site, "target").is_object());
+	CHECK(RequireField(site, "target_dependency").is_object());
 	RequireField(site, "target_function");
-	RequireArray(site, "arguments");
+	const Json& arguments = RequireArray(site, "arguments");
+	for (const Json& argument : arguments)
+		CHECK(RequireField(argument, "dependency").is_object());
 	RequireArray(site, "branches");
 	RequireArray(site, "loops");
 	CHECK(!RequireField(site, "handler_id").is_null());
@@ -477,6 +501,11 @@ void TestNamedAddress(const std::string& fixtureDirectory)
 	CHECK(RequireString(RequireField(site, "target"), "kind") == "identifier");
 	CHECK(Compact(RequireString(RequireField(site, "target"), "text")) == "target");
 	CHECK(RequireString(site, "target_function") == "receive");
+	CheckDependency(
+		RequireField(site, "target_dependency"),
+		Json::array({ "TransactionArgument" }),
+		"AdmissionTime",
+		true);
 
 	const Json& arguments = RequireArray(site, "arguments");
 	CHECK(arguments.size() == 1);
@@ -485,6 +514,11 @@ void TestNamedAddress(const std::string& fixtureDirectory)
 	CHECK(RequireString(argumentExpression, "kind") == "identifier");
 	CHECK(RequireString(argumentExpression, "type") == "int32");
 	CHECK(Compact(RequireString(argumentExpression, "text")) == "value");
+	CheckDependency(
+		RequireField(arguments.front(), "dependency"),
+		Json::array({ "TransactionArgument" }),
+		"AdmissionTime",
+		true);
 
 	CheckResolvedHandler(result.manifest, site, "named", "address");
 	const Json* handler = FindHandlerById(result.manifest, RequireField(site, "handler_id"));
@@ -517,11 +551,11 @@ void TestNamedAddress(const std::string& fixtureDirectory)
 	CheckSummaryBoolean(
 		summary,
 		"targets_known_before_execution",
-		false);
+		true);
 	CheckSummaryBoolean(summary, "has_opaque", false);
 	CheckSummaryFanout(summary, "single_target");
 	CheckSummaryOrdering(summary, "trivial");
-	CHECK(RequireString(summary, "analysis_status") == "conservative");
+	CHECK(RequireString(summary, "analysis_status") == "exact");
 }
 
 void TestLambdaAddress(const std::string& fixtureDirectory)
@@ -536,11 +570,23 @@ void TestLambdaAddress(const std::string& fixtureDirectory)
 	const Json& site = sites.front();
 	CheckSiteCommon(site, "ProtocolLambdaAddress", "send", "address", "custom_scope", "address");
 	CHECK(RequireString(RequireField(site, "target"), "kind") == "identifier");
+	CheckDependency(
+		RequireField(site, "target_dependency"),
+		Json::array({ "TransactionArgument" }),
+		"AdmissionTime",
+		true);
 	CHECK(RequireArray(site, "arguments").size() == 1);
 	CHECK(RequireString(RequireArray(site, "arguments").front(), "type") == "int32");
 	CHECK(RequireString(
 		RequireField(RequireArray(site, "arguments").front(), "expression"),
 		"type") == "int32");
+	CheckDependency(
+		RequireField(
+			RequireArray(site, "arguments").front(),
+			"dependency"),
+		Json::array({ "TransactionArgument" }),
+		"AdmissionTime",
+		true);
 
 	CheckResolvedHandler(result.manifest, site, "lambda", "address");
 	const Json* handler = FindHandlerById(result.manifest, RequireField(site, "handler_id"));
@@ -688,6 +734,22 @@ void TestBoundedFor(const std::string& fixtureDirectory)
 	CHECK(sites.size() == 1);
 	const Json& site = sites.front();
 	CheckSiteCommon(site, "ProtocolBoundedFor", "send", "address", "custom_scope", "address");
+	CheckDependency(
+		RequireField(site, "target_dependency"),
+		Json::array({ "TransactionArgument" }),
+		"AdmissionTime",
+		true);
+	CHECK(RequireArray(site, "arguments").size() == 1);
+	CheckDependency(
+		RequireField(
+			RequireArray(site, "arguments").front(),
+			"dependency"),
+		Json::array({
+			"TransactionArgument",
+			"LoopVariable",
+		}),
+		"DuringExecution",
+		false);
 	CHECK(RequireArray(site, "branches").empty());
 	CHECK(RequireArray(site, "loops").size() == 1);
 	const Json& loopObject = RequireArray(site, "loops").front();
@@ -722,10 +784,10 @@ void TestBoundedFor(const std::string& fixtureDirectory)
 	CheckSummaryBoolean(
 		summary,
 		"targets_known_before_execution",
-		false);
+		true);
 	CheckSummaryBoolean(summary, "has_opaque", false);
 	CheckSummaryOrdering(summary, "trivial");
-	CHECK(RequireString(summary, "analysis_status") == "conservative");
+	CHECK(RequireString(summary, "analysis_status") == "exact");
 }
 
 void CheckRejectedBoundedFor(
@@ -772,7 +834,7 @@ void CheckRejectedBoundedFor(
 	CheckSummaryBoolean(
 		summary,
 		"targets_known_before_execution",
-		false);
+		true);
 	CheckSummaryBoolean(summary, "has_opaque", false);
 	CheckSummaryOrdering(summary, "trivial");
 	CHECK(RequireString(summary, "analysis_status") == "conservative");
@@ -829,6 +891,11 @@ void TestNestedLambda(const std::string& fixtureDirectory)
 	CHECK(innerSite != nullptr);
 
 	CheckSiteCommon(*outerSite, "ProtocolNestedLambda", "send", "address", "custom_scope", "address");
+	CheckDependency(
+		RequireField(*outerSite, "target_dependency"),
+		Json::array({ "TransactionArgument" }),
+		"AdmissionTime",
+		true);
 	CheckResolvedHandler(result.manifest, *outerSite, "lambda", "address");
 	const Json* outerHandler = FindHandlerById(result.manifest, RequireField(*outerSite, "handler_id"));
 	const std::string outerHandlerName = RequireString(*outerHandler, "name");
@@ -842,6 +909,11 @@ void TestNestedLambda(const std::string& fixtureDirectory)
 		"address",
 		"custom_scope",
 		"address");
+	CheckDependency(
+		RequireField(*innerSite, "target_dependency"),
+		Json::array({ "TransactionArgument" }),
+		"AdmissionTime",
+		true);
 	CheckResolvedHandler(result.manifest, *innerSite, "lambda", "address");
 	const Json* innerHandler = FindHandlerById(result.manifest, RequireField(*innerSite, "handler_id"));
 	CHECK(RequireString(*innerHandler, "name").find("__relaylambda_") == 0);
@@ -867,7 +939,7 @@ void TestNestedLambda(const std::string& fixtureDirectory)
 	CheckSummaryBoolean(
 		rootSummary,
 		"targets_known_before_execution",
-		false);
+		true);
 	CheckSummaryBoolean(rootSummary, "has_opaque", false);
 	CheckSummaryOrdering(rootSummary, "trivial");
 
@@ -909,6 +981,11 @@ void TestOpaqueFallback(const std::string& fixtureDirectory)
 	CHECK(!RequireString(*opaque, "opaque_reason").empty());
 	RequireField(*opaque, "operator");
 	RequireArray(*opaque, "children");
+	CheckDependency(
+		RequireField(site, "target_dependency"),
+		Json::array({ "Opaque" }),
+		"Unknown",
+		false);
 	CheckResolvedHandler(result.manifest, site, "named", "address");
 
 	const Json& summary =
@@ -935,6 +1012,191 @@ void TestOpaqueFallback(const std::string& fixtureDirectory)
 	CheckSummaryFanout(summary, "single_target");
 	CheckSummaryOrdering(summary, "trivial");
 	CHECK(RequireString(summary, "analysis_status") == "conservative");
+}
+
+void TestExpressionDependencies(
+	const std::string& fixtureDirectory)
+{
+	struct DependencyCase
+	{
+		const char* fixture;
+		const char* contract;
+		Json dependencies;
+		const char* availability;
+		bool admissionTimeEvaluable;
+	};
+
+	const std::vector<DependencyCase> cases = {
+		{
+			"dependency_literal.prd",
+			"ProtocolDependencyLiteral",
+			Json::array({ "Constant" }),
+			"CompileTime",
+			true,
+		},
+		{
+			"dependency_arithmetic_cast.prd",
+			"ProtocolDependencyArithmeticCast",
+			Json::array({ "TransactionArgument" }),
+			"AdmissionTime",
+			true,
+		},
+		{
+			"dependency_unary.prd",
+			"ProtocolDependencyUnary",
+			Json::array({ "TransactionArgument" }),
+			"AdmissionTime",
+			true,
+		},
+		{
+			"dependency_current_scope_key.prd",
+			"ProtocolDependencyCurrentScopeKey",
+			Json::array({ "CurrentScopeKey" }),
+			"AdmissionTime",
+			true,
+		},
+		{
+			"dependency_next.prd",
+			"ProtocolDependencyNext",
+			Json::array({ "CurrentScopeKey" }),
+			"AdmissionTime",
+			true,
+		},
+		{
+			"dependency_state_owner.prd",
+			"ProtocolDependencyStateOwner",
+			Json::array({ "CurrentScopeState" }),
+			"AfterScopeLoad",
+			false,
+		},
+		{
+			"dependency_member.prd",
+			"ProtocolDependencyMember",
+			Json::array({ "CurrentScopeState" }),
+			"AfterScopeLoad",
+			false,
+		},
+		{
+			"dependency_array_index.prd",
+			"ProtocolDependencyArrayIndex",
+			Json::array({
+				"TransactionArgument",
+				"CurrentScopeState",
+			}),
+			"AfterScopeLoad",
+			false,
+		},
+		{
+			"dependency_local_parameter.prd",
+			"ProtocolDependencyLocalParameter",
+			Json::array({ "TransactionArgument" }),
+			"AdmissionTime",
+			true,
+		},
+		{
+			"dependency_conditional_initialization.prd",
+			"ProtocolDependencyConditionalInitialization",
+			Json::array({
+				"TransactionArgument",
+				"LocalDerived",
+			}),
+			"DuringExecution",
+			false,
+		},
+		{
+			"dependency_local_overwrite.prd",
+			"ProtocolDependencyLocalOverwrite",
+			Json::array({
+				"TransactionArgument",
+				"CurrentScopeState",
+			}),
+			"AfterScopeLoad",
+			false,
+		},
+		{
+			"dependency_parameter_overwrite.prd",
+			"ProtocolDependencyParameterOverwrite",
+			Json::array({
+				"TransactionArgument",
+				"CurrentScopeState",
+			}),
+			"AfterScopeLoad",
+			false,
+		},
+		{
+			"dependency_state_call_write.prd",
+			"ProtocolDependencyStateCallWrite",
+			Json::array({
+				"CurrentScopeState",
+				"ExternalCallResult",
+			}),
+			"DuringExecution",
+			false,
+		},
+		{
+			"dependency_external_call.prd",
+			"ProtocolDependencyExternalCall",
+			Json::array({ "ExternalCallResult" }),
+			"DuringExecution",
+			false,
+		},
+		{
+			"dependency_opaque_effect.prd",
+			"ProtocolDependencyOpaqueEffect",
+			Json::array({
+				"CurrentScopeState",
+				"Opaque",
+			}),
+			"Unknown",
+			false,
+		},
+		{
+			"dependency_loop_widening.prd",
+			"ProtocolDependencyLoopWidening",
+			Json::array({
+				"TransactionArgument",
+				"CurrentScopeState",
+			}),
+			"AfterScopeLoad",
+			false,
+		},
+		{
+			"dependency_existing_loop_variable.prd",
+			"ProtocolDependencyExistingLoopVariable",
+			Json::array({ "LoopVariable" }),
+			"DuringExecution",
+			false,
+		},
+	};
+
+	for (const DependencyCase& dependencyCase : cases)
+	{
+		const CompileResult result =
+			CompileFixture(
+				fixtureDirectory,
+				dependencyCase.fixture);
+		CheckTopLevel(result, dependencyCase.contract);
+		const Json& sites =
+			RequireArray(result.manifest, "relay_sites");
+		CHECK_DETAIL(
+			sites.size() == 1,
+			std::string(dependencyCase.fixture) +
+				": expected one relay site");
+		CheckDependency(
+			RequireField(
+				sites.front(),
+				"target_dependency"),
+			dependencyCase.dependencies,
+			dependencyCase.availability,
+			dependencyCase.admissionTimeEvaluable);
+
+		const Json& summary =
+			RequireFunctionSummary(result.manifest, "send");
+		CheckSummaryBoolean(
+			summary,
+			"targets_known_before_execution",
+			dependencyCase.admissionTimeEvaluable);
+	}
 }
 
 void TestSummaryConditional(const std::string& fixtureDirectory)
@@ -978,11 +1240,11 @@ void TestSummaryConditional(const std::string& fixtureDirectory)
 	CheckSummaryBoolean(
 		summary,
 		"targets_known_before_execution",
-		false);
+		true);
 	CheckSummaryBoolean(summary, "has_opaque", false);
 	CheckSummaryFanout(summary, "single_target");
 	CheckSummaryOrdering(summary, "trivial");
-	CHECK(RequireString(summary, "analysis_status") == "conservative");
+	CHECK(RequireString(summary, "analysis_status") == "exact");
 }
 
 void TestSummarySequential(const std::string& fixtureDirectory)
@@ -1013,7 +1275,7 @@ void TestSummarySequential(const std::string& fixtureDirectory)
 	CheckSummaryBoolean(
 		summary,
 		"targets_known_before_execution",
-		false);
+		true);
 	CheckSummaryBoolean(summary, "has_opaque", false);
 	CheckSummaryFanout(summary, "single_target");
 
@@ -1059,7 +1321,7 @@ void TestSummaryRecursiveHandler(const std::string& fixtureDirectory)
 		CheckSummaryBoolean(
 			summary,
 			"targets_known_before_execution",
-			false);
+			true);
 		CheckSummaryBoolean(summary, "has_opaque", false);
 		CheckSummaryFanout(summary, "single_target");
 		CheckSummaryOrdering(summary, "trivial");
@@ -1271,6 +1533,7 @@ int main(int argc, char** argv)
 		{ "non-strict for-loop is not statically bounded", &TestNonStrictConditionIsNotBounded },
 		{ "nested relay lambda", &TestNestedLambda },
 		{ "opaque expression fallback", &TestOpaqueFallback },
+		{ "expression dependency and availability analysis", &TestExpressionDependencies },
 		{ "static summary for conditional relay", &TestSummaryConditional },
 		{ "static summary for sequential relay sites", &TestSummarySequential },
 		{ "static summary for recursive relay handler", &TestSummaryRecursiveHandler },

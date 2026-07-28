@@ -41,50 +41,6 @@ bool ContainsOpaqueExpression(const RelayExprIR &expression)
 	return false;
 }
 
-bool IsStaticTargetExpression(const RelayExprIR &expression)
-{
-	switch (expression.kind)
-	{
-	case RelayExprKind::Literal:
-		return true;
-	case RelayExprKind::Keyword:
-		return expression.text == "global" || expression.text == "shards";
-	case RelayExprKind::Group:
-	case RelayExprKind::Unary:
-	case RelayExprKind::Binary:
-		if (expression.children.empty())
-			return false;
-		for (const RelayExprIR &child : expression.children)
-		{
-			if (!IsStaticTargetExpression(child))
-				return false;
-		}
-		return true;
-	case RelayExprKind::Identifier:
-	case RelayExprKind::MemberAccess:
-	case RelayExprKind::Index:
-	case RelayExprKind::Call:
-	case RelayExprKind::Opaque:
-	default:
-		return false;
-	}
-}
-
-bool IsTargetKnownBeforeExecution(const RelaySite &site)
-{
-	switch (site.relayKind)
-	{
-	case RelayKind::Global:
-	case RelayKind::Shards:
-		return true;
-	case RelayKind::Next:
-		return false;
-	case RelayKind::CustomScope:
-	default:
-		return IsStaticTargetExpression(site.target);
-	}
-}
-
 RelayCardinalityExpr MakeSum(std::vector<RelayCardinalityExpr> terms)
 {
 	std::vector<RelayCardinalityExpr> flattened;
@@ -796,7 +752,8 @@ private:
 					: RelayFanoutKind::SingleTarget);
 			summary.targetsKnownBeforeExecution =
 				summary.targetsKnownBeforeExecution &&
-				IsTargetKnownBeforeExecution(*site->second);
+				site->second->targetDependency
+					.admissionTimeEvaluable;
 			summary.hasOpaque =
 				summary.hasOpaque || SiteContainsOpaque(*site->second);
 		}

@@ -1,0 +1,14 @@
+contract ProtocolDependencyLoopWidening {
+    @address address owner;
+
+    @address function receive() {
+    }
+
+    @address function send(address target) export {
+        address local_target = target;
+        for (uint32 i = 0u32; i < 2u32; i++) {
+            relay@local_target receive();
+            local_target = owner;
+        }
+    }
+}

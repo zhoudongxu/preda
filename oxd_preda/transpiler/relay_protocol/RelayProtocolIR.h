@@ -1,6 +1,7 @@
 #pragma once
 
 #include "RelayExprIR.h"
+#include "analysis/RelayExpressionDependency.h"
 #include "analysis/RelayProtocolSummary.h"
 #include "../transpiler/PredaCommon.h"
 
@@ -41,6 +42,7 @@ struct RelayArgument
 {
 	RelayExprIR expression;
 	std::string type;
+	analysis::RelayExpressionDependency dependency;
 };
 
 struct BranchCondition
@@ -80,6 +82,7 @@ struct RelaySite
 	SourceLocation location;
 	RelayKind relayKind = RelayKind::CustomScope;
 	RelayExprIR target;
+	analysis::RelayExpressionDependency targetDependency;
 	ScopeType targetScope = ScopeType::None;
 	std::string targetFunction;
 	std::vector<RelayArgument> arguments;
@@ -147,7 +150,7 @@ struct FunctionProtocol
 
 struct RelayProtocolIR
 {
-	uint32_t schemaVersion = 2;
+	uint32_t schemaVersion = 3;
 	std::string dapp;
 	std::string contract;
 	std::vector<RelaySite> relaySites;
@@ -157,7 +160,7 @@ struct RelayProtocolIR
 
 	void Reset(const std::string &dappName, const std::string &contractName)
 	{
-		schemaVersion = 2;
+		schemaVersion = 3;
 		dapp = dappName;
 		contract = contractName;
 		relaySites.clear();

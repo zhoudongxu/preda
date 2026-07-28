@@ -1,0 +1,12 @@
+contract ProtocolDependencyExternalCall {
+    @address function address choose(address target) const {
+        return target;
+    }
+
+    @address function receive() {
+    }
+
+    @address function send(address target) export {
+        relay@choose(target) receive();
+    }
+}

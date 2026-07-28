@@ -1,0 +1,11 @@
+contract ProtocolDependencyParameterOverwrite {
+    @address address owner;
+
+    @address function receive() {
+    }
+
+    @address function send(address target) export {
+        target = owner;
+        relay@target receive();
+    }
+}

@@ -1,0 +1,15 @@
+contract ProtocolDependencyStateCallWrite {
+    @address address owner;
+
+    @address function address choose(address target) const {
+        return target;
+    }
+
+    @address function receive() {
+    }
+
+    @address function send(address target) export {
+        owner = choose(target);
+        relay@owner receive();
+    }
+}

@@ -68,6 +68,50 @@ const char *ExpressionKindName(RelayExprKind kind)
 	}
 }
 
+const char *DependencyClassName(
+	analysis::RelayDependencyClass dependencyClass)
+{
+	switch (dependencyClass)
+	{
+	case analysis::RelayDependencyClass::Constant:
+		return "Constant";
+	case analysis::RelayDependencyClass::TransactionArgument:
+		return "TransactionArgument";
+	case analysis::RelayDependencyClass::CurrentScopeKey:
+		return "CurrentScopeKey";
+	case analysis::RelayDependencyClass::CurrentScopeState:
+		return "CurrentScopeState";
+	case analysis::RelayDependencyClass::LocalDerived:
+		return "LocalDerived";
+	case analysis::RelayDependencyClass::LoopVariable:
+		return "LoopVariable";
+	case analysis::RelayDependencyClass::ExternalCallResult:
+		return "ExternalCallResult";
+	case analysis::RelayDependencyClass::Opaque:
+	default:
+		return "Opaque";
+	}
+}
+
+const char *AvailabilityStageName(
+	analysis::RelayAvailabilityStage stage)
+{
+	switch (stage)
+	{
+	case analysis::RelayAvailabilityStage::CompileTime:
+		return "CompileTime";
+	case analysis::RelayAvailabilityStage::AdmissionTime:
+		return "AdmissionTime";
+	case analysis::RelayAvailabilityStage::AfterScopeLoad:
+		return "AfterScopeLoad";
+	case analysis::RelayAvailabilityStage::DuringExecution:
+		return "DuringExecution";
+	case analysis::RelayAvailabilityStage::Unknown:
+	default:
+		return "Unknown";
+	}
+}
+
 const char *ProtocolNodeKindName(ProtocolNodeKind kind)
 {
 	switch (kind)
@@ -110,6 +154,27 @@ Json EmitExpression(const RelayExprIR &expression)
 		result["children"].push_back(EmitExpression(child));
 	if (expression.kind == RelayExprKind::Opaque || !expression.opaqueReason.empty())
 		result["opaque_reason"] = expression.opaqueReason;
+	return result;
+}
+
+Json EmitDependency(
+	const analysis::RelayExpressionDependency &dependency)
+{
+	Json result = {
+		{"dependencies", Json::array()},
+		{"earliest_availability",
+			AvailabilityStageName(dependency.earliestAvailability)},
+		{"admission_time_evaluable",
+			dependency.admissionTimeEvaluable},
+	};
+	for (analysis::RelayDependencyClass dependencyClass :
+		dependency.classes)
+	{
+		result["dependencies"].push_back(
+			DependencyClassName(dependencyClass));
+	}
+	if (!dependency.reason.empty())
+		result["reason"] = dependency.reason;
 	return result;
 }
 
@@ -191,6 +256,8 @@ std::string RelayManifestEmitter::Emit(const RelayProtocolIR &protocol)
 			{"location", EmitLocation(site.location)},
 			{"relay_kind", RelayKindName(site.relayKind)},
 			{"target", EmitExpression(site.target)},
+			{"target_dependency",
+				EmitDependency(site.targetDependency)},
 			{"target_scope", ScopeName(site.targetScope)},
 			{"target_function", site.targetFunction},
 			{"handler_id", site.handlerId},
@@ -201,6 +268,8 @@ std::string RelayManifestEmitter::Emit(const RelayProtocolIR &protocol)
 			item["arguments"].push_back(Json{
 				{"type", argument.type},
 				{"expression", EmitExpression(argument.expression)},
+				{"dependency",
+					EmitDependency(argument.dependency)},
 			});
 		}
 		item["branches"] = Json::array();
