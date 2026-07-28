@@ -235,7 +235,9 @@ int PredaScriptRunner::Run(ChainSimulator& _chsimu, const std::string& fileConte
 	_chsimu.SetScriptListener(nullptr);
 	return 0;
 }
-PredaScriptRealListener::PredaScriptRealListener(ChainSimulator& _chsimu) :m_chsimu(_chsimu)
+PredaScriptRealListener::PredaScriptRealListener(ChainSimulator& _chsimu)
+	: m_chsimu(_chsimu)
+	, m_currentUserId4ComposeTxn(0)
 {
 	m_stopWatch.Restart();
 	m_stopWatch.SetOutputMillisecond();

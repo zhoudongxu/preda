@@ -1,0 +1,18 @@
+contract MillionPixel {
+    struct Land {
+        bool occupied;
+        address owner;
+    }
+
+    @uint32 Land land;
+
+    @address function occupy(uint16 x, uint16 y) export {
+        uint32 index = uint32(x) * 65536u32 + uint32(y);
+        relay@index (address sender = __transaction.get_self_address()) {
+            if (!land.occupied) {
+                land.occupied = true;
+                land.owner = sender;
+            }
+        }
+    }
+}

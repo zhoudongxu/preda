@@ -1,0 +1,16 @@
+random.reseed 88
+
+allocate.address 10000
+chain.gaslimit 256
+
+chain.deploy @0 MillionPixel.prd
+
+MillionPixel.occupy*10000 @random { x: $random(0, 99)$, y: $random(0, 99)$ }
+chain.info
+
+stopwatch.restart
+chain.run
+stopwatch.report
+chain.info
+
+viz.profiling
