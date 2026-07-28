@@ -1,0 +1,11 @@
+contract ProtocolNamedAddress {
+    @address int32 stored;
+
+    @address function receive(int32 value) {
+        stored = value;
+    }
+
+    @address function send(address target, int32 value) export {
+        relay@target receive(value);
+    }
+}

@@ -1,0 +1,9 @@
+contract ProtocolLambdaAddress {
+    @address int32 stored;
+
+    @address function send(address target, int32 value) export {
+        relay@target (int32 forwarded = value) {
+            stored = forwarded;
+        }
+    }
+}

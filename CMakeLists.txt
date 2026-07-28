@@ -9,6 +9,7 @@ if(POLICY CMP0135)
 endif()
 
 project("bundle_package")
+include(CTest)
 
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)

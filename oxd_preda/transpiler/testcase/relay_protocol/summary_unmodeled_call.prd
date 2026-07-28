@@ -1,0 +1,28 @@
+contract ProtocolSummaryUnmodeledCall {
+    @address function leaf() {
+    }
+
+    @address function nested(address target) {
+        relay@target leaf();
+    }
+
+    @address function helper(address target) {
+        relay@target nested(target);
+    }
+
+    @address function handler(
+        address direct_target,
+        address helper_target
+    ) {
+        relay@direct_target leaf();
+        helper(helper_target);
+    }
+
+    @address function send(
+        address target,
+        address direct_target,
+        address helper_target
+    ) export {
+        relay@target handler(direct_target, helper_target);
+    }
+}

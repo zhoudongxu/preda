@@ -1,0 +1,20 @@
+contract ProtocolIfElse {
+    @address uint32 observed;
+
+    @address function receive(uint32 value) {
+        observed += value;
+    }
+
+    @address function send(
+        bool use_primary,
+        address primary,
+        address fallback,
+        uint32 value
+    ) export {
+        if (use_primary) {
+            relay@primary receive(value);
+        } else {
+            relay@fallback receive(value);
+        }
+    }
+}

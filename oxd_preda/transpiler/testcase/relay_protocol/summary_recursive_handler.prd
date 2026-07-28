@@ -1,0 +1,9 @@
+contract ProtocolSummaryRecursiveHandler {
+    @address function recur(address target) {
+        relay@target recur(target);
+    }
+
+    @address function send(address target) export {
+        relay@target recur(target);
+    }
+}

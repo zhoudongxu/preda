@@ -8,6 +8,7 @@
 #include "PredaRealListener.h"
 #include "CrystalityRealListener.h"
 #include "transpiler.h"
+#include "relay_protocol/RelayManifestEmitter.h"
 
 //static void f(transpiler::ConcreteTypePtr tmp, int level)
 //{
@@ -23,6 +24,7 @@ private:
 	PredaRealListener m_listener;
 	PredaPreCompileListener m_preListener;
 	std::string m_outputCode;
+	std::string m_relayProtocolJson;
 	std::string m_sourceCodeStr;
 	antlr4::ANTLRInputStream m_inputStream;
 	PredaLexer m_lexer;
@@ -61,7 +63,7 @@ public:
 	
 	const char* GetVersion() override
 	{
-		return "0.0.1";
+		return "0.0.2";
 	}
 	virtual void Release() override
 	{
@@ -69,6 +71,8 @@ public:
 	}
 	virtual bool BuildParseTree(const char *sourceCode) override
 	{
+		m_outputCode.clear();
+		m_relayProtocolJson.clear();
 		m_sourceCodeStr = std::string(sourceCode);
 		m_inputStream.load(m_sourceCodeStr);
 		m_pParseTree = m_parser.predaSource();
@@ -108,6 +112,9 @@ public:
 			return false;
 
 		m_outputCode = m_listener.codeSerializer.GetCode();
+		m_relayProtocolJson =
+			transpiler::relay_protocol::RelayManifestEmitter::Emit(
+				m_listener.m_transpilerCtx.GetRelayProtocolIR());
 
 		//f(m_listener.m_transpilerCtx.globalType, 0);
 		
@@ -156,6 +163,10 @@ public:
 	virtual const char* GetOutput() const override
 	{
 		return m_outputCode.c_str();
+	}
+	virtual const char* GetRelayProtocolJson() const override
+	{
+		return m_relayProtocolJson.c_str();
 	}
 
 	virtual const char* GetDAppName() const override

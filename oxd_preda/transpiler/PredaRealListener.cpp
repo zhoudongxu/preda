@@ -39,6 +39,31 @@ public:
 
 using ConcreteTypePtr = transpiler::ConcreteTypePtr;
 
+static std::string RelayProtocolFunctionSignature(
+	const transpiler::FunctionRef &function)
+{
+	if (function.functionIdentifier == nullptr)
+		return std::string();
+
+	std::string result = function.functionIdentifier->inputName + "(";
+	const transpiler::FunctionSignature *signature = function.GetSignature();
+	if (signature != nullptr)
+	{
+		for (size_t i = 0; i < signature->parameters.size(); ++i)
+		{
+			if (i != 0)
+				result += ",";
+			const transpiler::ConcreteTypePtr &parameterType =
+				signature->parameters[i]->qualifiedType.baseConcreteType;
+			result += parameterType == nullptr
+				? std::string("<unknown>")
+				: parameterType->exportName;
+		}
+	}
+	result += ")";
+	return result;
+}
+
 transpiler::DefinedIdentifierPtr PredaRealListener::DefineFunctionLocalVariable(ConcreteTypePtr pType, PredaParser::IdentifierContext *identifierCtx, bool bIsConst, uint32_t flags)
 {
 	m_errorPortal.SetAnchor(identifierCtx->start);
@@ -705,6 +730,7 @@ void PredaRealListener::ProcessDirectives(const std::vector<PredaParser::Directi
 void PredaRealListener::enterPredaSource(PredaParser::PredaSourceContext *ctx)
 {
 	m_currentContractName = ctx->contractDefinition()->identifier()->getText();
+	m_relayProtocolCollector.Reset(m_currentDAppName, m_currentContractName);
 
 	m_currentContractUniqueIdentifierStr = m_currentDAppName + "_" + m_currentContractName + "_" + std::to_string(m_currentDAppName.size());
 	m_currentContractNamespace = "NS_" + m_currentContractUniqueIdentifierStr;
@@ -1170,9 +1196,16 @@ void PredaRealListener::enterRelayStatement(PredaParser::RelayStatementContext *
 
 	int32_t opCode = -1;
 	std::string argumentsString;
+	std::vector<transpiler::relay_protocol::RelayArgumentInput> protocolArguments;
+	bool isLambdaHandler = false;
+	std::string targetFunctionName;
+	std::string targetFunctionId;
+	std::string targetFunctionSignature;
+	uint64_t targetFunctionOverloadIndex = 0;
 
 	if (ctx->relayLambdaDefinition())
 	{
+		isLambdaHandler = true;
 		PredaParser::RelayLambdaDefinitionContext *lambdaDefCtx = ctx->relayLambdaDefinition();
 		std::vector<PredaParser::RelayLambdaParameterContext*> parameterCtxs = lambdaDefCtx->relayLambdaParameter();
 
@@ -1244,6 +1277,19 @@ void PredaRealListener::enterRelayStatement(PredaParser::RelayStatementContext *
 			}
 
 			argumentsString += ", " + expRes.text;
+
+			transpiler::relay_protocol::RelayArgumentInput protocolArgument;
+			protocolArgument.expression = type != nullptr ? parameterCtxs[i]->expression() : nullptr;
+			protocolArgument.sourceContext = type != nullptr
+				? static_cast<antlr4::ParserRuleContext *>(parameterCtxs[i]->expression())
+				: static_cast<antlr4::ParserRuleContext *>(parameterCtxs[i]->identifier());
+			protocolArgument.text = protocolArgument.sourceContext == nullptr
+				? expRes.text
+				: protocolArgument.sourceContext->getText();
+			protocolArgument.type = vParamType[i].baseConcreteType == nullptr
+				? std::string()
+				: vParamType[i].baseConcreteType->inputName;
+			protocolArguments.push_back(std::move(protocolArgument));
 		}
 
 		opCode = (int32_t)DeclareRelayLambdaFunction(lambdaDefCtx, vParamType, relayType, expectedfuncScope, m_curFunc);
@@ -1272,6 +1318,7 @@ void PredaRealListener::enterRelayStatement(PredaParser::RelayStatementContext *
 			argumentsString = ", " + argumentsString;
 
 		transpiler::FunctionSignature &signature = pFunctionIdentifier->qualifiedType.baseConcreteType->vOverloadedFunctions[overloadFuncIndex];
+		targetFunctionName = ctx->identifier()->getText();
 		transpiler::ScopeType funcScope = transpiler::ScopeType(signature.flags & uint32_t(transpiler::ScopeType::Mask));
 		if (funcScope != expectedfuncScope)
 		{
@@ -1301,13 +1348,107 @@ void PredaRealListener::enterRelayStatement(PredaParser::RelayStatementContext *
 		funcRef.functionIdentifier = pFunctionIdentifier;
 		funcRef.overloadIndex = (size_t)overloadFuncIndex;
 		opCode = int32_t(ExportFunction(funcRef));
+		targetFunctionSignature = RelayProtocolFunctionSignature(funcRef);
+		targetFunctionId =
+			m_currentDAppName + "." + m_currentContractName + "::" +
+			targetFunctionSignature;
+		targetFunctionOverloadIndex =
+			static_cast<uint64_t>(funcRef.overloadIndex);
 
 		if (opCode == -1)
 		{
 			m_errorPortal.AddInternalError(ctx->start, "relay target \"" + ctx->identifier()->getText() + "\" not exported. Probably a compiler bug.");
 			return;
 		}
+
+		const std::vector<PredaParser::ExpressionContext *> argumentContexts =
+			ctx->functionCallArguments()->expression();
+		for (size_t i = 0; i < argumentContexts.size(); ++i)
+		{
+			transpiler::relay_protocol::RelayArgumentInput protocolArgument;
+			protocolArgument.expression = argumentContexts[i];
+			protocolArgument.sourceContext = argumentContexts[i];
+			protocolArgument.text = argumentContexts[i]->getText();
+			if (i < signature.parameters.size() &&
+				signature.parameters[i]->qualifiedType.baseConcreteType != nullptr)
+			{
+				protocolArgument.type =
+					signature.parameters[i]->qualifiedType.baseConcreteType->inputName;
+			}
+			protocolArguments.push_back(std::move(protocolArgument));
+		}
 	}
+
+	transpiler::relay_protocol::RelaySiteInput protocolInput;
+	protocolInput.context = ctx;
+	protocolInput.sourceContract = m_currentDAppName + "." + m_currentContractName;
+	const transpiler::FunctionRef &sourceFunctionRef =
+		m_transpilerCtx.functionCtx.functionRef;
+	if (sourceFunctionRef.functionIdentifier != nullptr)
+	{
+		protocolInput.sourceFunction = sourceFunctionRef.functionIdentifier->inputName;
+		protocolInput.sourceFunctionOverloadIndex =
+			static_cast<uint64_t>(sourceFunctionRef.overloadIndex);
+		protocolInput.sourceFunctionSignature =
+			RelayProtocolFunctionSignature(sourceFunctionRef);
+		protocolInput.sourceFunctionId =
+			protocolInput.sourceContract + "::" +
+			protocolInput.sourceFunctionSignature;
+	}
+	const transpiler::FunctionSignature *sourceFunctionSignature =
+		sourceFunctionRef.GetSignature();
+	if (sourceFunctionSignature != nullptr)
+	{
+		protocolInput.sourceScope = transpiler::ScopeType(
+			sourceFunctionSignature->flags & uint32_t(transpiler::ScopeType::Mask));
+	}
+	if (bRelayNext)
+	{
+		protocolInput.relayKind = transpiler::relay_protocol::RelayKind::Next;
+		protocolInput.targetText = "next";
+	}
+	else
+	{
+		switch (relayType)
+		{
+		case RelayType::CustomScope:
+			protocolInput.relayKind = transpiler::relay_protocol::RelayKind::CustomScope;
+			protocolInput.targetExpression = ctx->relayType()->expression();
+			break;
+		case RelayType::Shards:
+			protocolInput.relayKind = transpiler::relay_protocol::RelayKind::Shards;
+			protocolInput.targetText = "shards";
+			break;
+		case RelayType::Global:
+			protocolInput.relayKind = transpiler::relay_protocol::RelayKind::Global;
+			protocolInput.targetText = "global";
+			break;
+		default:
+			assert(0);
+		}
+	}
+	if (ctx->relayType()->expression() != nullptr &&
+		targetScopeExpRes.type.baseConcreteType != nullptr)
+	{
+		protocolInput.targetType = targetScopeExpRes.type.baseConcreteType->inputName;
+	}
+	else
+	{
+		protocolInput.targetType = util::ScopeTypeToString(expectedfuncScope);
+	}
+	protocolInput.targetScope = expectedfuncScope;
+	protocolInput.targetFunction = targetFunctionName;
+	protocolInput.targetFunctionId = targetFunctionId;
+	protocolInput.targetFunctionSignature = targetFunctionSignature;
+	protocolInput.targetFunctionOverloadIndex =
+		targetFunctionOverloadIndex;
+	protocolInput.arguments = std::move(protocolArguments);
+	protocolInput.lambdaHandler = isLambdaHandler;
+	protocolInput.opcode = opCode;
+	const std::string protocolSiteId =
+		m_relayProtocolCollector.CollectRelay(protocolInput);
+	if (isLambdaHandler && !m_pendingRelayLambdas.empty())
+		m_pendingRelayLambdas.back().protocolSiteId = protocolSiteId;
 
 	if (bRelayNext)
 	{
@@ -2485,6 +2626,40 @@ void PredaRealListener::DefinePendingRelayLambdas()
 		codeSerializer.PopIndent();
 		codeSerializer.AddLine("}");
 	}
+
+	for (const PendingRelayLambda &lambda : m_pendingRelayLambdas)
+	{
+		if (lambda.protocolSiteId.empty() ||
+			lambda.exportFuncSlot >= m_exportedFunctions.size())
+		{
+			continue;
+		}
+		const transpiler::FunctionRef &function =
+			m_exportedFunctions[lambda.exportFuncSlot];
+		const transpiler::FunctionSignature *signature = function.GetSignature();
+		if (function.functionIdentifier == nullptr || signature == nullptr)
+			continue;
+
+		std::vector<std::string> parameterTypes;
+		for (const transpiler::DefinedIdentifierPtr &parameter : signature->parameters)
+		{
+			parameterTypes.push_back(
+				parameter->qualifiedType.baseConcreteType == nullptr
+					? std::string()
+					: parameter->qualifiedType.baseConcreteType->inputName);
+		}
+		m_relayProtocolCollector.ResolveLambdaHandler(
+			lambda.protocolSiteId,
+			function.functionIdentifier->inputName,
+			static_cast<int64_t>(lambda.exportFuncSlot),
+			transpiler::ScopeType(
+				signature->flags & uint32_t(transpiler::ScopeType::Mask)),
+			parameterTypes,
+			m_currentDAppName + "." + m_currentContractName + "::" +
+				RelayProtocolFunctionSignature(function),
+			RelayProtocolFunctionSignature(function),
+			static_cast<uint64_t>(function.overloadIndex));
+	}
 }
 
 void PredaRealListener::GenerateAuxiliaryFunctions()
@@ -3233,9 +3408,66 @@ void PredaRealListener::exitContractDefinition(PredaParser::ContractDefinitionCo
 		AUTO_POP_THIS_PTR_STACK;
 
 		DefinePendingRelayLambdas();
+		m_relayProtocolCollector.Finalize();
 
 		PropagateFunctionFlagAcrossCallingGraph();
-	
+		std::set<std::string> recordedFunctionIds;
+		auto recordFunctionRelayReachability =
+			[&](const transpiler::FunctionRef &function)
+		{
+			const transpiler::FunctionSignature *signature =
+				function.GetSignature();
+			if (function.functionIdentifier == nullptr || signature == nullptr)
+				return;
+			const std::string functionId =
+				m_currentDAppName + "." + m_currentContractName + "::" +
+				RelayProtocolFunctionSignature(function);
+			if (!recordedFunctionIds.insert(functionId).second)
+				return;
+
+			// FunctionProtocol records relay statements but not ordinary
+			// synchronous calls. If an ordinary callee can reach a relay,
+			// depth analysis must treat this function's protocol as incomplete.
+			bool hasUnmodeledRelayReachableCall = false;
+			for (const auto &calleeAndCallers :
+				m_functionCallGraph.m_functionCallerSets)
+			{
+				const transpiler::FunctionSignature *callee =
+					calleeAndCallers.first;
+				if (callee == nullptr ||
+					(callee->flags &
+						uint32_t(transpiler::FunctionFlags::HasAnyRelayStatement)) == 0)
+				{
+					continue;
+				}
+				for (const transpiler::FunctionSignature *caller :
+					calleeAndCallers.second)
+				{
+					if (caller == signature)
+					{
+						hasUnmodeledRelayReachableCall = true;
+						break;
+					}
+				}
+				if (hasUnmodeledRelayReachableCall)
+					break;
+			}
+
+			m_relayProtocolCollector.SetFunctionRelayReachability(
+				functionId,
+				(signature->flags &
+					uint32_t(transpiler::FunctionFlags::HasAnyRelayStatement)) != 0,
+				hasUnmodeledRelayReachableCall);
+		};
+		for (const ForwardDeclaredContractFunction &function :
+			m_forwardDeclaredFunctions)
+		{
+			recordFunctionRelayReachability(function.declaredFunc);
+		}
+		for (const transpiler::FunctionRef &function : m_exportedFunctions)
+			recordFunctionRelayReachability(function);
+		m_relayProtocolCollector.BuildSummaries();
+
 		// check for entropy and relay coexist error in user-defined functions
 		for (auto &itor : m_forwardDeclaredFunctions)
 		{
@@ -3527,4 +3759,3 @@ bool PredaPreCompileListener::ProcessImportDirective(const PredaParser::ImportDi
 	m_dependentContracts.push_back(contractFullName);
 	return true;
 }
-

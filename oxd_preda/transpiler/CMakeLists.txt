@@ -20,6 +20,21 @@ file(GLOB TRANSPILER_FILES
   ./transpiler/*.cpp
   ./transpiler/*.h
 )
+set(RELAY_PROTOCOL_FILES
+  ./relay_protocol/RelayExprIR.h
+  ./relay_protocol/RelayProtocolIR.h
+  ./relay_protocol/RelayProtocolCollector.h
+  ./relay_protocol/RelayProtocolCollector.cpp
+  ./relay_protocol/RelayManifestEmitter.h
+  ./relay_protocol/RelayManifestEmitter.cpp
+  ./relay_protocol/analysis/RelayCardinalityExpr.h
+  ./relay_protocol/analysis/RelayDepthExpr.h
+  ./relay_protocol/analysis/RelayProtocolSummary.h
+  ./relay_protocol/analysis/RelaySummaryBuilder.h
+  ./relay_protocol/analysis/RelaySummaryBuilder.cpp
+  ./relay_protocol/analysis/RelaySummaryEmitter.h
+  ./relay_protocol/analysis/RelaySummaryEmitter.cpp
+)
 file(GLOB ANTLR_GEN
   ./antlr_generated/*.cpp
   ./antlr_generated/*.h
@@ -29,9 +44,10 @@ file(GLOB CRYSTILITY_ANTLR_GEN
   ./antlr_generated/crystality/*.h
 )
 source_group("transpiler" FILES ${TRANSPILER_FILES})
+source_group("relay_protocol" FILES ${RELAY_PROTOCOL_FILES})
 source_group("antlr_generated" FILES ${ANTLR_GEN})
 source_group("antlr_generated/crystality" FILES ${CRYSTILITY_ANTLR_GEN})
-add_library(transpiler SHARED ${TRANSPILER_SOURCES} ${TRANSPILER_FILES} ${ANTLR_GEN} ${CRYSTILITY_ANTLR_GEN})
+add_library(transpiler SHARED ${TRANSPILER_SOURCES} ${TRANSPILER_FILES} ${RELAY_PROTOCOL_FILES} ${ANTLR_GEN} ${CRYSTILITY_ANTLR_GEN})
 
 # find_library(ANTLR4 antlr4-runtime ${CMAKE_SOURCE_DIR}/bin/bin_${CMAKE_BUILD_TYPE}/$<0:>)
 if(WIN32)
@@ -110,3 +126,25 @@ set_target_properties(transpiler PROPERTIES
 
 # target_link_libraries(transpiler PRIVATE antlr4-runtime)
 set_property(TARGET transpiler PROPERTY CMAKE_POLICY_DEFAULT_CMP0079 NEW)
+
+if(BUILD_TESTING)
+  add_executable(relay_protocol_ir_tests
+    ./test/RelayProtocolIRTests.cpp
+  )
+  target_link_libraries(relay_protocol_ir_tests PRIVATE transpiler)
+  set_property(TARGET relay_protocol_ir_tests PROPERTY CXX_STANDARD 17)
+  add_test(
+    NAME relay_protocol_ir
+    COMMAND relay_protocol_ir_tests
+      ${CMAKE_CURRENT_SOURCE_DIR}/testcase/relay_protocol
+  )
+  if(UNIX AND NOT APPLE)
+    set_tests_properties(relay_protocol_ir PROPERTIES
+      ENVIRONMENT "LD_LIBRARY_PATH=$<TARGET_FILE_DIR:transpiler>"
+    )
+  elseif(APPLE)
+    set_tests_properties(relay_protocol_ir PROPERTIES
+      ENVIRONMENT "DYLD_LIBRARY_PATH=$<TARGET_FILE_DIR:transpiler>"
+    )
+  endif()
+endif()

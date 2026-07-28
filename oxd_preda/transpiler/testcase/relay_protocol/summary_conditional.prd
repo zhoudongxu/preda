@@ -1,0 +1,18 @@
+contract ProtocolSummaryConditional {
+    @address uint32 observed;
+
+    @address function receive(uint32 value) {
+        observed += value;
+    }
+
+    @address function send(
+        bool enabled,
+        address target,
+        uint32 value
+    ) export {
+        if (enabled) {
+            relay@target receive(value);
+        } else {
+        }
+    }
+}

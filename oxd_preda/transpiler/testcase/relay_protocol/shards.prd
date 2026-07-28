@@ -1,0 +1,11 @@
+contract ProtocolShards {
+    @shard uint32 observed;
+
+    @shard function receive(uint32 value) {
+        observed += value;
+    }
+
+    @global function broadcast(uint32 value) export {
+        relay@shards receive(value);
+    }
+}

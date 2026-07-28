@@ -1,0 +1,20 @@
+contract ProtocolOverloadedSource {
+    @address int32 signed_observed;
+    @address uint32 unsigned_observed;
+
+    @address function receive(int32 value) {
+        signed_observed = value;
+    }
+
+    @address function receive(uint32 value) {
+        unsigned_observed = value;
+    }
+
+    @address function send(address target, int32 value) export {
+        relay@target receive(value);
+    }
+
+    @address function send(address target, uint32 value) export {
+        relay@target receive(value);
+    }
+}

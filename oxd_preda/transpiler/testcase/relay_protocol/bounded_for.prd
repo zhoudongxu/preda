@@ -1,0 +1,13 @@
+contract ProtocolBoundedFor {
+    @address uint32 observed;
+
+    @address function receive(uint32 value) {
+        observed += value;
+    }
+
+    @address function send(address target, uint32 value) export {
+        for (uint32 i = 0u32; i < 3u32; i++) {
+            relay@target receive(value + i);
+        }
+    }
+}

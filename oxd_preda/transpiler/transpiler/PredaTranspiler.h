@@ -2,8 +2,13 @@
 #include <cmath>
 #include "BaseTranspiler.h"
 #include "PredaCommon.h"
+#include "../relay_protocol/RelayProtocolIR.h"
 
 namespace transpiler {
+
+	namespace relay_protocol {
+		class RelayProtocolCollector;
+	}
 
 	// This must 100% reflect the values of $expressionType in the grammar file
 	enum class PredaExpressionTypes : uint8_t {
@@ -145,6 +150,15 @@ struct PredaTranspilerContext : public BaseTranspilerContext {
 
 	ConcreteTypePtr m_builtInDebugPrintFunctionType;
 	ConcreteTypePtr m_builtInDebugAssertFunctionType;
+
+	const relay_protocol::RelayProtocolIR& GetRelayProtocolIR() const
+	{
+		return m_relayProtocolIR;
+	}
+
+private:
+	friend class relay_protocol::RelayProtocolCollector;
+	relay_protocol::RelayProtocolIR m_relayProtocolIR;
 };
 
 struct PredaTranspilerOptions {

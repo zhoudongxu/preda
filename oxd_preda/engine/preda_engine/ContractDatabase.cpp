@@ -13,6 +13,7 @@
 
 typedef transpiler::ITranspiler* (*FNCreateTranspilerInstance)(const char *options);
 FNCreateTranspilerInstance CreateTranspilerInstance = nullptr;
+constexpr char RELAY_PROTOCOL_TRANSPILER_ABI_VERSION[] = "0.0.2";
 
 template <typename T>
 struct AutoRelease
@@ -447,7 +448,9 @@ bool CContractDatabase::Initialize(const char* module_path, const char* db_path,
 			return false;
 		}
 
-		transpiler::ITranspiler *pTranspiler = CreateTranspilerInstance(nullptr);
+		AutoRelease<transpiler::ITranspiler> transpilerInstance(
+			CreateTranspilerInstance(nullptr));
+		transpiler::ITranspiler *pTranspiler = transpilerInstance.GetPtr();
 		if (!pTranspiler)
 		{
 			if (initErrorMsg)
@@ -459,7 +462,21 @@ bool CContractDatabase::Initialize(const char* module_path, const char* db_path,
 			}
 			return false;
 		}
-		m_transpilerVersion = pTranspiler->GetVersion();
+		const char *transpilerVersion = pTranspiler->GetVersion();
+		if (transpilerVersion == nullptr ||
+			strcmp(transpilerVersion, RELAY_PROTOCOL_TRANSPILER_ABI_VERSION) != 0)
+		{
+			if (initErrorMsg)
+			{
+				constexpr static char errorMsg[] =
+					"[PRD]: Incompatible transpiler ABI; relay protocol IR requires transpiler 0.0.2\n";
+				static uint32_t errorMsgLen = uint32_t(strlen(errorMsg));
+				initErrorMsg->StrPtr = errorMsg;
+				initErrorMsg->Length = errorMsgLen;
+			}
+			return false;
+		}
+		m_transpilerVersion = transpilerVersion;
 	}
 
 	{
@@ -1218,6 +1235,52 @@ bool CContractDatabase::CompileContract(const rvm::ConstString* dapp_name, CCont
 	{
 		out_compile_data.dapp = pTranspiler->GetDAppName();
 		out_compile_data.name = pTranspiler->GetContractName();
+		const char *relayProtocolJson = pTranspiler->GetRelayProtocolJson();
+		const std::string relayProtocolPathFileName =
+			"relay_protocol/" + out_compile_data.dapp + "." +
+			out_compile_data.name + ".relay_protocol.json";
+		const std::string relayProtocolPath =
+			m_dbPath + relayProtocolPathFileName;
+		const std::string relayProtocolTemporaryPath =
+			relayProtocolPath + ".tmp";
+		os::File::CreateDirectories(
+			relayProtocolPath.c_str(), true);
+		os::File::Remove(relayProtocolTemporaryPath.c_str());
+		os::File relayProtocolFile;
+		if (relayProtocolJson == nullptr ||
+			!relayProtocolFile.Open(
+				relayProtocolTemporaryPath.c_str(),
+				os::File::Normal_Write,
+				true))
+		{
+			out_log.AddMessage(
+				0, 0, 0,
+				("Cannot write " + relayProtocolPath).c_str());
+			return false;
+		}
+		relayProtocolFile.Write(relayProtocolJson);
+		if (relayProtocolFile.ErrorOccured())
+		{
+			relayProtocolFile.Close();
+			os::File::Remove(relayProtocolTemporaryPath.c_str());
+			out_log.AddMessage(
+				0, 0, 0,
+				("Cannot write " + relayProtocolPath).c_str());
+			return false;
+		}
+		relayProtocolFile.Close();
+		if (!os::File::MoveFile(
+			relayProtocolTemporaryPath.c_str(),
+			relayProtocolPath.c_str(),
+			true))
+		{
+			os::File::Remove(relayProtocolTemporaryPath.c_str());
+			out_log.AddMessage(
+				0, 0, 0,
+				("Cannot publish " + relayProtocolPath).c_str());
+			return false;
+		}
+
 		const char* contractComment = pTranspiler->GetContractComment();
 		if(contractComment){
 			out_compile_data.contractDoxygenComment = contractComment;

@@ -1,0 +1,16 @@
+contract ProtocolOpaqueFallback {
+    @address uint32 observed;
+
+    @address function receive(uint32 value) {
+        observed += value;
+    }
+
+    @address function send(
+        bool use_first,
+        address first,
+        address second,
+        uint32 value
+    ) export {
+        relay@(use_first ? first : second) receive(value);
+    }
+}

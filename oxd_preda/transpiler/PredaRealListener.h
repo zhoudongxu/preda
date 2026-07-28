@@ -12,6 +12,7 @@
 #include "IdentifierHub.h"
 #include "FunctionCallGraph.h"
 #include "ExpressionParser.h"
+#include "relay_protocol/RelayProtocolCollector.h"
 
 #include <tuple>
 
@@ -33,6 +34,7 @@ class PredaRealListener : public PredaBaseListener, public antlr4::BaseErrorList
 	using ConcreteTypePtr = transpiler::ConcreteTypePtr;
 public:
 	PredaRealListener()
+		: m_relayProtocolCollector(m_transpilerCtx)
 	{
 		m_identifierHub.SetTranspilerContext(&m_transpilerCtx);
 		m_identifierHub.SetErrorPortal(&m_errorPortal);
@@ -44,6 +46,7 @@ public:
 	}
 
 	transpiler::PredaTranspilerContext m_transpilerCtx;
+	transpiler::relay_protocol::RelayProtocolCollector m_relayProtocolCollector;
 
 	bool m_lastStatementInFunctionIsReturnStatement = false;
 
@@ -192,6 +195,7 @@ private:
 		transpiler::ScopeType funcScope;
 		size_t exportFuncSlot;
 		ForwardDeclaredContractFunction* baseFunc; //function name where the relay lambda is defined
+		std::string protocolSiteId;
 	};
 
 	std::vector<PendingRelayLambda> m_pendingRelayLambdas;

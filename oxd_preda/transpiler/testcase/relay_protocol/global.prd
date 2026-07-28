@@ -1,0 +1,11 @@
+contract ProtocolGlobal {
+    @global uint32 total;
+
+    @global function receive(uint32 amount) {
+        total += amount;
+    }
+
+    @address function send(uint32 amount) export {
+        relay@global receive(amount);
+    }
+}

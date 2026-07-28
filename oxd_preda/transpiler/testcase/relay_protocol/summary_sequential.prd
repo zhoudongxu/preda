@@ -1,0 +1,16 @@
+contract ProtocolSummarySequential {
+    @address uint32 observed;
+
+    @address function receive(uint32 value) {
+        observed += value;
+    }
+
+    @address function send(
+        address first,
+        address second,
+        uint32 value
+    ) export {
+        relay@first receive(value);
+        relay@second receive(value);
+    }
+}

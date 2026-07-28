@@ -196,6 +196,7 @@ namespace transpiler {
 		virtual void GetCompileWarningPos(uint32_t warningIdx, uint32_t &line, uint32_t &pos) const = 0;
 
 		virtual const char* GetOutput() const = 0;
+		virtual const char* GetRelayProtocolJson() const = 0;
 	};
 
 	struct ICrystalityTranspiler

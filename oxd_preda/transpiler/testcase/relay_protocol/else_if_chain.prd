@@ -1,0 +1,21 @@
+contract ProtocolElseIfChain {
+    @address uint32 observed;
+
+    @address function receive(uint32 value) {
+        observed += value;
+    }
+
+    @address function send(
+        bool first,
+        bool prior,
+        bool current,
+        address target,
+        uint32 value
+    ) export {
+        if (first) {
+        } else if (prior) {
+        } else if (current) {
+            relay@target receive(value);
+        }
+    }
+}
