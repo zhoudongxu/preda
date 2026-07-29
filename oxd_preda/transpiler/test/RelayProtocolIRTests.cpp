@@ -15,6 +15,11 @@
 #include "../relay_protocol/analysis/RelaySummaryBuilder.h"
 #include "../../3rdParty/nlohmann/json.hpp"
 
+#ifdef RPREDA_ENABLE_Z3
+#include "../relay_protocol/refinement/solver/RelayProofRunner.h"
+#include "../relay_protocol/refinement/solver/z3/Z3RelaySolver.h"
+#endif
+
 #if defined(_WIN32)
 extern "C" __declspec(dllimport) transpiler::ITranspiler* CreateTranspilerInstance(const char* options);
 #else
@@ -408,6 +413,36 @@ const Json* FindProofObligation(
 		argumentIndex);
 }
 
+#ifdef RPREDA_ENABLE_Z3
+const Json& RequireSolverResult(const Json& obligation)
+{
+	const Json& result = RequireField(obligation, "solver_result");
+	CHECK(result.is_object());
+	RequireString(result, "backend");
+	RequireString(result, "status");
+	CHECK(
+		RequireField(result, "elapsed_time_ms").is_number_unsigned()
+		|| RequireField(result, "elapsed_time_ms").is_number_integer());
+	RequireArray(result, "assumption_constraint_ids");
+	RequireString(result, "reason");
+	RequireArray(result, "projected_counterexample");
+	return result;
+}
+
+void CheckSolverStatus(
+	const Json* obligation,
+	const std::string& expectedStatus,
+	const std::string& detail)
+{
+	CHECK_DETAIL(obligation != nullptr, "missing obligation: " + detail);
+	const Json& result = RequireSolverResult(*obligation);
+	CHECK_DETAIL(
+		RequireString(result, "status") == expectedStatus,
+		"unexpected solver status for " + detail + ": "
+			+ result.dump());
+}
+#endif
+
 const Json* FindFormulaNode(
 	const Json& formula,
 	const std::string& kind,
@@ -567,6 +602,7 @@ void CheckRefinementIntegrity(const Json& manifest)
 		"RelayCountEquality",
 		"RelayCountUpperBound",
 		"TargetNonAliasCandidate",
+		"BooleanRefinement",
 		"Unknown",
 	};
 
@@ -583,6 +619,16 @@ void CheckRefinementIntegrity(const Json& manifest)
 			allowedConstraintKinds.count(kind) == 1,
 			"unknown refinement constraint kind: " + kind);
 		CHECK(kind.find("Order") == std::string::npos);
+#ifdef RPREDA_ENABLE_Z3
+		const std::string role =
+			RequireString(constraint, "role");
+		CHECK(
+			role == "SemanticDefinition"
+			|| role == "SolverAssumption"
+			|| role == "SolverGoal");
+#else
+		CHECK(constraint.find("role") == constraint.end());
+#endif
 		std::set<std::string> referencedSymbols;
 		CollectFormulaSymbolIds(
 			RequireField(constraint, "formula"),
@@ -610,6 +656,24 @@ void CheckRefinementIntegrity(const Json& manifest)
 			RequireString(obligation, "status");
 		CHECK(status == "Generated" || status == "Unsupported");
 		CHECK(status != "Proved");
+#ifdef RPREDA_ENABLE_Z3
+		const std::string proofRole =
+			RequireString(obligation, "proof_role");
+		CHECK(
+			proofRole == "EstablishedByConstruction"
+			|| proofRole == "SolverGoal");
+		RequireSolverResult(obligation);
+#else
+		// Solver metadata is an optional schema extension. A build with the
+		// feature disabled must retain the schema-v4 formula artifact without
+		// pretending that a solver query ran.
+		CHECK(
+			obligation.find("solver_result")
+			== obligation.end());
+		CHECK(
+			obligation.find("proof_role")
+			== obligation.end());
+#endif
 		for (const Json& constraintId :
 			RequireArray(obligation, "constraint_ids"))
 		{
@@ -2403,6 +2467,564 @@ void TestOverloadedSource(const std::string& fixtureDirectory)
 	}
 }
 
+#ifdef RPREDA_ENABLE_Z3
+namespace refinement =
+	transpiler::relay_protocol::refinement;
+namespace solver =
+	transpiler::relay_protocol::refinement::solver;
+namespace z3_backend =
+	transpiler::relay_protocol::refinement::solver::z3_backend;
+
+refinement::RelayRefinementSymbol MakeTestSymbol(
+	const std::string& id,
+	refinement::RelayRefinementSymbolKind kind,
+	const refinement::FormulaSort& sort,
+	const std::string& sourceType,
+	const std::string& functionId = "solver_test::source()",
+	const std::string& siteId = std::string())
+{
+	refinement::RelayRefinementSymbol symbol;
+	symbol.id = id;
+	symbol.kind = kind;
+	symbol.sourceFunctionId = functionId;
+	symbol.sourceName = id;
+	symbol.sourceType = sourceType;
+	symbol.sort = sort;
+	symbol.relaySiteId = siteId;
+	return symbol;
+}
+
+refinement::RelayProofObligation MakeBooleanGoal(
+	const std::string& id,
+	refinement::FormulaExpr goal)
+{
+	refinement::RelayProofObligation obligation;
+	obligation.id = id;
+	obligation.kind =
+		refinement::RelayProofObligationKind::BooleanRefinement;
+	obligation.status =
+		refinement::RelayProofObligationStatus::Generated;
+	obligation.role =
+		refinement::RelayProofObligationRole::SolverGoal;
+	obligation.sourceFunctionId = "solver_test::source()";
+	obligation.goal = std::move(goal);
+	return obligation;
+}
+
+refinement::RelayConstraint MakeSolverAssumption(
+	const std::string& id,
+	refinement::FormulaExpr formula)
+{
+	refinement::RelayConstraint constraint;
+	constraint.id = id;
+	constraint.kind =
+		refinement::RelayConstraintKind::RelayGuardNecessity;
+	constraint.role =
+		refinement::RelayConstraintRole::SolverAssumption;
+	constraint.sourceFunctionId = "solver_test::source()";
+	constraint.formula = std::move(formula);
+	return constraint;
+}
+
+solver::RelaySolverResult RunZ3Goal(
+	const std::vector<refinement::RelayRefinementSymbol>& symbols,
+	const std::vector<refinement::RelayConstraint>& constraints,
+	const refinement::RelayProofObligation& obligation)
+{
+	z3_backend::Z3RelaySolver backend;
+	solver::RelayProofRunner runner(&backend);
+	return runner.RunOne(symbols, constraints, obligation);
+}
+
+void CheckManualSolverStatus(
+	const solver::RelaySolverResult& result,
+	solver::RelaySolverStatus expected,
+	const std::string& detail)
+{
+	CHECK_DETAIL(
+		result.status == expected,
+		"unexpected solver result for " + detail
+			+ ": backend=" + result.backend
+			+ ", reason=" + result.reason);
+}
+
+void TestZ3ConditionalCountUpperBound(
+	const std::string& fixtureDirectory)
+{
+	const CompileResult result = CompileFixture(
+		fixtureDirectory,
+		"summary_conditional.prd");
+	CheckTopLevel(result, "ProtocolSummaryConditional");
+
+	const Json& site =
+		RequireArray(result.manifest, "relay_sites").front();
+	const std::string functionId =
+		RequireString(site, "source_function_id");
+	const Json& refinementJson =
+		RequireRefinement(result.manifest);
+	const Json* obligation = FindProofObligation(
+		refinementJson,
+		"RelayCountUpperBound",
+		std::string(),
+		functionId);
+	CheckSolverStatus(
+		obligation,
+		"Proved",
+		"conditional direct relay count <= 1");
+
+	const Json& solverResult = RequireSolverResult(*obligation);
+	CHECK(RequireString(solverResult, "backend") == "z3");
+	const Json* countEquality = FindConstraint(
+		refinementJson,
+		"RelayCountEquality",
+		std::string(),
+		functionId);
+	const Json* upperBound = FindConstraint(
+		refinementJson,
+		"RelayCountUpperBound",
+		std::string(),
+		functionId);
+	CHECK(countEquality != nullptr);
+	CHECK(upperBound != nullptr);
+	const Json& assumptions =
+		RequireArray(solverResult, "assumption_constraint_ids");
+	CHECK(
+		std::find(
+			assumptions.begin(),
+			assumptions.end(),
+			RequireString(*countEquality, "id"))
+		!= assumptions.end());
+	CHECK(
+		std::find(
+			assumptions.begin(),
+			assumptions.end(),
+			RequireString(*upperBound, "id"))
+		== assumptions.end());
+}
+
+void TestZ3SameTargetNonAliasCounterexample(
+	const std::string&)
+{
+	const std::string functionId = "solver_test::source()";
+	const std::string firstSite = "site.same_target.a";
+	const std::string secondSite = "site.same_target.b";
+	const refinement::FormulaSort address =
+		refinement::FormulaSort::Address();
+
+	const std::vector<refinement::RelayRefinementSymbol> symbols = {
+		MakeTestSymbol(
+			"param.target",
+			refinement::RelayRefinementSymbolKind::
+				SourceFunctionParameter,
+			address,
+			"address",
+			functionId),
+		MakeTestSymbol(
+			"emit.a",
+			refinement::RelayRefinementSymbolKind::RelayEmission,
+			refinement::FormulaSort::Bool(),
+			"bool",
+			functionId,
+			firstSite),
+		MakeTestSymbol(
+			"emit.b",
+			refinement::RelayRefinementSymbolKind::RelayEmission,
+			refinement::FormulaSort::Bool(),
+			"bool",
+			functionId,
+			secondSite),
+		MakeTestSymbol(
+			"target.a",
+			refinement::RelayRefinementSymbolKind::ActualRelayTarget,
+			address,
+			"address",
+			functionId,
+			firstSite),
+		MakeTestSymbol(
+			"target.b",
+			refinement::RelayRefinementSymbolKind::ActualRelayTarget,
+			address,
+			"address",
+			functionId,
+			secondSite),
+	};
+
+	const refinement::FormulaExpr sourceTarget =
+		refinement::FormulaExpr::Symbol("param.target", address);
+	const refinement::FormulaExpr emittedA =
+		refinement::FormulaExpr::Symbol(
+			"emit.a",
+			refinement::FormulaSort::Bool());
+	const refinement::FormulaExpr emittedB =
+		refinement::FormulaExpr::Symbol(
+			"emit.b",
+			refinement::FormulaSort::Bool());
+	const refinement::FormulaExpr targetA =
+		refinement::FormulaExpr::Symbol("target.a", address);
+	const refinement::FormulaExpr targetB =
+		refinement::FormulaExpr::Symbol("target.b", address);
+
+	std::vector<refinement::RelayConstraint> constraints;
+	for (const auto& relation :
+		std::vector<std::pair<
+			std::string,
+			refinement::FormulaExpr>>{
+			{
+				firstSite,
+				refinement::FormulaExpr::Binary(
+					"implies",
+					emittedA,
+					refinement::FormulaExpr::Binary(
+						"==",
+						targetA,
+						sourceTarget,
+						refinement::FormulaSort::Bool()),
+					refinement::FormulaSort::Bool()),
+			},
+			{
+				secondSite,
+				refinement::FormulaExpr::Binary(
+					"implies",
+					emittedB,
+					refinement::FormulaExpr::Binary(
+						"==",
+						targetB,
+						sourceTarget,
+						refinement::FormulaSort::Bool()),
+					refinement::FormulaSort::Bool()),
+			},
+		})
+	{
+		refinement::RelayConstraint constraint;
+		constraint.id = "target_relation." + relation.first;
+		constraint.kind =
+			refinement::RelayConstraintKind::RelayTargetRelation;
+		constraint.role =
+			refinement::RelayConstraintRole::SemanticDefinition;
+		constraint.sourceFunctionId = functionId;
+		constraint.relaySiteId = relation.first;
+		constraint.formula = relation.second;
+		constraints.push_back(std::move(constraint));
+	}
+
+	refinement::RelayProofObligation obligation;
+	obligation.id = "nonalias.same_target";
+	obligation.kind =
+		refinement::RelayProofObligationKind::
+			TargetNonAliasCandidate;
+	obligation.status =
+		refinement::RelayProofObligationStatus::Generated;
+	obligation.role =
+		refinement::RelayProofObligationRole::SolverGoal;
+	obligation.sourceFunctionId = functionId;
+	obligation.relaySiteId = firstSite;
+	obligation.relatedRelaySiteId = secondSite;
+	obligation.goal = refinement::FormulaExpr::Binary(
+		"implies",
+		refinement::FormulaExpr::Nary(
+			"&&",
+			{ emittedA, emittedB },
+			refinement::FormulaSort::Bool()),
+		refinement::FormulaExpr::Binary(
+			"!=",
+			targetA,
+			targetB,
+			refinement::FormulaSort::Bool()),
+		refinement::FormulaSort::Bool());
+
+	const solver::RelaySolverResult solved =
+		RunZ3Goal(symbols, constraints, obligation);
+	CheckManualSolverStatus(
+		solved,
+		solver::RelaySolverStatus::Disproved,
+		"same-target non-alias candidate");
+	CHECK_DETAIL(
+		!solved.projectedCounterexample.empty(),
+		"disproved non-alias goal did not include a counterexample");
+}
+
+void TestZ3IfElseGuardedTargets(
+	const std::string& fixtureDirectory)
+{
+	const CompileResult result =
+		CompileFixture(fixtureDirectory, "if_else.prd");
+	CheckTopLevel(result, "ProtocolIfElse");
+	const Json& refinementJson =
+		RequireRefinement(result.manifest);
+	const Json* obligation = FindProofObligation(
+		refinementJson,
+		"TargetNonAliasCandidate");
+	CheckSolverStatus(
+		obligation,
+		"Proved",
+		"mutually exclusive if/else relay targets");
+
+	const Json& sites =
+		RequireArray(result.manifest, "relay_sites");
+	CHECK(sites.size() == 2);
+	bool foundNegativeGuard = false;
+	for (const Json& site : sites)
+	{
+		const Json* guard = FindConstraint(
+			refinementJson,
+			"RelayGuardNecessity",
+			RequireString(site, "id"));
+		CHECK(guard != nullptr);
+		const Json& predicate = RequireBinaryChild(
+			RequireField(*guard, "formula"),
+			"implies",
+			1);
+		foundNegativeGuard =
+			foundNegativeGuard
+			|| (RequireString(predicate, "kind") == "Unary"
+				&& RequireString(predicate, "operator") == "!");
+	}
+	CHECK(foundNegativeGuard);
+}
+
+void TestZ3BitVector32WrapTautology(const std::string&)
+{
+	const refinement::FormulaSort bv32 =
+		refinement::FormulaSort::UnsignedBitVector(32);
+	const std::vector<refinement::RelayRefinementSymbol> symbols = {
+		MakeTestSymbol(
+			"bv32.x",
+			refinement::RelayRefinementSymbolKind::
+				SourceFunctionParameter,
+			bv32,
+			"uint32"),
+	};
+	const refinement::FormulaExpr x =
+		refinement::FormulaExpr::Symbol("bv32.x", bv32);
+	refinement::FormulaExpr wrapped =
+		refinement::FormulaExpr::Binary(
+			"+",
+			refinement::FormulaExpr::Binary(
+				"+",
+				x,
+				refinement::FormulaExpr::BitVectorLiteral(
+					"4294967295u32",
+					32),
+				bv32),
+			refinement::FormulaExpr::BitVectorLiteral("1u32", 32),
+			bv32);
+	const refinement::RelayProofObligation obligation =
+		MakeBooleanGoal(
+			"bv32.wrap",
+			refinement::FormulaExpr::Binary(
+				"==",
+				std::move(wrapped),
+				x,
+				refinement::FormulaSort::Bool()));
+	CheckManualSolverStatus(
+		RunZ3Goal(symbols, {}, obligation),
+		solver::RelaySolverStatus::Proved,
+		"uint32 modular wraparound tautology");
+}
+
+void TestZ3BitVectorZeroExtension(const std::string&)
+{
+	const refinement::FormulaSort bv16 =
+		refinement::FormulaSort::UnsignedBitVector(16);
+	const refinement::FormulaSort bv32 =
+		refinement::FormulaSort::UnsignedBitVector(32);
+	const std::vector<refinement::RelayRefinementSymbol> symbols = {
+		MakeTestSymbol(
+			"bv16.x",
+			refinement::RelayRefinementSymbolKind::
+				SourceFunctionParameter,
+			bv16,
+			"uint16"),
+	};
+	const refinement::FormulaExpr widened =
+		refinement::FormulaExpr::Cast(
+			"uint32",
+			refinement::FormulaExpr::Symbol("bv16.x", bv16),
+			bv32);
+	const refinement::FormulaExpr highBits =
+		refinement::FormulaExpr::Binary(
+			">>",
+			widened,
+			refinement::FormulaExpr::BitVectorLiteral("16u32", 32),
+			bv32);
+	const refinement::RelayProofObligation obligation =
+		MakeBooleanGoal(
+			"bv16.to_bv32.zero_extend",
+			refinement::FormulaExpr::Binary(
+				"==",
+				highBits,
+				refinement::FormulaExpr::BitVectorLiteral(
+					"0u32",
+					32),
+				refinement::FormulaSort::Bool()));
+	CheckManualSolverStatus(
+		RunZ3Goal(symbols, {}, obligation),
+		solver::RelaySolverStatus::Proved,
+		"uint16 to uint32 zero extension");
+}
+
+void TestZ3MillionPixelFormulaEquality(
+	const std::string& fixtureDirectory)
+{
+	const CompileResult result = CompileFixture(
+		fixtureDirectory + "/../../../simulator/contracts",
+		"MillionPixel.prd");
+	CheckTopLevel(result, "MillionPixel");
+	const Json& site =
+		RequireArray(result.manifest, "relay_sites").front();
+	const Json* targetRelation = FindConstraint(
+		RequireRefinement(result.manifest),
+		"RelayTargetRelation",
+		RequireString(site, "id"));
+	CHECK(targetRelation != nullptr);
+	CheckUint32CoordinateFormula(
+		RequireRelationSourceExpression(*targetRelation),
+		"MillionPixel solver target");
+
+	const refinement::FormulaSort bv16 =
+		refinement::FormulaSort::UnsignedBitVector(16);
+	const refinement::FormulaSort bv32 =
+		refinement::FormulaSort::UnsignedBitVector(32);
+	const std::vector<refinement::RelayRefinementSymbol> symbols = {
+		MakeTestSymbol("million.x1", refinement::RelayRefinementSymbolKind::SourceFunctionParameter, bv16, "uint16"),
+		MakeTestSymbol("million.y1", refinement::RelayRefinementSymbolKind::SourceFunctionParameter, bv16, "uint16"),
+		MakeTestSymbol("million.x2", refinement::RelayRefinementSymbolKind::SourceFunctionParameter, bv16, "uint16"),
+		MakeTestSymbol("million.y2", refinement::RelayRefinementSymbolKind::SourceFunctionParameter, bv16, "uint16"),
+	};
+	const refinement::FormulaExpr x1 =
+		refinement::FormulaExpr::Symbol("million.x1", bv16);
+	const refinement::FormulaExpr y1 =
+		refinement::FormulaExpr::Symbol("million.y1", bv16);
+	const refinement::FormulaExpr x2 =
+		refinement::FormulaExpr::Symbol("million.x2", bv16);
+	const refinement::FormulaExpr y2 =
+		refinement::FormulaExpr::Symbol("million.y2", bv16);
+	const auto makeKey = [&bv32](
+		const refinement::FormulaExpr& x,
+		const refinement::FormulaExpr& y) {
+		return refinement::FormulaExpr::Binary(
+			"+",
+			refinement::FormulaExpr::Binary(
+				"*",
+				refinement::FormulaExpr::Cast("uint32", x, bv32),
+				refinement::FormulaExpr::BitVectorLiteral(
+					"65536u32",
+					32),
+				bv32),
+			refinement::FormulaExpr::Cast("uint32", y, bv32),
+			bv32);
+	};
+	const refinement::FormulaExpr sameCoordinates =
+		refinement::FormulaExpr::Nary(
+			"&&",
+			{
+				refinement::FormulaExpr::Binary(
+					"==", x1, x2, refinement::FormulaSort::Bool()),
+				refinement::FormulaExpr::Binary(
+					"==", y1, y2, refinement::FormulaSort::Bool()),
+			},
+			refinement::FormulaSort::Bool());
+
+	const refinement::RelayProofObligation obligation =
+		MakeBooleanGoal(
+			"million_pixel.same_coordinates_same_key",
+			refinement::FormulaExpr::Binary(
+				"implies",
+				sameCoordinates,
+				refinement::FormulaExpr::Binary(
+					"==",
+					makeKey(x1, y1),
+					makeKey(x2, y2),
+					refinement::FormulaSort::Bool()),
+				refinement::FormulaSort::Bool()));
+	CheckManualSolverStatus(
+		RunZ3Goal(
+			symbols,
+			{},
+			obligation),
+		solver::RelaySolverStatus::Proved,
+		"MillionPixel equal coordinates imply equal uint32 key");
+}
+
+void TestZ3UnknownFormulaUnsupported(const std::string&)
+{
+	const refinement::RelayProofObligation obligation =
+		MakeBooleanGoal(
+			"unknown.formula",
+			refinement::FormulaExpr::Unknown(
+				"opaque_ternary",
+				transpiler::relay_protocol::SourceLocation(),
+				"synthetic opaque target"));
+	const solver::RelaySolverResult result =
+		RunZ3Goal({}, {}, obligation);
+	CheckManualSolverStatus(
+		result,
+		solver::RelaySolverStatus::Unsupported,
+		"Unknown formula");
+	CHECK(!result.reason.empty());
+}
+
+void TestZ3InconsistentAssumptions(const std::string&)
+{
+	const std::vector<refinement::RelayRefinementSymbol> symbols = {
+		MakeTestSymbol(
+			"assumption.flag",
+			refinement::RelayRefinementSymbolKind::
+				SourceFunctionParameter,
+			refinement::FormulaSort::Bool(),
+			"bool"),
+	};
+	const refinement::FormulaExpr flag =
+		refinement::FormulaExpr::Symbol(
+			"assumption.flag",
+			refinement::FormulaSort::Bool());
+	const std::vector<refinement::RelayConstraint> constraints = {
+		MakeSolverAssumption("assume.flag", flag),
+		MakeSolverAssumption(
+			"assume.not_flag",
+			refinement::FormulaExpr::Unary(
+				"!",
+				flag,
+				refinement::FormulaSort::Bool())),
+	};
+	const refinement::RelayProofObligation obligation =
+		MakeBooleanGoal(
+			"inconsistent.assumptions",
+			refinement::FormulaExpr::BoolLiteral(true));
+	CheckManualSolverStatus(
+		RunZ3Goal(symbols, constraints, obligation),
+		solver::RelaySolverStatus::InconsistentAssumptions,
+		"conflicting SolverAssumption constraints");
+}
+
+void TestZ3SemanticTargetIsConstructionFact(
+	const std::string& fixtureDirectory)
+{
+	const CompileResult result =
+		CompileFixture(fixtureDirectory, "named_address.prd");
+	CheckTopLevel(result, "ProtocolNamedAddress");
+	const Json& site =
+		RequireArray(result.manifest, "relay_sites").front();
+	const Json* obligation = FindProofObligation(
+		RequireRefinement(result.manifest),
+		"RelayTargetEquality",
+		RequireString(site, "id"));
+	CheckSolverStatus(
+		obligation,
+		"EstablishedByConstruction",
+		"semantic target equality");
+	const Json& solverResult = RequireSolverResult(*obligation);
+	CHECK(RequireString(solverResult, "backend") == "compiler");
+	CHECK(
+		RequireArray(
+			solverResult,
+			"assumption_constraint_ids").empty());
+	CHECK(
+		RequireString(solverResult, "reason").find(
+			"no solver query") != std::string::npos);
+}
+#endif
+
 struct TestCase
 {
 	const char* name;
@@ -2446,6 +3068,17 @@ int main(int argc, char** argv)
 		{ "opaque protocol node stays conservative", &TestOpaqueProtocolNodeIsConservative },
 		{ "ordinary relay-reachable call keeps depth unknown", &TestSummaryUnmodeledRelayReachableCall },
 		{ "overloaded source functions", &TestOverloadedSource },
+#ifdef RPREDA_ENABLE_Z3
+		{ "Z3 proves conditional relay count upper bound", &TestZ3ConditionalCountUpperBound },
+		{ "Z3 disproves same-target non-alias candidate", &TestZ3SameTargetNonAliasCounterexample },
+		{ "Z3 proves if/else guarded targets cannot alias concurrently", &TestZ3IfElseGuardedTargets },
+		{ "Z3 preserves uint32 wraparound", &TestZ3BitVector32WrapTautology },
+		{ "Z3 zero-extends uint16 to uint32", &TestZ3BitVectorZeroExtension },
+		{ "Z3 validates MillionPixel target formula", &TestZ3MillionPixelFormulaEquality },
+		{ "Z3 rejects Unknown formulas conservatively", &TestZ3UnknownFormulaUnsupported },
+		{ "Z3 detects inconsistent assumptions", &TestZ3InconsistentAssumptions },
+		{ "semantic target equality is established by construction", &TestZ3SemanticTargetIsConstructionFact },
+#endif
 	};
 
 	size_t failures = 0;

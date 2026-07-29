@@ -1,6 +1,7 @@
 #pragma once
 
 #include "RelayFormulaIR.h"
+#include "solver/RelaySolverResult.h"
 
 #include "../RelayExprIR.h"
 
@@ -21,6 +22,7 @@ enum class RelayProofObligationKind : uint8_t
 	RelayCountEquality,
 	RelayCountUpperBound,
 	TargetNonAliasCandidate,
+	BooleanRefinement,
 	Unknown,
 };
 
@@ -32,6 +34,12 @@ enum class RelayProofObligationStatus : uint8_t
 	Unsupported,
 };
 
+enum class RelayProofObligationRole : uint8_t
+{
+	EstablishedByConstruction,
+	SolverGoal,
+};
+
 struct RelayProofObligation
 {
 	std::string id;
@@ -39,6 +47,8 @@ struct RelayProofObligation
 		RelayProofObligationKind::Unknown;
 	RelayProofObligationStatus status =
 		RelayProofObligationStatus::Unsupported;
+	RelayProofObligationRole role =
+		RelayProofObligationRole::SolverGoal;
 	std::string sourceFunctionId;
 	std::string relaySiteId;
 	std::string relatedRelaySiteId;
@@ -47,6 +57,7 @@ struct RelayProofObligation
 	FormulaExpr goal;
 	SourceLocation location;
 	std::string reason;
+	solver::RelaySolverResult solverResult;
 };
 
 } // namespace refinement

@@ -160,6 +160,22 @@ std::string NonAliasObligationId(
 		firstSiteId + ".site." + secondSiteId;
 }
 
+RelayProofObligationRole ObligationRoleForKind(
+	RelayProofObligationKind kind)
+{
+	switch (kind)
+	{
+	case RelayProofObligationKind::RelayTargetEquality:
+	case RelayProofObligationKind::RelayArgumentEquality:
+	case RelayProofObligationKind::RelayGuardNecessity:
+	case RelayProofObligationKind::RelayCountEquality:
+		return RelayProofObligationRole::
+			EstablishedByConstruction;
+	default:
+		return RelayProofObligationRole::SolverGoal;
+	}
+}
+
 RelayProofObligation MakeUnsupportedObligation(
 	const std::string &id,
 	RelayProofObligationKind kind,
@@ -173,6 +189,7 @@ RelayProofObligation MakeUnsupportedObligation(
 	RelayProofObligation obligation;
 	obligation.id = id;
 	obligation.kind = kind;
+	obligation.role = ObligationRoleForKind(kind);
 	obligation.status = RelayProofObligationStatus::Unsupported;
 	obligation.sourceFunctionId = functionId;
 	obligation.relaySiteId = siteId;
@@ -197,6 +214,7 @@ RelayProofObligation MakeGeneratedObligation(
 	RelayProofObligation obligation;
 	obligation.id = id;
 	obligation.kind = kind;
+	obligation.role = ObligationRoleForKind(kind);
 	obligation.status = RelayProofObligationStatus::Generated;
 	obligation.sourceFunctionId = functionId;
 	obligation.relaySiteId = siteId;
@@ -818,6 +836,8 @@ RelayConstraintGenerationResult RelayConstraintGenerator::Generate(
 		nonNegative.id = nonNegativeConstraintId;
 		nonNegative.kind =
 			RelayConstraintKind::RelayCountNonNegative;
+		nonNegative.role =
+			RelayConstraintRole::SolverAssumption;
 		nonNegative.sourceFunctionId =
 			function.sourceFunctionId;
 		nonNegative.formula = nonNegativeFormula;
@@ -843,6 +863,10 @@ RelayConstraintGenerationResult RelayConstraintGenerator::Generate(
 				CountConstraintId(function, "upper_bound");
 			constraint.kind =
 				RelayConstraintKind::RelayCountUpperBound;
+			// This formula is the goal to be checked. It is deliberately
+			// excluded from the solver assumption set.
+			constraint.role =
+				RelayConstraintRole::SolverGoal;
 			constraint.sourceFunctionId =
 				function.sourceFunctionId;
 			constraint.formula = bound;

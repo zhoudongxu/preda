@@ -97,6 +97,22 @@ const char *ConstraintKindName(RelayConstraintKind kind)
 	}
 }
 
+#ifdef RPREDA_ENABLE_Z3
+const char *ConstraintRoleName(RelayConstraintRole role)
+{
+	switch (role)
+	{
+	case RelayConstraintRole::SemanticDefinition:
+		return "SemanticDefinition";
+	case RelayConstraintRole::SolverAssumption:
+		return "SolverAssumption";
+	case RelayConstraintRole::SolverGoal:
+	default:
+		return "SolverGoal";
+	}
+}
+#endif
+
 const char *ProofObligationKindName(
 	RelayProofObligationKind kind)
 {
@@ -116,6 +132,8 @@ const char *ProofObligationKindName(
 		return "RelayCountUpperBound";
 	case RelayProofObligationKind::TargetNonAliasCandidate:
 		return "TargetNonAliasCandidate";
+	case RelayProofObligationKind::BooleanRefinement:
+		return "BooleanRefinement";
 	case RelayProofObligationKind::Unknown:
 	default:
 		return "Unknown";
@@ -134,6 +152,46 @@ const char *ProofObligationStatusName(
 		return "Unsupported";
 	}
 }
+
+#ifdef RPREDA_ENABLE_Z3
+const char *ProofObligationRoleName(
+	RelayProofObligationRole role)
+{
+	switch (role)
+	{
+	case RelayProofObligationRole::EstablishedByConstruction:
+		return "EstablishedByConstruction";
+	case RelayProofObligationRole::SolverGoal:
+	default:
+		return "SolverGoal";
+	}
+}
+
+const char *SolverStatusName(
+	solver::RelaySolverStatus status)
+{
+	switch (status)
+	{
+	case solver::RelaySolverStatus::NotRun:
+		return "NotRun";
+	case solver::RelaySolverStatus::EstablishedByConstruction:
+		return "EstablishedByConstruction";
+	case solver::RelaySolverStatus::Proved:
+		return "Proved";
+	case solver::RelaySolverStatus::Disproved:
+		return "Disproved";
+	case solver::RelaySolverStatus::Unknown:
+		return "Unknown";
+	case solver::RelaySolverStatus::Unsupported:
+		return "Unsupported";
+	case solver::RelaySolverStatus::InconsistentAssumptions:
+		return "InconsistentAssumptions";
+	case solver::RelaySolverStatus::EncodingError:
+	default:
+		return "EncodingError";
+	}
+}
+#endif
 
 const char *DependencyClassName(
 	analysis::RelayDependencyClass dependencyClass)
@@ -281,7 +339,7 @@ Json EmitSymbol(const RelayRefinementSymbol &symbol)
 
 Json EmitConstraint(const RelayConstraint &constraint)
 {
-	return Json{
+	Json result = {
 		{"id", constraint.id},
 		{"kind", ConstraintKindName(constraint.kind)},
 		{"source_function_id", constraint.sourceFunctionId},
@@ -290,7 +348,44 @@ Json EmitConstraint(const RelayConstraint &constraint)
 		{"formula", EmitFormula(constraint.formula)},
 		{"location", EmitLocation(constraint.location)},
 	};
+#ifdef RPREDA_ENABLE_Z3
+	result["role"] = ConstraintRoleName(constraint.role);
+#endif
+	return result;
 }
+
+#ifdef RPREDA_ENABLE_Z3
+Json EmitSolverResult(
+	const solver::RelaySolverResult &solverResult)
+{
+	std::vector<std::string> assumptionIds =
+		solverResult.assumptionConstraintIds;
+	std::sort(assumptionIds.begin(), assumptionIds.end());
+	assumptionIds.erase(
+		std::unique(assumptionIds.begin(), assumptionIds.end()),
+		assumptionIds.end());
+
+	Json counterexample = Json::array();
+	for (const solver::RelayCounterexampleValue &value :
+		solverResult.projectedCounterexample)
+	{
+		counterexample.push_back(Json{
+			{"symbol_id", value.symbolId},
+			{"sort", EmitSort(value.sort)},
+			{"value", value.value},
+		});
+	}
+
+	return Json{
+		{"backend", solverResult.backend},
+		{"status", SolverStatusName(solverResult.status)},
+		{"elapsed_time_ms", solverResult.elapsedTimeMs},
+		{"assumption_constraint_ids", std::move(assumptionIds)},
+		{"reason", solverResult.reason},
+		{"projected_counterexample", std::move(counterexample)},
+	};
+}
+#endif
 
 Json EmitProofObligation(
 	const RelayProofObligation &obligation)
@@ -302,7 +397,7 @@ Json EmitProofObligation(
 		std::unique(constraintIds.begin(), constraintIds.end()),
 		constraintIds.end());
 
-	return Json{
+	Json result = {
 		{"id", obligation.id},
 		{"kind", ProofObligationKindName(obligation.kind)},
 		{"status",
@@ -317,6 +412,13 @@ Json EmitProofObligation(
 		{"location", EmitLocation(obligation.location)},
 		{"reason", obligation.reason},
 	};
+#ifdef RPREDA_ENABLE_Z3
+	result["proof_role"] =
+		ProofObligationRoleName(obligation.role);
+	result["solver_result"] =
+		EmitSolverResult(obligation.solverResult);
+#endif
+	return result;
 }
 
 template <typename Value>

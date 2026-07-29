@@ -1,6 +1,11 @@
 #include "RelayProtocolCollector.h"
 #include "analysis/RelaySummaryBuilder.h"
 
+#ifdef RPREDA_ENABLE_Z3
+#include "refinement/solver/RelayProofRunner.h"
+#include "refinement/solver/z3/Z3RelaySolver.h"
+#endif
+
 #include "../transpiler/PredaTranspiler.h"
 
 #include <algorithm>
@@ -1506,6 +1511,18 @@ void RelayProtocolCollector::BuildRefinement()
 	m_ir.refinementConstraints = std::move(result.constraints);
 	m_ir.refinementProofObligations =
 		std::move(result.proofObligations);
+
+#ifdef RPREDA_ENABLE_Z3
+	// Solver results are observational sidecar metadata only. The backend
+	// consumes the finalized FormulaIR and never feeds a result back into
+	// lowering, routing, or runtime execution.
+	refinement::solver::z3_backend::Z3RelaySolver backend;
+	refinement::solver::RelayProofRunner runner(&backend);
+	runner.Run(
+		m_ir.refinementSymbols,
+		m_ir.refinementConstraints,
+		m_ir.refinementProofObligations);
+#endif
 }
 
 } // namespace relay_protocol

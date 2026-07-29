@@ -11,6 +11,59 @@ endif()
 include(../CMake_rules.txt)
 project("transpiler")
 
+option(RPREDA_ENABLE_Z3 "Enable the optional R-PREDA Z3 solver backend" OFF)
+
+set(RELAY_Z3_FILES)
+set(RPREDA_Z3_TARGET)
+set(RPREDA_Z3_RUNTIME_DIR)
+if(RPREDA_ENABLE_Z3)
+  find_package(Z3 CONFIG QUIET)
+  if(TARGET z3::libz3)
+    set(RPREDA_Z3_TARGET z3::libz3)
+    set(RPREDA_Z3_RUNTIME_DIR "$<TARGET_FILE_DIR:z3::libz3>")
+  else()
+    find_path(RPREDA_Z3_INCLUDE_DIR
+      NAMES z3++.h
+      HINTS ${Z3_ROOT} ENV Z3_ROOT
+      PATH_SUFFIXES include
+    )
+    find_library(RPREDA_Z3_LIBRARY
+      NAMES z3 libz3
+      HINTS ${Z3_ROOT} ENV Z3_ROOT
+      PATH_SUFFIXES lib lib64
+    )
+    if(NOT RPREDA_Z3_INCLUDE_DIR OR NOT RPREDA_Z3_LIBRARY)
+      message(FATAL_ERROR
+        "RPREDA_ENABLE_Z3=ON requires the Z3 C++ headers and library. "
+        "Set Z3_DIR to a Z3 CMake package directory, add its prefix to "
+        "CMAKE_PREFIX_PATH, or set Z3_ROOT to the installation prefix."
+      )
+    endif()
+    add_library(RPreda::Z3 INTERFACE IMPORTED)
+    set_target_properties(RPreda::Z3 PROPERTIES
+      INTERFACE_INCLUDE_DIRECTORIES "${RPREDA_Z3_INCLUDE_DIR}"
+      INTERFACE_LINK_LIBRARIES "${RPREDA_Z3_LIBRARY}"
+    )
+    set(RPREDA_Z3_TARGET RPreda::Z3)
+    get_filename_component(
+      RPREDA_Z3_RUNTIME_DIR
+      "${RPREDA_Z3_LIBRARY}"
+      DIRECTORY
+    )
+  endif()
+
+  set(RELAY_Z3_FILES
+    ./relay_protocol/refinement/solver/z3/Z3FormulaEncoder.h
+    ./relay_protocol/refinement/solver/z3/Z3FormulaEncoder.cpp
+    ./relay_protocol/refinement/solver/z3/Z3SymbolEncoder.h
+    ./relay_protocol/refinement/solver/z3/Z3SymbolEncoder.cpp
+    ./relay_protocol/refinement/solver/z3/Z3RelaySolver.h
+    ./relay_protocol/refinement/solver/z3/Z3RelaySolver.cpp
+    ./relay_protocol/refinement/solver/z3/Z3ModelDecoder.h
+    ./relay_protocol/refinement/solver/z3/Z3ModelDecoder.cpp
+  )
+endif()
+
 # ############### build transpiler ###############
 file(GLOB TRANSPILER_SOURCES
   ./*.cpp
@@ -49,6 +102,11 @@ set(RELAY_PROTOCOL_FILES
   ./relay_protocol/refinement/RelayProofObligation.h
   ./relay_protocol/refinement/RelayRefinementEmitter.h
   ./relay_protocol/refinement/RelayRefinementEmitter.cpp
+  ./relay_protocol/refinement/solver/RelaySolverBackend.h
+  ./relay_protocol/refinement/solver/RelaySolverResult.h
+  ./relay_protocol/refinement/solver/RelayProofRunner.h
+  ./relay_protocol/refinement/solver/RelayProofRunner.cpp
+  ${RELAY_Z3_FILES}
 )
 file(GLOB ANTLR_GEN
   ./antlr_generated/*.cpp
@@ -63,6 +121,10 @@ source_group("relay_protocol" FILES ${RELAY_PROTOCOL_FILES})
 source_group("antlr_generated" FILES ${ANTLR_GEN})
 source_group("antlr_generated/crystality" FILES ${CRYSTILITY_ANTLR_GEN})
 add_library(transpiler SHARED ${TRANSPILER_SOURCES} ${TRANSPILER_FILES} ${RELAY_PROTOCOL_FILES} ${ANTLR_GEN} ${CRYSTILITY_ANTLR_GEN})
+if(RPREDA_ENABLE_Z3)
+  target_compile_definitions(transpiler PRIVATE RPREDA_ENABLE_Z3=1)
+  target_link_libraries(transpiler PRIVATE ${RPREDA_Z3_TARGET})
+endif()
 
 # find_library(ANTLR4 antlr4-runtime ${CMAKE_SOURCE_DIR}/bin/bin_${CMAKE_BUILD_TYPE}/$<0:>)
 if(WIN32)
@@ -147,6 +209,10 @@ if(BUILD_TESTING)
     ./test/RelayProtocolIRTests.cpp
   )
   target_link_libraries(relay_protocol_ir_tests PRIVATE transpiler)
+  if(RPREDA_ENABLE_Z3)
+    target_compile_definitions(relay_protocol_ir_tests PRIVATE RPREDA_ENABLE_Z3=1)
+    target_link_libraries(relay_protocol_ir_tests PRIVATE ${RPREDA_Z3_TARGET})
+  endif()
   set_property(TARGET relay_protocol_ir_tests PROPERTY CXX_STANDARD 17)
   add_test(
     NAME relay_protocol_ir
@@ -154,12 +220,24 @@ if(BUILD_TESTING)
       ${CMAKE_CURRENT_SOURCE_DIR}/testcase/relay_protocol
   )
   if(UNIX AND NOT APPLE)
-    set_tests_properties(relay_protocol_ir PROPERTIES
-      ENVIRONMENT "LD_LIBRARY_PATH=$<TARGET_FILE_DIR:transpiler>"
-    )
+    if(RPREDA_ENABLE_Z3)
+      set_tests_properties(relay_protocol_ir PROPERTIES
+        ENVIRONMENT "LD_LIBRARY_PATH=$<TARGET_FILE_DIR:transpiler>:${RPREDA_Z3_RUNTIME_DIR}"
+      )
+    else()
+      set_tests_properties(relay_protocol_ir PROPERTIES
+        ENVIRONMENT "LD_LIBRARY_PATH=$<TARGET_FILE_DIR:transpiler>"
+      )
+    endif()
   elseif(APPLE)
-    set_tests_properties(relay_protocol_ir PROPERTIES
-      ENVIRONMENT "DYLD_LIBRARY_PATH=$<TARGET_FILE_DIR:transpiler>"
-    )
+    if(RPREDA_ENABLE_Z3)
+      set_tests_properties(relay_protocol_ir PROPERTIES
+        ENVIRONMENT "DYLD_LIBRARY_PATH=$<TARGET_FILE_DIR:transpiler>:${RPREDA_Z3_RUNTIME_DIR}"
+      )
+    else()
+      set_tests_properties(relay_protocol_ir PROPERTIES
+        ENVIRONMENT "DYLD_LIBRARY_PATH=$<TARGET_FILE_DIR:transpiler>"
+      )
+    endif()
   endif()
 endif()
