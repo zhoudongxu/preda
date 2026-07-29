@@ -850,9 +850,20 @@ void PredaRealListener::enterVariableDeclarationStatement(PredaParser::VariableD
 	{
 		PredaParser::LocalVariableDeclarationContext *declaration =
 			ctx->localVariableDeclaration();
+		std::string refinementType;
+		if (declaration->typeNameOrAuto()->typeName() != nullptr)
+		{
+			ConcreteTypePtr declaredType =
+				m_identifierHub.GetTypeFromTypeNameContext(
+					declaration->typeNameOrAuto()->typeName());
+			if (declaredType != nullptr)
+				refinementType = declaredType->inputName;
+		}
 		m_relayProtocolCollector.DeclareLocalDependency(
 			declaration->identifier()->getText(),
-			declaration->expression());
+			declaration->expression(),
+			refinementType,
+			declaration->identifier());
 		line += ";";
 		codeSerializer.AddLine(line);
 	}
@@ -1082,9 +1093,24 @@ void PredaRealListener::enterForStatement(PredaParser::ForStatementContext *ctx)
 
 		m_relayProtocolCollector.RecordExpressionEffects(
 			ctx->localVariableDeclaration()->expression());
+		std::string refinementType;
+		if (ctx->localVariableDeclaration()
+				->typeNameOrAuto()
+				->typeName() != nullptr)
+		{
+			ConcreteTypePtr declaredType =
+				m_identifierHub.GetTypeFromTypeNameContext(
+					ctx->localVariableDeclaration()
+						->typeNameOrAuto()
+						->typeName());
+			if (declaredType != nullptr)
+				refinementType = declaredType->inputName;
+		}
 		m_relayProtocolCollector.DeclareLoopVariableDependency(
 			ctx->localVariableDeclaration()->identifier()->getText(),
-			ctx->localVariableDeclaration()->expression());
+			ctx->localVariableDeclaration()->expression(),
+			refinementType,
+			ctx->localVariableDeclaration()->identifier());
 		codeOutput += res;
 	}
 	else if (ctx->firstExpression)
@@ -2001,7 +2027,9 @@ void PredaRealListener::DefineStateVariable(PredaParser::StateVariableDeclaratio
 	if (pDefinedVariable != nullptr){
 		m_definedStateVariables.push_back(std::make_pair(ctx, *pDefinedVariable));
 		m_relayProtocolCollector.RegisterStateVariable(
-			ctx->identifier()->getText());
+			ctx->identifier()->getText(),
+			pDefinedVariable->qualifiedType.baseConcreteType->inputName,
+			ctx->identifier());
 		if(pDefinedVariable->qualifiedType.baseConcreteType->nestingPropagatableFlags & uint32_t(transpiler::PredaTypeNestingPropagatableFlags::IsScatteredType))
 			DefineScatteredStateVariable(pDefinedVariable, ctx);
 	}
@@ -2638,13 +2666,25 @@ void PredaRealListener::DefinePendingRelayLambdas()
 		// Copy the function signature to the current scope on the stack. (return statement will rely on this info to check return type
 		m_transpilerCtx.functionCtx.functionRef = m_exportedFunctions[lambda.exportFuncSlot];
 
-		std::vector<std::string> dependencyParameterNames;
-		dependencyParameterNames.reserve(vParamNameCtxs.size());
-		for (PredaParser::RelayLambdaParameterContext *parameter :
-			vParamNameCtxs)
+		std::vector<transpiler::relay_protocol::RelayFunctionParameterInput>
+			refinementParameters;
+		refinementParameters.reserve(vParamNameCtxs.size());
+		for (size_t parameterIndex = 0;
+			parameterIndex < vParamNameCtxs.size();
+			++parameterIndex)
 		{
-			dependencyParameterNames.push_back(
-				parameter->identifier()->getText());
+			transpiler::relay_protocol::RelayFunctionParameterInput parameter;
+			parameter.name =
+				vParamNameCtxs[parameterIndex]->identifier()->getText();
+			if (lambda.paramTypes[parameterIndex].baseConcreteType != nullptr)
+			{
+				parameter.type =
+					lambda.paramTypes[parameterIndex]
+						.baseConcreteType->inputName;
+			}
+			parameter.sourceContext =
+				vParamNameCtxs[parameterIndex]->identifier();
+			refinementParameters.push_back(std::move(parameter));
 		}
 		m_relayProtocolCollector.BeginFunctionDependencyAnalysis(
 			RelayProtocolFunctionId(
@@ -2652,7 +2692,7 @@ void PredaRealListener::DefinePendingRelayLambdas()
 				m_currentContractName,
 				m_transpilerCtx.functionCtx.functionRef),
 			lambda.funcScope,
-			dependencyParameterNames);
+			refinementParameters);
 
 		m_lastStatementInFunctionIsReturnStatement = false;
 
@@ -3546,6 +3586,7 @@ void PredaRealListener::exitContractDefinition(PredaParser::ContractDefinitionCo
 		for (const transpiler::FunctionRef &function : m_exportedFunctions)
 			recordFunctionRelayReachability(function);
 		m_relayProtocolCollector.BuildSummaries();
+		m_relayProtocolCollector.BuildRefinement();
 
 		// check for entropy and relay coexist error in user-defined functions
 		for (auto &itor : m_forwardDeclaredFunctions)
@@ -3632,11 +3673,23 @@ void PredaRealListener::enterFunctionDefinition(PredaParser::FunctionDefinitionC
 		// Here there's no need to check parameter const qualifier for transaction and relay functions, it's already done at forward declaration
 	}
 
-	std::vector<std::string> dependencyParameterNames;
-	dependencyParameterNames.reserve(vParamCtx.size());
+	std::vector<transpiler::relay_protocol::RelayFunctionParameterInput>
+		refinementParameters;
+	refinementParameters.reserve(vParamCtx.size());
 	for (PredaParser::FunctionParameterContext *parameter : vParamCtx)
-		dependencyParameterNames.push_back(
-			parameter->identifier()->getText());
+	{
+		transpiler::relay_protocol::RelayFunctionParameterInput
+			refinementParameter;
+		refinementParameter.name = parameter->identifier()->getText();
+		ConcreteTypePtr parameterType =
+			m_identifierHub.GetTypeFromTypeNameContext(
+				parameter->typeName());
+		if (parameterType != nullptr)
+			refinementParameter.type = parameterType->inputName;
+		refinementParameter.sourceContext = parameter->identifier();
+		refinementParameters.push_back(
+			std::move(refinementParameter));
+	}
 	m_relayProtocolCollector.BeginFunctionDependencyAnalysis(
 		RelayProtocolFunctionId(
 			m_currentDAppName,
@@ -3645,7 +3698,7 @@ void PredaRealListener::enterFunctionDefinition(PredaParser::FunctionDefinitionC
 		transpiler::ScopeType(
 			functionSignature.flags &
 			uint32_t(transpiler::ScopeType::Mask)),
-		dependencyParameterNames);
+		refinementParameters);
 
 	m_lastStatementInFunctionIsReturnStatement = false;
 

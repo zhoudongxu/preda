@@ -1,5 +1,6 @@
 #include "RelayManifestEmitter.h"
 #include "analysis/RelaySummaryEmitter.h"
+#include "refinement/RelayRefinementEmitter.h"
 
 #include "../../3rdParty/nlohmann/json.hpp"
 
@@ -336,6 +337,11 @@ std::string RelayManifestEmitter::Emit(const RelayProtocolIR &protocol)
 			analysis::RelaySummaryEmitter::Emit(function.summary);
 		root["functions"].push_back(std::move(item));
 	}
+	root["refinement"] =
+		refinement::RelayRefinementEmitter::Emit(
+			protocol.refinementSymbols,
+			protocol.refinementConstraints,
+			protocol.refinementProofObligations);
 	return root.dump(2);
 }
 

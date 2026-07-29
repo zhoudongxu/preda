@@ -213,6 +213,83 @@ bool ContainsDependencyClass(
 		dependencyClass) != dependency.classes.end();
 }
 
+std::string RefinementSnapshotKey(
+	const std::string &functionId,
+	const RelayExprIR &expression)
+{
+	return functionId + "|" +
+		std::to_string(expression.location.startOffset) + "|" +
+		std::to_string(expression.location.endOffset) + "|" +
+		expression.text;
+}
+
+std::string RootIdentifier(const RelayExprIR &expression)
+{
+	switch (expression.kind)
+	{
+	case RelayExprKind::Identifier:
+		return expression.text;
+	case RelayExprKind::Group:
+	case RelayExprKind::MemberAccess:
+	case RelayExprKind::Index:
+		return expression.children.empty()
+			? std::string()
+			: RootIdentifier(expression.children.front());
+	default:
+		return std::string();
+	}
+}
+
+bool IsAssignmentOperator(const std::string &op)
+{
+	return op == "=" ||
+		op == "+=" ||
+		op == "-=" ||
+		op == "*=" ||
+		op == "/=" ||
+		op == "%=" ||
+		op == "<<=" ||
+		op == ">>=" ||
+		op == "&=" ||
+		op == "^=" ||
+		op == "|=";
+}
+
+bool IsIncrementOrDecrement(const std::string &op)
+{
+	return op == "++" || op == "--";
+}
+
+bool IsArrayLengthCall(const RelayExprIR &expression)
+{
+	if (expression.kind != RelayExprKind::Call ||
+		expression.children.size() != 1)
+	{
+		return false;
+	}
+	const RelayExprIR &callee = expression.children.front();
+	return callee.kind == RelayExprKind::MemberAccess &&
+		callee.children.size() >= 2 &&
+		callee.children.back().kind == RelayExprKind::Identifier &&
+		callee.children.back().text == "length";
+}
+
+std::string ScopeSourceType(ScopeType scope)
+{
+	switch (scope)
+	{
+	case ScopeType::Address: return "address";
+	case ScopeType::Uint32: return "uint32";
+	case ScopeType::Uint64: return "uint64";
+	case ScopeType::Uint96: return "uint96";
+	case ScopeType::Uint128: return "uint128";
+	case ScopeType::Uint160: return "uint160";
+	case ScopeType::Uint256: return "uint256";
+	case ScopeType::Uint512: return "uint512";
+	default: return std::string();
+	}
+}
+
 RelayExprIR MissingLoopExpression(
 	const char *reason,
 	const SourceLocation &loopLocation)
@@ -231,20 +308,39 @@ RelayProtocolCollector::RelayProtocolCollector(PredaTranspilerContext &context)
 {
 }
 
+void RelayProtocolCollector::SetExpressionTypeResolver(
+	std::function<std::string(
+		PredaParser::ExpressionContext *)> resolver)
+{
+	m_expressionTypeResolver = std::move(resolver);
+}
+
 void RelayProtocolCollector::Reset(
 	const std::string &dappName,
 	const std::string &contractName)
 {
 	m_ir.Reset(dappName, contractName);
 	m_dependencyAnalyzer.Reset();
+	m_refinementSymbols.Reset();
+	m_stateSymbols.clear();
+	m_expressionFormulaSnapshots.clear();
+	m_refinementTypeSymbols.clear();
+	m_currentRefinementFunctionId.clear();
 	m_namedHandlers.clear();
 	m_finalized = false;
 }
 
 void RelayProtocolCollector::RegisterStateVariable(
-	const std::string &name)
+	const std::string &name,
+	const std::string &type,
+	antlr4::ParserRuleContext *sourceContext)
 {
 	m_dependencyAnalyzer.RegisterStateVariable(name);
+	StateSymbolDeclaration declaration;
+	declaration.name = name;
+	declaration.type = type;
+	declaration.location = GetLocation(sourceContext);
+	m_stateSymbols.push_back(std::move(declaration));
 }
 
 void RelayProtocolCollector::RegisterConstant(
@@ -257,59 +353,167 @@ void RelayProtocolCollector::RegisterTypeSymbol(
 	const std::string &name)
 {
 	m_dependencyAnalyzer.RegisterTypeSymbol(name);
+	m_refinementTypeSymbols[name] = true;
 }
 
 void RelayProtocolCollector::BeginFunctionDependencyAnalysis(
 	const std::string &functionId,
 	ScopeType scope,
-	const std::vector<std::string> &parameterNames)
+	const std::vector<RelayFunctionParameterInput> &parameters)
 {
+	std::vector<std::string> parameterNames;
+	parameterNames.reserve(parameters.size());
+	for (const RelayFunctionParameterInput &parameter : parameters)
+		parameterNames.push_back(parameter.name);
 	m_dependencyAnalyzer.BeginFunction(
 		functionId,
 		scope,
 		parameterNames);
+
+	m_currentRefinementFunctionId = functionId;
+	m_refinementSymbols.BeginFunctionValues(functionId);
+	const analysis::RelayExpressionDependency stateDependency =
+		analysis::RelayDependencyAnalyzer::FromClass(
+			analysis::RelayDependencyClass::CurrentScopeState);
+	for (const StateSymbolDeclaration &state : m_stateSymbols)
+	{
+		m_refinementSymbols.EnsurePreState(
+			functionId,
+			state.name,
+			state.type,
+			stateDependency,
+			state.location);
+	}
+	const analysis::RelayExpressionDependency parameterDependency =
+		analysis::RelayDependencyAnalyzer::FromClass(
+			analysis::RelayDependencyClass::TransactionArgument);
+	for (const RelayFunctionParameterInput &parameter : parameters)
+	{
+		m_refinementSymbols.EnsureParameter(
+			functionId,
+			parameter.name,
+			parameter.type,
+			parameterDependency,
+			GetLocation(parameter.sourceContext));
+	}
+	const std::string scopeType = ScopeSourceType(scope);
+	if (!scopeType.empty())
+	{
+		m_refinementSymbols.EnsureCurrentScopeKey(
+			functionId,
+			scopeType,
+			analysis::RelayDependencyAnalyzer::FromClass(
+				analysis::RelayDependencyClass::CurrentScopeKey),
+			parameters.empty()
+				? SourceLocation()
+				: GetLocation(parameters.front().sourceContext));
+	}
 }
 
 void RelayProtocolCollector::EndFunctionDependencyAnalysis()
 {
 	m_dependencyAnalyzer.EndFunction();
+	if (!m_currentRefinementFunctionId.empty())
+	{
+		m_refinementSymbols.EndFunctionValues(
+			m_currentRefinementFunctionId);
+	}
+	m_currentRefinementFunctionId.clear();
 }
 
 void RelayProtocolCollector::PushDependencyScope()
 {
 	m_dependencyAnalyzer.PushScope();
+	if (!m_currentRefinementFunctionId.empty())
+	{
+		m_refinementSymbols.PushScope(
+			m_currentRefinementFunctionId);
+	}
 }
 
 void RelayProtocolCollector::PopDependencyScope()
 {
 	m_dependencyAnalyzer.PopScope();
+	if (!m_currentRefinementFunctionId.empty())
+	{
+		m_refinementSymbols.PopScope(
+			m_currentRefinementFunctionId);
+	}
 }
 
 void RelayProtocolCollector::DeclareLocalDependency(
 	const std::string &name,
-	PredaParser::ExpressionContext *initializer)
+	PredaParser::ExpressionContext *initializer,
+	const std::string &type,
+	antlr4::ParserRuleContext *sourceContext)
 {
 	if (initializer == nullptr)
 	{
 		m_dependencyAnalyzer.DeclareLocal(name);
+		if (!m_currentRefinementFunctionId.empty())
+		{
+			m_refinementSymbols.SetLocalFormula(
+				m_currentRefinementFunctionId,
+				name,
+				type,
+				refinement::FormulaExpr::Unknown(
+					name,
+					GetLocation(sourceContext),
+					"local has no refinement initializer"),
+				GetLocation(sourceContext));
+		}
 		return;
 	}
-	const RelayExprIR expression = BuildExpression(initializer);
+	const RelayExprIR expression = BuildExpression(initializer, type);
+	const refinement::FormulaExpr formula =
+		BuildRefinementFormula(expression);
 	m_dependencyAnalyzer.DeclareLocal(name, &expression);
+	if (!m_currentRefinementFunctionId.empty())
+	{
+		m_refinementSymbols.SetLocalFormula(
+			m_currentRefinementFunctionId,
+			name,
+			type.empty() ? expression.type : type,
+			formula,
+			GetLocation(
+				sourceContext == nullptr
+					? static_cast<antlr4::ParserRuleContext *>(initializer)
+					: sourceContext));
+		m_expressionFormulaSnapshots[
+			RefinementSnapshotKey(
+				m_currentRefinementFunctionId,
+				expression)] = formula;
+	}
 	m_dependencyAnalyzer.RecordExpressionEffects(expression);
+	RecordRefinementExpressionEffects(expression);
 }
 
 void RelayProtocolCollector::DeclareLoopVariableDependency(
 	const std::string &name,
-	PredaParser::ExpressionContext *initializer)
+	PredaParser::ExpressionContext *initializer,
+	const std::string &type,
+	antlr4::ParserRuleContext *sourceContext)
 {
 	if (initializer == nullptr)
 	{
 		m_dependencyAnalyzer.DeclareLoopVariable(name);
-		return;
 	}
-	const RelayExprIR expression = BuildExpression(initializer);
-	m_dependencyAnalyzer.DeclareLoopVariable(name, &expression);
+	else
+	{
+		const RelayExprIR expression =
+			BuildExpression(initializer, type);
+		m_dependencyAnalyzer.DeclareLoopVariable(name, &expression);
+	}
+	if (!m_currentRefinementFunctionId.empty())
+	{
+		m_refinementSymbols.EnsureLoopVariable(
+			m_currentRefinementFunctionId,
+			name,
+			type,
+			analysis::RelayDependencyAnalyzer::FromClass(
+				analysis::RelayDependencyClass::LoopVariable),
+			GetLocation(sourceContext));
+	}
 }
 
 void RelayProtocolCollector::PromoteLoopVariableDependency(
@@ -320,7 +524,19 @@ void RelayProtocolCollector::PromoteLoopVariableDependency(
 	const std::string name =
 		PrimaryIdentifier(update->expression(0));
 	if (!name.empty())
+	{
 		m_dependencyAnalyzer.PromoteLoopVariable(name);
+		if (!m_currentRefinementFunctionId.empty())
+		{
+			m_refinementSymbols.EnsureLoopVariable(
+				m_currentRefinementFunctionId,
+				name,
+				std::string(),
+				analysis::RelayDependencyAnalyzer::FromClass(
+					analysis::RelayDependencyClass::LoopVariable),
+				GetLocation(update->expression(0)));
+		}
+	}
 }
 
 void RelayProtocolCollector::RecordExpressionEffects(
@@ -328,8 +544,144 @@ void RelayProtocolCollector::RecordExpressionEffects(
 {
 	if (expression == nullptr)
 		return;
-	m_dependencyAnalyzer.RecordExpressionEffects(
-		BuildExpression(expression));
+	const RelayExprIR owningExpression =
+		BuildExpression(expression);
+	if (!m_currentRefinementFunctionId.empty())
+	{
+		m_expressionFormulaSnapshots[
+			RefinementSnapshotKey(
+				m_currentRefinementFunctionId,
+				owningExpression)] =
+			BuildRefinementFormula(owningExpression);
+	}
+	m_dependencyAnalyzer.RecordExpressionEffects(owningExpression);
+	RecordRefinementExpressionEffects(owningExpression);
+}
+
+refinement::FormulaExpr
+RelayProtocolCollector::BuildRefinementFormula(
+	const RelayExprIR &expression) const
+{
+	if (m_currentRefinementFunctionId.empty())
+	{
+		return refinement::FormulaExpr::Unknown(
+			expression.text,
+			expression.location,
+			"refinement formula has no active source function");
+	}
+	return m_formulaBuilder.Build(
+		expression,
+		m_refinementSymbols.MakeResolver(
+			m_currentRefinementFunctionId));
+}
+
+void RelayProtocolCollector::RecordRefinementExpressionEffects(
+	const RelayExprIR &expression)
+{
+	if (m_currentRefinementFunctionId.empty())
+		return;
+
+	if (expression.kind == RelayExprKind::Opaque)
+	{
+		m_refinementSymbols.InvalidateAllMutable(
+			m_currentRefinementFunctionId,
+			expression.opaqueReason.empty()
+				? "opaque expression may change the current symbolic value"
+				: expression.opaqueReason,
+			expression.location);
+	}
+	else if (expression.kind == RelayExprKind::Binary &&
+		IsAssignmentOperator(expression.op) &&
+		!expression.children.empty())
+	{
+		const std::string destination =
+			RootIdentifier(expression.children.front());
+		if (!destination.empty())
+		{
+			m_refinementSymbols.InvalidateValue(
+				m_currentRefinementFunctionId,
+				destination,
+				"write to '" + destination +
+					"' requires path-sensitive value analysis",
+				expression.location);
+		}
+	}
+	else if (expression.kind == RelayExprKind::Unary &&
+		IsIncrementOrDecrement(expression.op) &&
+		!expression.children.empty())
+	{
+		const std::string destination =
+			RootIdentifier(expression.children.front());
+		if (!destination.empty())
+		{
+			m_refinementSymbols.InvalidateValue(
+				m_currentRefinementFunctionId,
+				destination,
+				"increment/decrement of '" + destination +
+					"' is execution-dependent",
+				expression.location);
+		}
+	}
+	else if (expression.kind == RelayExprKind::Call &&
+		!expression.children.empty())
+	{
+		const RelayExprIR &callee = expression.children.front();
+		const bool isPure =
+			callee.kind == RelayExprKind::Keyword ||
+			m_refinementTypeSymbols.find(callee.text) !=
+				m_refinementTypeSymbols.end() ||
+			refinement::RelayFormulaBuilder::
+				IsSupportedIntegerCast(callee.text) ||
+			expression.text ==
+				"__transaction.get_self_address()" ||
+			IsArrayLengthCall(expression);
+		if (!isPure)
+		{
+			for (const StateSymbolDeclaration &state : m_stateSymbols)
+			{
+				m_refinementSymbols.InvalidateValue(
+					m_currentRefinementFunctionId,
+					state.name,
+					"unsummarized call may update pre-state-derived value '" +
+						state.name + "'",
+					expression.location);
+			}
+			if (callee.kind == RelayExprKind::MemberAccess &&
+				!callee.children.empty())
+			{
+				const std::string receiver =
+					RootIdentifier(callee.children.front());
+				if (!receiver.empty())
+				{
+					m_refinementSymbols.InvalidateValue(
+						m_currentRefinementFunctionId,
+						receiver,
+						"unsummarized member call may update receiver '" +
+							receiver + "'",
+						expression.location);
+				}
+			}
+			for (size_t i = 1;
+				i < expression.children.size();
+				++i)
+			{
+				const std::string argument =
+					RootIdentifier(expression.children[i]);
+				if (!argument.empty())
+				{
+					m_refinementSymbols.InvalidateValue(
+						m_currentRefinementFunctionId,
+						argument,
+						"unsummarized call may update argument '" +
+							argument + "'",
+						expression.location);
+				}
+			}
+		}
+	}
+
+	for (const RelayExprIR &child : expression.children)
+		RecordRefinementExpressionEffects(child);
 }
 
 void RelayProtocolCollector::WidenLoopDependencies(
@@ -428,11 +780,28 @@ RelayExprIR RelayProtocolCollector::BuildExpression(
 		if (primary->identifier() != nullptr)
 			result.kind = RelayExprKind::Identifier;
 		else if (primary->fundamentalTypeName() != nullptr || primary->builtInContainerTypeName() != nullptr)
+		{
 			result.kind = RelayExprKind::Keyword;
+			if (result.type.empty())
+				result.type = primary->getText();
+		}
 		else
+		{
 			result.kind = RelayExprKind::Literal;
+			if (result.type.empty() && m_expressionTypeResolver)
+				result.type = m_expressionTypeResolver(context);
+		}
 		return result;
 	}
+	// A member-access node that is the callee of a surrounding call is not a
+	// standalone value expression. Re-parsing it in isolation can emit a
+	// spurious "function must be called" diagnostic (for example,
+	// __transaction.get_self_address). The owning call carries the result
+	// type; member/index children are translated from their own operands.
+	if (result.type.empty() &&
+		m_expressionTypeResolver &&
+		expressionType != static_cast<int>(PredaExpressionTypes::Dot))
+		result.type = m_expressionTypeResolver(context);
 
 	// Ternaries are intentionally retained as expression-level Opaque. They
 	// are valid PREDA, but preserving branch evaluation semantics requires a
@@ -905,6 +1274,8 @@ std::string RelayProtocolCollector::CollectRelay(const RelaySiteInput &input)
 		site.target.location = GetLocation(
 			input.context == nullptr ? nullptr : input.context->relayType());
 	}
+	site.refinementTargetFormula =
+		BuildRefinementFormula(site.target);
 	site.targetDependency =
 		m_dependencyAnalyzer.Analyze(site.target);
 	for (const RelayArgumentInput &argumentInput : input.arguments)
@@ -918,16 +1289,35 @@ std::string RelayProtocolCollector::CollectRelay(const RelaySiteInput &input)
 			argumentInput.type);
 		argument.dependency =
 			m_dependencyAnalyzer.Analyze(argument.expression);
+		argument.refinementFormula =
+			BuildRefinementFormula(argument.expression);
 		site.arguments.push_back(std::move(argument));
 	}
+	site.branches = CollectBranches(input.context);
+	for (BranchCondition &branch : site.branches)
+	{
+		const auto snapshot = m_expressionFormulaSnapshots.find(
+			RefinementSnapshotKey(
+				m_currentRefinementFunctionId,
+				branch.condition));
+		branch.refinementFormula =
+			snapshot == m_expressionFormulaSnapshots.end()
+				? BuildRefinementFormula(branch.condition)
+				: snapshot->second;
+	}
+	site.loops = CollectLoops(input.context);
 	// Assignment expressions are valid PREDA expressions. Freeze the facts
 	// first, then apply their effects so later relay sites see the updated
 	// environment. Rejoining a post-effect analysis also conservatively
 	// handles evaluation-order interactions among this relay's target and
 	// arguments without changing generated code.
 	m_dependencyAnalyzer.RecordExpressionEffects(site.target);
+	RecordRefinementExpressionEffects(site.target);
 	for (const RelayArgument &argument : site.arguments)
+	{
 		m_dependencyAnalyzer.RecordExpressionEffects(argument.expression);
+		RecordRefinementExpressionEffects(argument.expression);
+	}
 	site.targetDependency =
 		analysis::RelayDependencyAnalyzer::Union(
 			site.targetDependency,
@@ -939,9 +1329,6 @@ std::string RelayProtocolCollector::CollectRelay(const RelaySiteInput &input)
 				argument.dependency,
 				m_dependencyAnalyzer.Analyze(argument.expression));
 	}
-	site.branches = CollectBranches(input.context);
-	site.loops = CollectLoops(input.context);
-
 	size_t handlerIndex = 0;
 	if (input.lambdaHandler)
 	{
@@ -1101,6 +1488,24 @@ void RelayProtocolCollector::BuildSummaries()
 {
 	transpiler::relay_protocol::analysis::RelaySummaryBuilder builder;
 	builder.Build(m_ir);
+}
+
+void RelayProtocolCollector::BuildRefinement()
+{
+	refinement::RelayConstraintGenerator generator;
+	refinement::RelayConstraintGenerationResult result =
+		generator.Generate(
+			m_ir,
+			m_refinementSymbols,
+			m_formulaBuilder);
+
+	// Generate() may add the stable per-site and per-function synthetic
+	// symbols used by its owning constraints. Copy the symbol set only after
+	// that pass is complete.
+	m_ir.refinementSymbols = m_refinementSymbols.GetSymbols();
+	m_ir.refinementConstraints = std::move(result.constraints);
+	m_ir.refinementProofObligations =
+		std::move(result.proofObligations);
 }
 
 } // namespace relay_protocol

@@ -4,6 +4,7 @@
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -300,6 +301,349 @@ const Json& RequireFunctionSummary(
 	return summary;
 }
 
+const Json& RequireRefinement(const Json& manifest)
+{
+	const Json& refinement = RequireField(manifest, "refinement");
+	CHECK(refinement.is_object());
+	RequireArray(refinement, "symbols");
+	RequireArray(refinement, "constraints");
+	RequireArray(refinement, "proof_obligations");
+	return refinement;
+}
+
+const Json* FindRefinementItem(
+	const Json& items,
+	const std::string& kind,
+	const std::string& relaySiteId = std::string(),
+	const std::string& sourceFunctionId = std::string(),
+	int64_t argumentIndex = -2)
+{
+	CHECK(items.is_array());
+	for (const Json& item : items)
+	{
+		if (RequireString(item, "kind") != kind)
+			continue;
+		if (!relaySiteId.empty()
+			&& RequireString(item, "relay_site_id") != relaySiteId)
+			continue;
+		if (!sourceFunctionId.empty()
+			&& RequireString(item, "source_function_id") != sourceFunctionId)
+			continue;
+		if (argumentIndex != -2)
+		{
+			const Json& actualIndex =
+				RequireField(item, "argument_index");
+			if (!actualIndex.is_number_integer()
+				|| actualIndex.get<int64_t>() != argumentIndex)
+				continue;
+		}
+		return &item;
+	}
+	return nullptr;
+}
+
+const Json* FindRefinementSymbol(
+	const Json& refinement,
+	const std::string& kind,
+	const std::string& sourceName = std::string(),
+	const std::string& relaySiteId = std::string(),
+	const std::string& sourceFunctionId = std::string(),
+	int64_t argumentIndex = -2)
+{
+	for (const Json& symbol : RequireArray(refinement, "symbols"))
+	{
+		if (RequireString(symbol, "kind") != kind)
+			continue;
+		if (!sourceName.empty()
+			&& RequireString(symbol, "source_name") != sourceName)
+			continue;
+		if (!relaySiteId.empty()
+			&& RequireString(symbol, "relay_site_id") != relaySiteId)
+			continue;
+		if (!sourceFunctionId.empty()
+			&& RequireString(
+				symbol,
+				"source_function_id") != sourceFunctionId)
+			continue;
+		if (argumentIndex != -2)
+		{
+			const Json& actualIndex =
+				RequireField(symbol, "argument_index");
+			if (!actualIndex.is_number_integer()
+				|| actualIndex.get<int64_t>() != argumentIndex)
+				continue;
+		}
+		return &symbol;
+	}
+	return nullptr;
+}
+
+const Json* FindConstraint(
+	const Json& refinement,
+	const std::string& kind,
+	const std::string& relaySiteId = std::string(),
+	const std::string& sourceFunctionId = std::string(),
+	int64_t argumentIndex = -2)
+{
+	return FindRefinementItem(
+		RequireArray(refinement, "constraints"),
+		kind,
+		relaySiteId,
+		sourceFunctionId,
+		argumentIndex);
+}
+
+const Json* FindProofObligation(
+	const Json& refinement,
+	const std::string& kind,
+	const std::string& relaySiteId = std::string(),
+	const std::string& sourceFunctionId = std::string(),
+	int64_t argumentIndex = -2)
+{
+	return FindRefinementItem(
+		RequireArray(refinement, "proof_obligations"),
+		kind,
+		relaySiteId,
+		sourceFunctionId,
+		argumentIndex);
+}
+
+const Json* FindFormulaNode(
+	const Json& formula,
+	const std::string& kind,
+	const std::string& operatorText = std::string())
+{
+	if (!formula.is_object())
+		return nullptr;
+	if (RequireString(formula, "kind") == kind
+		&& (operatorText.empty()
+			|| RequireString(formula, "operator") == operatorText))
+		return &formula;
+	for (const Json& child : RequireArray(formula, "children"))
+		if (const Json* found =
+			FindFormulaNode(child, kind, operatorText))
+			return found;
+	return nullptr;
+}
+
+const Json& RequireBinaryChild(
+	const Json& formula,
+	const std::string& operatorText,
+	size_t childIndex)
+{
+	CHECK_DETAIL(
+		RequireString(formula, "kind") == "Binary",
+		"expected Binary formula: " + formula.dump());
+	CHECK_DETAIL(
+		RequireString(formula, "operator") == operatorText,
+		"expected operator " + operatorText + ": " + formula.dump());
+	const Json& children = RequireArray(formula, "children");
+	CHECK_DETAIL(
+		children.size() == 2,
+		"binary formula does not have two children: " + formula.dump());
+	CHECK(childIndex < children.size());
+	return children[childIndex];
+}
+
+const Json& RequireRelationSourceExpression(
+	const Json& constraint)
+{
+	const Json& implication = RequireField(constraint, "formula");
+	const Json& equality =
+		RequireBinaryChild(implication, "implies", 1);
+	return RequireBinaryChild(equality, "==", 1);
+}
+
+const Json& RequireCountExpression(
+	const Json& constraint,
+	const std::string& expectedOperator = "==")
+{
+	return RequireBinaryChild(
+		RequireField(constraint, "formula"),
+		expectedOperator,
+		1);
+}
+
+const Json& UnwrapGroups(const Json& formula)
+{
+	const Json* current = &formula;
+	while (RequireString(*current, "kind") == "Group")
+	{
+		const Json& children = RequireArray(*current, "children");
+		CHECK(children.size() == 1);
+		current = &children.front();
+	}
+	return *current;
+}
+
+void CheckFormulaSort(
+	const Json& formula,
+	const std::string& expectedKind,
+	int64_t expectedBitWidth = -1)
+{
+	const Json& sort = RequireField(formula, "sort");
+	CHECK(sort.is_object());
+	CHECK(RequireString(sort, "kind") == expectedKind);
+	if (expectedBitWidth >= 0)
+	{
+		const Json& bitWidth = RequireField(sort, "bit_width");
+		CHECK(
+			bitWidth.is_number_integer()
+			|| bitWidth.is_number_unsigned());
+		CHECK(bitWidth.get<int64_t>() == expectedBitWidth);
+	}
+}
+
+void CheckObligationStatus(
+	const Json* obligation,
+	const std::string& expectedStatus,
+	const std::string& detail)
+{
+	CHECK_DETAIL(obligation != nullptr, "missing obligation: " + detail);
+	CHECK_DETAIL(
+		RequireString(*obligation, "status") == expectedStatus,
+		"unexpected obligation status for " + detail + ": "
+			+ obligation->dump());
+	if (expectedStatus == "Unsupported")
+		CHECK_DETAIL(
+			!RequireString(*obligation, "reason").empty(),
+			"unsupported obligation has no reason: " + detail);
+}
+
+void CollectFormulaSymbolIds(
+	const Json& formula,
+	std::set<std::string>& symbolIds)
+{
+	if (!formula.is_object())
+		return;
+	if (RequireString(formula, "kind") == "Symbol")
+		symbolIds.insert(RequireString(formula, "symbol_id"));
+	for (const Json& child : RequireArray(formula, "children"))
+		CollectFormulaSymbolIds(child, symbolIds);
+}
+
+void CheckRefinementIntegrity(const Json& manifest)
+{
+	const Json& refinement = RequireRefinement(manifest);
+	const Json& symbols = RequireArray(refinement, "symbols");
+	const Json& constraints = RequireArray(refinement, "constraints");
+	const Json& obligations =
+		RequireArray(refinement, "proof_obligations");
+
+	std::set<std::string> symbolIds;
+	std::set<std::string> allIds;
+	for (const Json& symbol : symbols)
+	{
+		const std::string id = RequireString(symbol, "id");
+		CHECK(!id.empty());
+		CHECK_DETAIL(
+			allIds.insert(id).second,
+			"duplicate refinement ID: " + id);
+		symbolIds.insert(id);
+		RequireString(symbol, "kind");
+		RequireString(symbol, "preda_type");
+		CHECK(RequireField(symbol, "sort").is_object());
+		RequireArray(symbol, "dependencies");
+		RequireString(symbol, "availability");
+		CHECK(RequireField(
+			symbol,
+			"admission_time_evaluable").is_boolean());
+	}
+
+	const std::set<std::string> allowedConstraintKinds = {
+		"RelayTargetRelation",
+		"RelayArgumentRelation",
+		"RelayGuardNecessity",
+		"RelayGuardEquivalence",
+		"RelayCountEquality",
+		"RelayCountNonNegative",
+		"RelayCountUpperBound",
+	};
+	const std::set<std::string> allowedObligationKinds = {
+		"RelayTargetEquality",
+		"RelayArgumentEquality",
+		"RelayGuardNecessity",
+		"RelayGuardEquivalence",
+		"RelayCountEquality",
+		"RelayCountUpperBound",
+		"TargetNonAliasCandidate",
+		"Unknown",
+	};
+
+	for (const Json& constraint : constraints)
+	{
+		const std::string id = RequireString(constraint, "id");
+		CHECK(!id.empty());
+		CHECK_DETAIL(
+			allIds.insert(id).second,
+			"duplicate refinement ID: " + id);
+		const std::string kind =
+			RequireString(constraint, "kind");
+		CHECK_DETAIL(
+			allowedConstraintKinds.count(kind) == 1,
+			"unknown refinement constraint kind: " + kind);
+		CHECK(kind.find("Order") == std::string::npos);
+		std::set<std::string> referencedSymbols;
+		CollectFormulaSymbolIds(
+			RequireField(constraint, "formula"),
+			referencedSymbols);
+		for (const std::string& symbolId : referencedSymbols)
+			CHECK_DETAIL(
+				symbolIds.count(symbolId) == 1,
+				"constraint references unknown symbol: " + symbolId);
+	}
+
+	for (const Json& obligation : obligations)
+	{
+		const std::string id = RequireString(obligation, "id");
+		CHECK(!id.empty());
+		CHECK_DETAIL(
+			allIds.insert(id).second,
+			"duplicate refinement ID: " + id);
+		const std::string kind =
+			RequireString(obligation, "kind");
+		CHECK_DETAIL(
+			allowedObligationKinds.count(kind) == 1,
+			"unknown refinement proof-obligation kind: " + kind);
+		CHECK(kind.find("Order") == std::string::npos);
+		const std::string status =
+			RequireString(obligation, "status");
+		CHECK(status == "Generated" || status == "Unsupported");
+		CHECK(status != "Proved");
+		for (const Json& constraintId :
+			RequireArray(obligation, "constraint_ids"))
+		{
+			CHECK(constraintId.is_string());
+			CHECK_DETAIL(
+				allIds.count(constraintId.get<std::string>()) == 1,
+				"proof obligation references unknown constraint: "
+					+ constraintId.get<std::string>());
+		}
+		std::set<std::string> referencedSymbols;
+		CollectFormulaSymbolIds(
+			RequireField(obligation, "goal"),
+			referencedSymbols);
+		for (const std::string& symbolId : referencedSymbols)
+			CHECK_DETAIL(
+				symbolIds.count(symbolId) == 1,
+				"proof obligation references unknown symbol: "
+					+ symbolId);
+	}
+
+	for (const Json& constraint : constraints)
+	{
+		if (RequireString(constraint, "kind")
+			!= "RelayCountNonNegative")
+			continue;
+		const Json& zero = RequireBinaryChild(
+			RequireField(constraint, "formula"),
+			">=",
+			1);
+		CHECK(RequireString(zero, "kind") == "IntLiteral");
+		CHECK(RequireString(zero, "literal_value") == "0");
+	}
+}
+
 void CheckConstantExpression(
 	const Json& expression,
 	uint64_t expectedValue,
@@ -426,7 +770,7 @@ void CheckTopLevel(const CompileResult& result, const std::string& contract)
 	const Json& manifest = result.manifest;
 	CHECK(manifest.is_object());
 	CHECK(RequireField(manifest, "schema_version").is_number_unsigned());
-	CHECK(RequireField(manifest, "schema_version").get<uint64_t>() == 3);
+	CHECK(RequireField(manifest, "schema_version").get<uint64_t>() == 4);
 	CHECK(RequireString(manifest, "dapp") == "RelayProtocolTests");
 	CHECK(RequireString(manifest, "contract") == contract);
 	RequireArray(manifest, "relay_sites");
@@ -438,6 +782,7 @@ void CheckTopLevel(const CompileResult& result, const std::string& contract)
 		const Json& summary = RequireField(function, "summary");
 		CheckSummaryRequiredFields(summary);
 	}
+	CheckRefinementIntegrity(manifest);
 }
 
 void CheckSiteCommon(
@@ -556,6 +901,38 @@ void TestNamedAddress(const std::string& fixtureDirectory)
 	CheckSummaryFanout(summary, "single_target");
 	CheckSummaryOrdering(summary, "trivial");
 	CHECK(RequireString(summary, "analysis_status") == "exact");
+
+	const Json& refinement = RequireRefinement(result.manifest);
+	const std::string siteId = RequireString(site, "id");
+	const Json* targetRelation =
+		FindConstraint(refinement, "RelayTargetRelation", siteId);
+	CHECK(targetRelation != nullptr);
+	const Json& targetFormula =
+		RequireRelationSourceExpression(*targetRelation);
+	CHECK(RequireString(targetFormula, "kind") == "Symbol");
+	CheckFormulaSort(targetFormula, "Address");
+	const Json* targetParameter =
+		FindRefinementSymbol(
+			refinement,
+			"SourceFunctionParameter",
+			"target");
+	CHECK(targetParameter != nullptr);
+	CHECK(
+		RequireString(targetFormula, "symbol_id") ==
+		RequireString(*targetParameter, "id"));
+	CHECK(
+		RequireArray(*targetParameter, "dependencies") ==
+		Json::array({ "TransactionArgument" }));
+	CHECK(
+		RequireString(*targetParameter, "availability") ==
+		"AdmissionTime");
+	CheckObligationStatus(
+		FindProofObligation(
+			refinement,
+			"RelayTargetEquality",
+			siteId),
+		"Generated",
+		"named address target equality");
 }
 
 void TestLambdaAddress(const std::string& fixtureDirectory)
@@ -680,6 +1057,52 @@ void TestIfElse(const std::string& fixtureDirectory)
 	CHECK(RequireArray(*fallback, "loops").empty());
 	CHECK(ContainsNodeKind(RequireArray(result.manifest, "functions"), "Branch"));
 	CHECK(ContainsNodeKind(RequireArray(result.manifest, "functions"), "Emit"));
+
+	const Json& refinement = RequireRefinement(result.manifest);
+	const Json* primaryGuard = FindConstraint(
+		refinement,
+		"RelayGuardNecessity",
+		RequireString(*primary, "id"));
+	const Json* fallbackGuard = FindConstraint(
+		refinement,
+		"RelayGuardNecessity",
+		RequireString(*fallback, "id"));
+	CHECK(primaryGuard != nullptr);
+	CHECK(fallbackGuard != nullptr);
+	const Json& primaryPredicate = RequireBinaryChild(
+		RequireField(*primaryGuard, "formula"),
+		"implies",
+		1);
+	CHECK(RequireString(primaryPredicate, "kind") == "Symbol");
+	CHECK(RequireString(primaryPredicate, "source_text") == "use_primary");
+	CheckFormulaSort(primaryPredicate, "Bool");
+	const Json& negativePredicate = RequireBinaryChild(
+		RequireField(*fallbackGuard, "formula"),
+		"implies",
+		1);
+	CHECK(RequireString(negativePredicate, "kind") == "Unary");
+	CHECK(RequireString(negativePredicate, "operator") == "!");
+	const Json& negativeChildren =
+		RequireArray(negativePredicate, "children");
+	CHECK(negativeChildren.size() == 1);
+	CHECK(RequireString(negativeChildren.front(), "kind") == "Symbol");
+	CHECK(
+		RequireString(negativeChildren.front(), "source_text") ==
+		"use_primary");
+	CheckObligationStatus(
+		FindProofObligation(
+			refinement,
+			"RelayGuardNecessity",
+			RequireString(*fallback, "id")),
+		"Generated",
+		"negative branch guard necessity");
+	CheckObligationStatus(
+		FindProofObligation(
+			refinement,
+			"RelayGuardEquivalence",
+			RequireString(*fallback, "id")),
+		"Unsupported",
+		"negative branch guard equivalence remains conservative");
 }
 
 void TestElseIfChain(const std::string& fixtureDirectory)
@@ -788,6 +1211,38 @@ void TestBoundedFor(const std::string& fixtureDirectory)
 	CheckSummaryBoolean(summary, "has_opaque", false);
 	CheckSummaryOrdering(summary, "trivial");
 	CHECK(RequireString(summary, "analysis_status") == "exact");
+
+	const Json& refinement = RequireRefinement(result.manifest);
+	const std::string functionId =
+		RequireString(site, "source_function_id");
+	const Json* countEquality = FindConstraint(
+		refinement,
+		"RelayCountEquality",
+		std::string(),
+		functionId);
+	CHECK(countEquality != nullptr);
+	const Json& count = RequireCountExpression(*countEquality);
+	CHECK(RequireString(count, "kind") == "IntLiteral");
+	CheckFormulaSort(count, "Int");
+	CHECK(RequireString(count, "literal_value") == "3");
+	CHECK(FindConstraint(
+		refinement,
+		"RelayCountNonNegative",
+		std::string(),
+		functionId) != nullptr);
+	CHECK(FindConstraint(
+		refinement,
+		"RelayCountUpperBound",
+		std::string(),
+		functionId) != nullptr);
+	CheckObligationStatus(
+		FindProofObligation(
+			refinement,
+			"RelayCountEquality",
+			std::string(),
+			functionId),
+		"Generated",
+		"bounded loop direct count equality");
 }
 
 void CheckRejectedBoundedFor(
@@ -838,6 +1293,41 @@ void CheckRejectedBoundedFor(
 	CheckSummaryBoolean(summary, "has_opaque", false);
 	CheckSummaryOrdering(summary, "trivial");
 	CHECK(RequireString(summary, "analysis_status") == "conservative");
+
+	const Json& refinement = RequireRefinement(result.manifest);
+	const std::string functionId =
+		RequireString(sites.front(), "source_function_id");
+	CHECK(FindConstraint(
+		refinement,
+		"RelayCountEquality",
+		std::string(),
+		functionId) == nullptr);
+	CHECK(FindConstraint(
+		refinement,
+		"RelayCountUpperBound",
+		std::string(),
+		functionId) == nullptr);
+	CHECK(FindConstraint(
+		refinement,
+		"RelayCountNonNegative",
+		std::string(),
+		functionId) != nullptr);
+	CheckObligationStatus(
+		FindProofObligation(
+			refinement,
+			"RelayCountEquality",
+			std::string(),
+			functionId),
+		"Unsupported",
+		fixture + " unknown exact direct count");
+	CheckObligationStatus(
+		FindProofObligation(
+			refinement,
+			"RelayCountUpperBound",
+			std::string(),
+			functionId),
+		"Unsupported",
+		fixture + " unknown finite upper bound");
 }
 
 void TestZeroStepIsNotBounded(const std::string& fixtureDirectory)
@@ -1012,6 +1502,46 @@ void TestOpaqueFallback(const std::string& fixtureDirectory)
 	CheckSummaryFanout(summary, "single_target");
 	CheckSummaryOrdering(summary, "trivial");
 	CHECK(RequireString(summary, "analysis_status") == "conservative");
+
+	const Json& refinement = RequireRefinement(result.manifest);
+	const std::string siteId = RequireString(site, "id");
+	const std::string functionId =
+		RequireString(site, "source_function_id");
+	CHECK(FindConstraint(
+		refinement,
+		"RelayTargetRelation",
+		siteId) == nullptr);
+	const Json* targetObligation = FindProofObligation(
+		refinement,
+		"RelayTargetEquality",
+		siteId);
+	CheckObligationStatus(
+		targetObligation,
+		"Unsupported",
+		"opaque ternary target equality");
+	CHECK(
+		RequireString(
+			RequireField(*targetObligation, "goal"),
+			"kind") ==
+		"Unknown");
+
+	const Json* countEquality = FindConstraint(
+		refinement,
+		"RelayCountEquality",
+		std::string(),
+		functionId);
+	CHECK(countEquality != nullptr);
+	const Json& count = RequireCountExpression(*countEquality);
+	CHECK(RequireString(count, "kind") == "IntLiteral");
+	CHECK(RequireString(count, "literal_value") == "1");
+	CheckObligationStatus(
+		FindProofObligation(
+			refinement,
+			"RelayCountEquality",
+			std::string(),
+			functionId),
+		"Generated",
+		"opaque target does not erase direct count");
 }
 
 void TestExpressionDependencies(
@@ -1199,6 +1729,289 @@ void TestExpressionDependencies(
 	}
 }
 
+void TestRefinementLiteralTarget(
+	const std::string& fixtureDirectory)
+{
+	const CompileResult result =
+		CompileFixture(fixtureDirectory, "dependency_literal.prd");
+	CheckTopLevel(result, "ProtocolDependencyLiteral");
+	const Json& site =
+		RequireArray(result.manifest, "relay_sites").front();
+	const std::string siteId = RequireString(site, "id");
+	const Json& refinement = RequireRefinement(result.manifest);
+	const Json* targetRelation =
+		FindConstraint(refinement, "RelayTargetRelation", siteId);
+	CHECK(targetRelation != nullptr);
+	const Json& target = UnwrapGroups(
+		RequireRelationSourceExpression(*targetRelation));
+	CHECK(RequireString(target, "kind") == "BitVectorLiteral");
+	CheckFormulaSort(target, "UnsignedBitVector", 32);
+	CHECK(RequireString(target, "literal_value") == "7u32");
+	CheckObligationStatus(
+		FindProofObligation(
+			refinement,
+			"RelayTargetEquality",
+			siteId),
+		"Generated",
+		"literal target equality");
+}
+
+void CheckUint32CoordinateFormula(
+	const Json& formula,
+	const std::string& detail)
+{
+	const Json& addition = UnwrapGroups(formula);
+	CHECK_DETAIL(
+		RequireString(addition, "kind") == "Binary"
+			&& RequireString(addition, "operator") == "+",
+		detail + ": expected uint32 coordinate addition: "
+			+ addition.dump());
+	CheckFormulaSort(addition, "UnsignedBitVector", 32);
+	const Json& additionChildren =
+		RequireArray(addition, "children");
+	CHECK(additionChildren.size() == 2);
+
+	const Json& multiplication =
+		UnwrapGroups(additionChildren[0]);
+	CHECK(RequireString(multiplication, "kind") == "Binary");
+	CHECK(RequireString(multiplication, "operator") == "*");
+	CheckFormulaSort(
+		multiplication,
+		"UnsignedBitVector",
+		32);
+	const Json& multiplicationChildren =
+		RequireArray(multiplication, "children");
+	CHECK(multiplicationChildren.size() == 2);
+
+	const Json& xCast = UnwrapGroups(multiplicationChildren[0]);
+	CHECK(RequireString(xCast, "kind") == "Cast");
+	CHECK(RequireString(xCast, "operator") == "uint32");
+	CheckFormulaSort(xCast, "UnsignedBitVector", 32);
+	const Json& xOperands = RequireArray(xCast, "children");
+	CHECK(xOperands.size() == 1);
+	CHECK(RequireString(xOperands.front(), "kind") == "Symbol");
+	CHECK(RequireString(xOperands.front(), "source_text") == "x");
+	CheckFormulaSort(
+		xOperands.front(),
+		"UnsignedBitVector",
+		16);
+
+	const Json& multiplier =
+		UnwrapGroups(multiplicationChildren[1]);
+	CHECK(RequireString(multiplier, "kind") == "BitVectorLiteral");
+	CHECK(RequireString(multiplier, "literal_value") == "65536u32");
+	CheckFormulaSort(multiplier, "UnsignedBitVector", 32);
+
+	const Json& yCast = UnwrapGroups(additionChildren[1]);
+	CHECK(RequireString(yCast, "kind") == "Cast");
+	CHECK(RequireString(yCast, "operator") == "uint32");
+	CheckFormulaSort(yCast, "UnsignedBitVector", 32);
+	const Json& yOperands = RequireArray(yCast, "children");
+	CHECK(yOperands.size() == 1);
+	CHECK(RequireString(yOperands.front(), "kind") == "Symbol");
+	CHECK(RequireString(yOperands.front(), "source_text") == "y");
+	CheckFormulaSort(
+		yOperands.front(),
+		"UnsignedBitVector",
+		16);
+}
+
+void TestRefinementArithmeticCastTarget(
+	const std::string& fixtureDirectory)
+{
+	const CompileResult result = CompileFixture(
+		fixtureDirectory,
+		"dependency_arithmetic_cast.prd");
+	CheckTopLevel(result, "ProtocolDependencyArithmeticCast");
+	const Json& site =
+		RequireArray(result.manifest, "relay_sites").front();
+	const Json& refinement = RequireRefinement(result.manifest);
+	const Json* targetRelation = FindConstraint(
+		refinement,
+		"RelayTargetRelation",
+		RequireString(site, "id"));
+	CHECK(targetRelation != nullptr);
+	CheckUint32CoordinateFormula(
+		RequireRelationSourceExpression(*targetRelation),
+		"arithmetic/cast target");
+}
+
+void TestRefinementPreStateTarget(
+	const std::string& fixtureDirectory)
+{
+	const CompileResult result = CompileFixture(
+		fixtureDirectory,
+		"dependency_state_owner.prd");
+	CheckTopLevel(result, "ProtocolDependencyStateOwner");
+	const Json& site =
+		RequireArray(result.manifest, "relay_sites").front();
+	const std::string siteId = RequireString(site, "id");
+	const Json& refinement = RequireRefinement(result.manifest);
+	const Json* targetRelation =
+		FindConstraint(refinement, "RelayTargetRelation", siteId);
+	CHECK(targetRelation != nullptr);
+	const Json& target =
+		RequireRelationSourceExpression(*targetRelation);
+	CHECK(RequireString(target, "kind") == "Symbol");
+	CheckFormulaSort(target, "Address");
+	const Json* preState = FindRefinementSymbol(
+		refinement,
+		"PreStateVariable",
+		"owner",
+		std::string(),
+		RequireString(site, "source_function_id"));
+	CHECK(preState != nullptr);
+	CHECK(
+		RequireString(target, "symbol_id") ==
+		RequireString(*preState, "id"));
+	CHECK(
+		RequireArray(*preState, "dependencies") ==
+		Json::array({ "CurrentScopeState" }));
+	CHECK(
+		RequireString(*preState, "availability") ==
+		"AfterScopeLoad");
+	CheckObligationStatus(
+		FindProofObligation(
+			refinement,
+			"RelayTargetEquality",
+			siteId),
+		"Generated",
+		"pre-state target equality");
+}
+
+void TestRefinementUint32OverflowAndCast(
+	const std::string& fixtureDirectory)
+{
+	const CompileResult result = CompileFixture(
+		fixtureDirectory,
+		"refinement_uint32_wrap.prd");
+	CheckTopLevel(result, "ProtocolRefinementUint32Wrap");
+	const Json& site =
+		RequireArray(result.manifest, "relay_sites").front();
+	const Json& refinement = RequireRefinement(result.manifest);
+	const Json* targetRelation = FindConstraint(
+		refinement,
+		"RelayTargetRelation",
+		RequireString(site, "id"));
+	CHECK(targetRelation != nullptr);
+	const Json& addition = UnwrapGroups(
+		RequireRelationSourceExpression(*targetRelation));
+	CHECK(RequireString(addition, "kind") == "Binary");
+	CHECK(RequireString(addition, "operator") == "+");
+	CheckFormulaSort(addition, "UnsignedBitVector", 32);
+	const Json& operands = RequireArray(addition, "children");
+	CHECK(operands.size() == 2);
+	const Json& cast = UnwrapGroups(operands[0]);
+	CHECK(RequireString(cast, "kind") == "Cast");
+	CHECK(RequireString(cast, "operator") == "uint32");
+	CheckFormulaSort(cast, "UnsignedBitVector", 32);
+	const Json& castOperand =
+		RequireArray(cast, "children").front();
+	CHECK(RequireString(castOperand, "kind") == "Symbol");
+	CheckFormulaSort(
+		castOperand,
+		"UnsignedBitVector",
+		64);
+	const Json& maximum = UnwrapGroups(operands[1]);
+	CHECK(RequireString(maximum, "kind") == "BitVectorLiteral");
+	CHECK(
+		RequireString(maximum, "literal_value") ==
+		"4294967295u32");
+	CheckFormulaSort(maximum, "UnsignedBitVector", 32);
+	CHECK(FindFormulaNode(addition, "IntLiteral") == nullptr);
+}
+
+void TestRefinementBooleanGuardAndArrayLength(
+	const std::string& fixtureDirectory)
+{
+	const CompileResult booleanResult = CompileFixture(
+		fixtureDirectory,
+		"refinement_boolean_guard.prd");
+	CheckTopLevel(
+		booleanResult,
+		"ProtocolRefinementBooleanGuard");
+	const Json& booleanSite =
+		RequireArray(booleanResult.manifest, "relay_sites").front();
+	const Json& booleanRefinement =
+		RequireRefinement(booleanResult.manifest);
+	const Json* guard = FindConstraint(
+		booleanRefinement,
+		"RelayGuardNecessity",
+		RequireString(booleanSite, "id"));
+	CHECK(guard != nullptr);
+	const Json& predicate = RequireBinaryChild(
+		RequireField(*guard, "formula"),
+		"implies",
+		1);
+	CHECK(FindFormulaNode(predicate, "Binary", "&&") != nullptr);
+	CHECK(FindFormulaNode(predicate, "Binary", "||") != nullptr);
+	CHECK(FindFormulaNode(predicate, "Binary", "<") != nullptr);
+	CHECK(FindFormulaNode(predicate, "Unary", "!") != nullptr);
+	CheckFormulaSort(predicate, "Bool");
+
+	const CompileResult arrayResult = CompileFixture(
+		fixtureDirectory,
+		"refinement_array_length.prd");
+	CheckTopLevel(
+		arrayResult,
+		"ProtocolRefinementArrayLength");
+	const Json& arraySite =
+		RequireArray(arrayResult.manifest, "relay_sites").front();
+	const std::string arraySiteId =
+		RequireString(arraySite, "id");
+	const Json& arrayRefinement =
+		RequireRefinement(arrayResult.manifest);
+	const Json* targetRelation = FindConstraint(
+		arrayRefinement,
+		"RelayTargetRelation",
+		arraySiteId);
+	CHECK(targetRelation != nullptr);
+	const Json& length = UnwrapGroups(
+		RequireRelationSourceExpression(*targetRelation));
+	CHECK(RequireString(length, "kind") == "ArrayLength");
+	CheckFormulaSort(length, "UnsignedBitVector", 32);
+	CHECK(RequireArray(length, "children").size() == 1);
+	CheckObligationStatus(
+		FindProofObligation(
+			arrayRefinement,
+			"RelayTargetEquality",
+			arraySiteId),
+		"Generated",
+		"array length target equality");
+}
+
+void TestRefinementMillionPixel(
+	const std::string& fixtureDirectory)
+{
+	const CompileResult result = CompileFixture(
+		fixtureDirectory + "/../../../simulator/contracts",
+		"MillionPixel.prd");
+	CheckTopLevel(result, "MillionPixel");
+	const Json& sites =
+		RequireArray(result.manifest, "relay_sites");
+	CHECK(sites.size() == 1);
+	const Json& site = sites.front();
+	CHECK(Compact(
+		RequireString(
+			RequireField(site, "target"),
+			"text")) == "index");
+	const std::string siteId = RequireString(site, "id");
+	const Json& refinement = RequireRefinement(result.manifest);
+	const Json* targetRelation =
+		FindConstraint(refinement, "RelayTargetRelation", siteId);
+	CHECK(targetRelation != nullptr);
+	CheckUint32CoordinateFormula(
+		RequireRelationSourceExpression(*targetRelation),
+		"MillionPixel local index target");
+	CheckObligationStatus(
+		FindProofObligation(
+			refinement,
+			"RelayTargetEquality",
+			siteId),
+		"Generated",
+		"MillionPixel target equality");
+}
+
 void TestSummaryConditional(const std::string& fixtureDirectory)
 {
 	const CompileResult result =
@@ -1245,6 +2058,93 @@ void TestSummaryConditional(const std::string& fixtureDirectory)
 	CheckSummaryFanout(summary, "single_target");
 	CheckSummaryOrdering(summary, "trivial");
 	CHECK(RequireString(summary, "analysis_status") == "exact");
+
+	const Json& refinement = RequireRefinement(result.manifest);
+	const Json& site = sites.front();
+	const std::string siteId = RequireString(site, "id");
+	const std::string functionId =
+		RequireString(site, "source_function_id");
+
+	const Json* argumentRelation = FindConstraint(
+		refinement,
+		"RelayArgumentRelation",
+		siteId,
+		std::string(),
+		0);
+	CHECK(argumentRelation != nullptr);
+	const Json& argumentFormula =
+		RequireRelationSourceExpression(*argumentRelation);
+	CHECK(RequireString(argumentFormula, "kind") == "Symbol");
+	CHECK(RequireString(argumentFormula, "source_text") == "value");
+	CheckFormulaSort(argumentFormula, "UnsignedBitVector", 32);
+	const Json* argumentParameter =
+		FindRefinementSymbol(
+			refinement,
+			"SourceFunctionParameter",
+			"value",
+			std::string(),
+			functionId);
+	CHECK(argumentParameter != nullptr);
+	CHECK(
+		RequireString(argumentFormula, "symbol_id") ==
+		RequireString(*argumentParameter, "id"));
+	CheckObligationStatus(
+		FindProofObligation(
+			refinement,
+			"RelayArgumentEquality",
+			siteId,
+			std::string(),
+			0),
+		"Generated",
+		"relay argument equals source parameter");
+
+	const Json* guard = FindConstraint(
+		refinement,
+		"RelayGuardNecessity",
+		siteId);
+	CHECK(guard != nullptr);
+	const Json& guardPredicate = RequireBinaryChild(
+		RequireField(*guard, "formula"),
+		"implies",
+		1);
+	CHECK(RequireString(guardPredicate, "kind") == "Symbol");
+	CHECK(RequireString(guardPredicate, "source_text") == "enabled");
+	CheckFormulaSort(guardPredicate, "Bool");
+
+	const Json* countEquality = FindConstraint(
+		refinement,
+		"RelayCountEquality",
+		std::string(),
+		functionId);
+	CHECK(countEquality != nullptr);
+	const Json& countFormula =
+		RequireCountExpression(*countEquality);
+	CHECK(RequireString(countFormula, "kind") == "Ite");
+	CheckFormulaSort(countFormula, "Int");
+	const Json& countChildren =
+		RequireArray(countFormula, "children");
+	CHECK(countChildren.size() == 3);
+	CHECK(RequireString(countChildren[0], "kind") == "Symbol");
+	CHECK(RequireString(countChildren[0], "source_text") == "enabled");
+	CHECK(RequireString(countChildren[1], "kind") == "IntLiteral");
+	CHECK(RequireString(countChildren[1], "literal_value") == "1");
+	CHECK(RequireString(countChildren[2], "kind") == "IntLiteral");
+	CHECK(RequireString(countChildren[2], "literal_value") == "0");
+	CheckObligationStatus(
+		FindProofObligation(
+			refinement,
+			"RelayCountEquality",
+			std::string(),
+			functionId),
+		"Generated",
+		"conditional direct count ite");
+	CheckObligationStatus(
+		FindProofObligation(
+			refinement,
+			"RelayGuardEquivalence",
+			siteId),
+		"Unsupported",
+		"conditional guard equivalence needs full CFG proof");
 }
 
 void TestSummarySequential(const std::string& fixtureDirectory)
@@ -1534,6 +2434,12 @@ int main(int argc, char** argv)
 		{ "nested relay lambda", &TestNestedLambda },
 		{ "opaque expression fallback", &TestOpaqueFallback },
 		{ "expression dependency and availability analysis", &TestExpressionDependencies },
+		{ "refinement literal target equality", &TestRefinementLiteralTarget },
+		{ "refinement arithmetic and cast target", &TestRefinementArithmeticCastTarget },
+		{ "refinement pre-state target", &TestRefinementPreStateTarget },
+		{ "refinement uint32 overflow and cast semantics", &TestRefinementUint32OverflowAndCast },
+		{ "refinement Boolean guard and array length", &TestRefinementBooleanGuardAndArrayLength },
+		{ "MillionPixel refinement target formula", &TestRefinementMillionPixel },
 		{ "static summary for conditional relay", &TestSummaryConditional },
 		{ "static summary for sequential relay sites", &TestSummarySequential },
 		{ "static summary for recursive relay handler", &TestSummaryRecursiveHandler },

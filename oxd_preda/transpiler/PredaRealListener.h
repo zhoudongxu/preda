@@ -43,6 +43,20 @@ public:
 		m_expressionParser.SetErrorPortal(&m_errorPortal);
 		m_expressionParser.SetIdentifierHub(&m_identifierHub);
 		m_expressionParser.SetFunctionCallGraph(&m_functionCallGraph);
+		m_relayProtocolCollector.SetExpressionTypeResolver(
+			[this](PredaParser::ExpressionContext *context)
+			{
+				ExpressionParser::ExpressionResult result;
+				if (context == nullptr ||
+					!m_expressionParser.ParseExpression(
+						context,
+						result) ||
+					result.type.baseConcreteType == nullptr)
+				{
+					return std::string();
+				}
+				return result.type.baseConcreteType->inputName;
+			});
 	}
 
 	transpiler::PredaTranspilerContext m_transpilerCtx;

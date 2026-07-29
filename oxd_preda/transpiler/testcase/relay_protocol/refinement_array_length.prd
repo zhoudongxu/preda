@@ -1,0 +1,8 @@
+contract ProtocolRefinementArrayLength {
+    @uint32 function receive() {
+    }
+
+    @address function send(array<uint32> values) export {
+        relay@values.length() receive();
+    }
+}

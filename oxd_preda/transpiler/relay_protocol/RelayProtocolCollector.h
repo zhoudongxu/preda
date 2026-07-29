@@ -2,9 +2,13 @@
 
 #include "RelayProtocolIR.h"
 #include "analysis/RelayDependencyAnalyzer.h"
+#include "refinement/RelayConstraintGenerator.h"
+#include "refinement/RelayFormulaBuilder.h"
+#include "refinement/RelayRefinementSymbolTable.h"
 #include "../antlr_generated/PredaParser.h"
 
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <string>
 #include <vector>
@@ -21,6 +25,13 @@ struct RelayArgumentInput
 	antlr4::ParserRuleContext *sourceContext = nullptr;
 	std::string text;
 	std::string type;
+};
+
+struct RelayFunctionParameterInput
+{
+	std::string name;
+	std::string type;
+	antlr4::ParserRuleContext *sourceContext = nullptr;
 };
 
 struct RelaySiteInput
@@ -51,23 +62,33 @@ class RelayProtocolCollector
 public:
 	explicit RelayProtocolCollector(PredaTranspilerContext &context);
 
+	void SetExpressionTypeResolver(
+		std::function<std::string(
+			PredaParser::ExpressionContext *)> resolver);
 	void Reset(const std::string &dappName, const std::string &contractName);
-	void RegisterStateVariable(const std::string &name);
+	void RegisterStateVariable(
+		const std::string &name,
+		const std::string &type = std::string(),
+		antlr4::ParserRuleContext *sourceContext = nullptr);
 	void RegisterConstant(const std::string &name);
 	void RegisterTypeSymbol(const std::string &name);
 	void BeginFunctionDependencyAnalysis(
 		const std::string &functionId,
 		ScopeType scope,
-		const std::vector<std::string> &parameterNames);
+		const std::vector<RelayFunctionParameterInput> &parameters);
 	void EndFunctionDependencyAnalysis();
 	void PushDependencyScope();
 	void PopDependencyScope();
 	void DeclareLocalDependency(
 		const std::string &name,
-		PredaParser::ExpressionContext *initializer);
+		PredaParser::ExpressionContext *initializer,
+		const std::string &type = std::string(),
+		antlr4::ParserRuleContext *sourceContext = nullptr);
 	void DeclareLoopVariableDependency(
 		const std::string &name,
-		PredaParser::ExpressionContext *initializer);
+		PredaParser::ExpressionContext *initializer,
+		const std::string &type = std::string(),
+		antlr4::ParserRuleContext *sourceContext = nullptr);
 	void PromoteLoopVariableDependency(
 		PredaParser::ExpressionContext *update);
 	void RecordExpressionEffects(
@@ -90,14 +111,31 @@ public:
 		bool hasUnmodeledRelayReachableCall);
 	void Finalize();
 	void BuildSummaries();
+	void BuildRefinement();
 
 	RelayExprIR BuildExpression(
 		PredaParser::ExpressionContext *context,
 		const std::string &type = std::string()) const;
 
 private:
+	struct StateSymbolDeclaration
+	{
+		std::string name;
+		std::string type;
+		SourceLocation location;
+	};
+
 	RelayProtocolIR &m_ir;
 	analysis::RelayDependencyAnalyzer m_dependencyAnalyzer;
+	refinement::RelayFormulaBuilder m_formulaBuilder;
+	refinement::RelayRefinementSymbolTable m_refinementSymbols;
+	std::function<std::string(
+		PredaParser::ExpressionContext *)> m_expressionTypeResolver;
+	std::vector<StateSymbolDeclaration> m_stateSymbols;
+	std::map<std::string, refinement::FormulaExpr>
+		m_expressionFormulaSnapshots;
+	std::map<std::string, bool> m_refinementTypeSymbols;
+	std::string m_currentRefinementFunctionId;
 	std::map<std::string, size_t> m_namedHandlers;
 	bool m_finalized = false;
 
@@ -117,6 +155,10 @@ private:
 		uint64_t sourceFunctionOverloadIndex,
 		ScopeType scope);
 	ProtocolNode BuildProtocolNode(const RelaySite &site) const;
+	refinement::FormulaExpr BuildRefinementFormula(
+		const RelayExprIR &expression) const;
+	void RecordRefinementExpressionEffects(
+		const RelayExprIR &expression);
 };
 
 } // namespace relay_protocol

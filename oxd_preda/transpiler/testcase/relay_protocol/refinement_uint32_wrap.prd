@@ -1,0 +1,8 @@
+contract ProtocolRefinementUint32Wrap {
+    @uint32 function receive(uint32 value) {
+    }
+
+    @address function send(uint64 x, uint32 value) export {
+        relay@(uint32(x) + 4294967295u32) receive(value);
+    }
+}

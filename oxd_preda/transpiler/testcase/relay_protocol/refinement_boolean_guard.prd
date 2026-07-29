@@ -1,0 +1,15 @@
+contract ProtocolRefinementBooleanGuard {
+    @address function receive() {
+    }
+
+    @address function send(
+        bool enabled,
+        uint32 x,
+        uint32 y,
+        address target
+    ) export {
+        if (enabled && (x < y || !(x == 0u32))) {
+            relay@target receive();
+        }
+    }
+}

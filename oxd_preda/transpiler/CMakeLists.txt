@@ -37,6 +37,18 @@ set(RELAY_PROTOCOL_FILES
   ./relay_protocol/analysis/RelaySummaryBuilder.cpp
   ./relay_protocol/analysis/RelaySummaryEmitter.h
   ./relay_protocol/analysis/RelaySummaryEmitter.cpp
+  ./relay_protocol/refinement/RelayFormulaIR.h
+  ./relay_protocol/refinement/RelayFormulaBuilder.h
+  ./relay_protocol/refinement/RelayFormulaBuilder.cpp
+  ./relay_protocol/refinement/RelayRefinementSymbol.h
+  ./relay_protocol/refinement/RelayRefinementSymbolTable.h
+  ./relay_protocol/refinement/RelayRefinementSymbolTable.cpp
+  ./relay_protocol/refinement/RelayConstraint.h
+  ./relay_protocol/refinement/RelayConstraintGenerator.h
+  ./relay_protocol/refinement/RelayConstraintGenerator.cpp
+  ./relay_protocol/refinement/RelayProofObligation.h
+  ./relay_protocol/refinement/RelayRefinementEmitter.h
+  ./relay_protocol/refinement/RelayRefinementEmitter.cpp
 )
 file(GLOB ANTLR_GEN
   ./antlr_generated/*.cpp

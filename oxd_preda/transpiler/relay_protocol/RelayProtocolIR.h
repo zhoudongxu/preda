@@ -3,6 +3,10 @@
 #include "RelayExprIR.h"
 #include "analysis/RelayExpressionDependency.h"
 #include "analysis/RelayProtocolSummary.h"
+#include "refinement/RelayConstraint.h"
+#include "refinement/RelayFormulaIR.h"
+#include "refinement/RelayProofObligation.h"
+#include "refinement/RelayRefinementSymbol.h"
 #include "../transpiler/PredaCommon.h"
 
 #include <cstdint>
@@ -43,6 +47,7 @@ struct RelayArgument
 	RelayExprIR expression;
 	std::string type;
 	analysis::RelayExpressionDependency dependency;
+	refinement::FormulaExpr refinementFormula;
 };
 
 struct BranchCondition
@@ -51,6 +56,7 @@ struct BranchCondition
 	bool polarity = true;
 	std::string arm;
 	SourceLocation location;
+	refinement::FormulaExpr refinementFormula;
 };
 
 struct LoopProtocol
@@ -83,6 +89,7 @@ struct RelaySite
 	RelayKind relayKind = RelayKind::CustomScope;
 	RelayExprIR target;
 	analysis::RelayExpressionDependency targetDependency;
+	refinement::FormulaExpr refinementTargetFormula;
 	ScopeType targetScope = ScopeType::None;
 	std::string targetFunction;
 	std::vector<RelayArgument> arguments;
@@ -150,23 +157,30 @@ struct FunctionProtocol
 
 struct RelayProtocolIR
 {
-	uint32_t schemaVersion = 3;
+	uint32_t schemaVersion = 4;
 	std::string dapp;
 	std::string contract;
 	std::vector<RelaySite> relaySites;
 	std::vector<RelayHandler> handlers;
 	std::vector<RelayProtocolEdge> edges;
 	std::vector<FunctionProtocol> functions;
+	std::vector<refinement::RelayRefinementSymbol> refinementSymbols;
+	std::vector<refinement::RelayConstraint> refinementConstraints;
+	std::vector<refinement::RelayProofObligation>
+		refinementProofObligations;
 
 	void Reset(const std::string &dappName, const std::string &contractName)
 	{
-		schemaVersion = 3;
+		schemaVersion = 4;
 		dapp = dappName;
 		contract = contractName;
 		relaySites.clear();
 		handlers.clear();
 		edges.clear();
 		functions.clear();
+		refinementSymbols.clear();
+		refinementConstraints.clear();
+		refinementProofObligations.clear();
 	}
 };
 
