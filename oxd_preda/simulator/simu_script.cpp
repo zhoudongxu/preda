@@ -9,6 +9,18 @@ namespace oxd
 
 int SimulatorMain(const os::CommandLine& cmd)
 {
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+	int simulatorExitCode = 0;
+	bool relayTraceValidationRequested = false;
+	if(cmd.HasOption("rpreda_trace"))
+	{
+		rt::String relayTraceMode = cmd.GetOption("rpreda_trace");
+		relayTraceMode.MakeLower();
+		relayTraceValidationRequested =
+			relayTraceMode != "off";
+	}
+#endif
+
 #ifdef _DEBUG
 	os::EnableCrashDump("chsimu.dmp", true);
 #endif
@@ -75,7 +87,8 @@ int SimulatorMain(const os::CommandLine& cmd)
 				return 1;
 			}
 		}
-		if(chsimu.Init(cmd))
+		const bool initialized = chsimu.Init(cmd);
+		if(initialized)
 		{
 			os::SetProcessPriority(os::PROCPRIO_HIGH);
 			std::vector<std::pair<rt::String, rt::String>> prdFiles;			// <filePath, fileContent>
@@ -211,11 +224,37 @@ int SimulatorMain(const os::CommandLine& cmd)
 				chsimu.CompileSol(solFile.second, solFile.first);
 		}
 		chsimu.ExportViz();
+
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+		// Strict mode is observed only after workers have stopped and the
+		// final report has been emitted. Worker threads never throw, abort, or
+		// alter scheduling in response to validation.
+		chsimu.Term();
+		if(!initialized)
+		{
+			// A trace-enabled binary running in mode=off preserves the stock
+			// simulator's exit behavior, including initialization failures.
+			// Invalid/observe/strict requests still return a useful failure.
+			simulatorExitCode =
+				relayTraceValidationRequested ? 1 : 0;
+		}
+		else if(chsimu.RelayTraceStrictFailureLatched())
+		{
+			_LOGC_WARNING(
+				"[R-PREDA trace]: strict validation failed; "
+				"returning a non-zero simulator status after shutdown");
+			simulatorExitCode = 2;
+		}
+#endif
 	}
 
 	lockfile.Unlock();
 	lockfile.Close();
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+	return simulatorExitCode;
+#else
 	return 0;
+#endif
 }
 
 int PredaScriptRunner::Run(ChainSimulator& _chsimu, const std::string& fileContent)

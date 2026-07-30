@@ -10,6 +10,7 @@
 #include "PredaCompiledContracts.h"
 #include "ContractRuntimeInstance.h"
 #include "SymbolDBForTranspiler.h"
+#include "RelayManifestBinding.h"
 
 typedef transpiler::ITranspiler* (*FNCreateTranspilerInstance)(const char *options);
 FNCreateTranspilerInstance CreateTranspilerInstance = nullptr;
@@ -83,6 +84,46 @@ bool ReadEntryFromJson(const rt::JsonObject &json, ContractDatabaseEntry &outEnt
 		if (!bExist) return false;
 		::rvm::RvmTypeJsonParse(outEntry.compileData.intermediateHash, jsonStr);
 	}
+
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+	// These fields are additive. A database created by a trace-disabled or
+	// older engine remains loadable; it simply has no trusted manifest
+	// binding and validation must treat it as BindingMissing.
+	outEntry.compileData.relayManifestTranspilerVersion.clear();
+	outEntry.compileData.relayManifestHash = {};
+	outEntry.compileData.relayManifestBindingComplete = false;
+	bool hasRelayManifestTranspilerVersion = false;
+	const rt::String_Ref relayManifestTranspilerVersion =
+		json.GetValue(
+			"relay_manifest_transpiler_version",
+			hasRelayManifestTranspilerVersion);
+	if (hasRelayManifestTranspilerVersion)
+	{
+		outEntry.compileData.relayManifestTranspilerVersion =
+			std::string(
+				relayManifestTranspilerVersion.GetString(),
+				relayManifestTranspilerVersion.GetLength());
+	}
+
+	rt::String_Ref relayManifestHashJson;
+	rvm::HashValue parsedRelayManifestHash = {};
+	const bool hasValidRelayManifestHash =
+		json.LoadValue(
+			"relay_manifest_hash",
+			relayManifestHashJson) &&
+		::rvm::RvmTypeJsonParse(
+			parsedRelayManifestHash,
+			relayManifestHashJson);
+	if (hasValidRelayManifestHash)
+	{
+		outEntry.compileData.relayManifestHash =
+			parsedRelayManifestHash;
+	}
+	outEntry.compileData.relayManifestBindingComplete =
+		hasRelayManifestTranspilerVersion &&
+		!outEntry.compileData.relayManifestTranspilerVersion.empty() &&
+		hasValidRelayManifestHash;
+#endif
 
 	// state variables
 	{
@@ -721,6 +762,39 @@ const ContractDatabaseEntry* CContractDatabase::FindContractEntry(const rvm::Con
 	return FindContractEntry(*moduleId);
 }
 
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+bool CContractDatabase::GetRelayTraceArtifactBinding(
+	const rvm::ContractModuleID &moduleId,
+	rvm::RelayTraceArtifactBinding &out) const noexcept
+{
+	out = {};
+	const ContractDatabaseEntry *entry = FindContractEntry(moduleId);
+	if (entry == nullptr)
+		return false;
+
+	const ContractCompileData &compileData = entry->compileData;
+	out.moduleId = compileData.moduleId;
+	out.intermediateHash = compileData.intermediateHash;
+	out.manifestHash = compileData.relayManifestHash;
+	out.dapp = {
+		compileData.dapp.data(),
+		static_cast<uint32_t>(compileData.dapp.size())
+	};
+	out.contract = {
+		compileData.name.data(),
+		static_cast<uint32_t>(compileData.name.size())
+	};
+	out.transpilerVersion = {
+		compileData.relayManifestTranspilerVersion.data(),
+		static_cast<uint32_t>(
+			compileData.relayManifestTranspilerVersion.size())
+	};
+	out.bindingComplete =
+		compileData.relayManifestBindingComplete;
+	return true;
+}
+#endif
+
 static bool endsWith(std::string_view str, std::string_view suffix)
 {
 	return str.size() >= suffix.size() && 0 == str.compare(str.size() - suffix.size(), suffix.size(), suffix);
@@ -1053,6 +1127,52 @@ bool CContractDatabase::_Compile(IContractFullNameToModuleIdLookupTable* lookup,
 				srcBuffer->importedModuleIds[importIdx] = *moduleId;
 			}
 			oxd::SecuritySuite::Hash(&buffer[0], (uint32_t)buffer.size(), &curContractCompiledData.moduleId);
+
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+			const char *compilationTranspilerVersion =
+				currentTranspiler->GetVersion();
+			std::string relayManifestBindingError;
+			rvm::HashValue relayManifestHash = {};
+			const bool relayManifestBindingSucceeded =
+				compilationTranspilerVersion != nullptr &&
+				rpreda::FinalizeAndPublishRelayManifest(
+					currentTranspiler->GetRelayProtocolJson(),
+					m_dbPath,
+					curContractCompiledData.dapp,
+					curContractCompiledData.name,
+					compilationTranspilerVersion,
+					curContractCompiledData.intermediateHash,
+					curContractCompiledData.moduleId,
+					relayManifestHash,
+					relayManifestBindingError);
+			if (relayManifestBindingSucceeded)
+			{
+				curContractCompiledData
+					.relayManifestTranspilerVersion =
+					compilationTranspilerVersion;
+				curContractCompiledData.relayManifestHash =
+					relayManifestHash;
+				curContractCompiledData
+					.relayManifestBindingComplete = true;
+			}
+			else
+			{
+				if (relayManifestBindingError.empty())
+				{
+					relayManifestBindingError =
+						"Compilation-time transpiler version "
+						"is unavailable";
+				}
+				_LOG_WARNING(
+					"[R-PREDA]: Relay manifest binding was not "
+					"published: " << relayManifestBindingError);
+
+				// Trace metadata is read-only. Failure to publish it must
+				// not suppress the normal compiler/linker path. Observe
+				// mode will disable validation for this module; strict mode
+				// will latch the missing binding at its simulator safe point.
+			}
+#endif
 
 			// fill the interface module ids
 			for (ContractImplementedInterface& implInterface : curContractCompiledData.implementedInterfaces)
@@ -1438,6 +1558,13 @@ bool CContractDatabase::LinkContract(const std::string &source_code, const std::
 {
 	EnterCSBlock(m_barrier);
 
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+	constexpr const char* relayTraceCompilerDefine =
+		" -DRPREDA_ENABLE_RUNTIME_TRACE=1";
+#else
+	constexpr const char* relayTraceCompilerDefine = "";
+#endif
+
 	char s[30];
 #ifdef _WIN32
 	sprintf_s(s, "_stage%016llx", m_nextLinkStageIdx++);
@@ -1489,7 +1616,12 @@ bool CContractDatabase::LinkContract(const std::string &source_code, const std::
 #if	defined(__linux__) || defined(__linux) || defined(__APPLE__)
 		if (m_runtime_mode == RuntimeMode::NATIVE)
 		{
-			std::string cmdLine = "g++ -O3 -I" + m_modulePath + "../compile_env/ -shared -fPIC -std=c++17 -o\"" + m_dbPath + contractBinPathFileName + "\" \"" + m_dbPath + "/transpiledCode.cpp\" 2>&1";
+			std::string cmdLine = "g++ -O3" +
+				std::string(relayTraceCompilerDefine) + " -I" +
+				m_modulePath +
+				"../compile_env/ -shared -fPIC -std=c++17 -o\"" +
+				m_dbPath + contractBinPathFileName + "\" \"" +
+				m_dbPath + "/transpiledCode.cpp\" 2>&1";
 			FILE *pipe = popen(cmdLine.c_str(), "r");
 			if (pipe == nullptr)
 			{
@@ -1516,13 +1648,17 @@ bool CContractDatabase::LinkContract(const std::string &source_code, const std::
 #if defined(__APPLE__)
 			std::string cmdLine = m_modulePath + "../emscripten/3.1.24/emsdk activate 3.1.24 2>&1 && " +
 				"source " + m_modulePath + "../emscripten/3.1.24/emsdk_env.sh 2>&1 && "
-				"emcc -Oz --profiling-funcs --no-entry -DNDEBUG -sRELOCATABLE -sALLOW_MEMORY_GROWTH -sMALLOC=none -fPIC -fvisibility=hidden -sERROR_ON_UNDEFINED_SYMBOLS=0 -I" +
+				"emcc -Oz --profiling-funcs --no-entry -DNDEBUG" +
+				std::string(relayTraceCompilerDefine) +
+				" -sRELOCATABLE -sALLOW_MEMORY_GROWTH -sMALLOC=none -fPIC -fvisibility=hidden -sERROR_ON_UNDEFINED_SYMBOLS=0 -I" +
 				m_modulePath + "../compile_env/ -std=c++17 -o\"" +
 				out_wasm + "\" \"" + m_dbPath + "transpiledCode.cpp\" 2>&1";
 #else
 			std::string cmdLine = std::string("bash -c \"") +  m_modulePath + "../emscripten/3.1.24/emsdk activate 3.1.24 && " +
 				"source " + m_modulePath + "../emscripten/3.1.24/emsdk_env.sh && "
-				"emcc -Oz --profiling-funcs --no-entry -DNDEBUG -sRELOCATABLE -sALLOW_MEMORY_GROWTH -sMALLOC=none -fPIC -fvisibility=hidden -sERROR_ON_UNDEFINED_SYMBOLS=0 -I" +
+				"emcc -Oz --profiling-funcs --no-entry -DNDEBUG" +
+				std::string(relayTraceCompilerDefine) +
+				" -sRELOCATABLE -sALLOW_MEMORY_GROWTH -sMALLOC=none -fPIC -fvisibility=hidden -sERROR_ON_UNDEFINED_SYMBOLS=0 -I" +
 				m_modulePath + "../compile_env/ -std=c++17 -o" +
 				out_wasm + " " + m_dbPath + "/transpiledCode.cpp\" 2>&1";
 #endif
@@ -1584,7 +1720,13 @@ bool CContractDatabase::LinkContract(const std::string &source_code, const std::
 		{
 			if (m_runtime_mode == RuntimeMode::NATIVE)
 			{
-				std::string cmdLine = m_modulePath + "../mingw64/bin/g++ -O3 -I" + m_modulePath + "../compile_env/ -shared -std=c++17 -o \"" + m_dbPath + contractBinPathFileName + "\" \"" + m_dbPath + "/transpiledCode.cpp\"";
+				std::string cmdLine = m_modulePath +
+					"../mingw64/bin/g++ -O3" +
+					std::string(relayTraceCompilerDefine) + " -I" +
+					m_modulePath +
+					"../compile_env/ -shared -std=c++17 -o \"" +
+					m_dbPath + contractBinPathFileName + "\" \"" +
+					m_dbPath + "/transpiledCode.cpp\"";
 				if (!processLauncher.Launch(cmdLine.c_str(), os::LaunchProcess::FLAG_SAVE_OUTPUT))
 				{
 					out_log.AddMessage(0, 0, 0, ("Failed to execute " + cmdLine).c_str());
@@ -1609,7 +1751,9 @@ bool CContractDatabase::LinkContract(const std::string &source_code, const std::
 			else {
 				std::string out_wasm = m_dbPath + "bin/" + contractIdString + ".wasm";
 				std::string cmdLine = std::string("emsdk.bat activate 3.1.24 && ") +
-					"emcc -Oz --profiling-funcs --no-entry -DNDEBUG -sRELOCATABLE -sALLOW_MEMORY_GROWTH -sMALLOC=none -fPIC -fvisibility=hidden -sERROR_ON_UNDEFINED_SYMBOLS=0 -I" +
+					"emcc -Oz --profiling-funcs --no-entry -DNDEBUG" +
+					std::string(relayTraceCompilerDefine) +
+					" -sRELOCATABLE -sALLOW_MEMORY_GROWTH -sMALLOC=none -fPIC -fvisibility=hidden -sERROR_ON_UNDEFINED_SYMBOLS=0 -I" +
 					m_modulePath + "../compile_env/ -std=c++17 -o" +
 					out_wasm + " " + m_dbPath + "transpiledCode.cpp";
 				if (!processLauncher.Launch(cmdLine.c_str(), os::LaunchProcess::FLAG_SAVE_OUTPUT))
@@ -1662,7 +1806,16 @@ bool CContractDatabase::LinkContract(const std::string &source_code, const std::
 			}
 		}
 		else {
-			std::string cmdLine = "cl /LDd /Zi /D \"WIN32\" /D \"_DEBUG\" /D \"TESTPREDADLL_EXPORTS\" /D \"_WINDOWS\" /D \"_USRDLL\" /D \"_WINDLL\" /D \"_UNICODE\" /D \"UNICODE\" /std:c++17 /FC /EHsc /Fo -I" + m_modulePath + "../compile_env/ " + m_dbPath + "/transpiledCode.cpp -o" + m_dbPath + contractBinPathFileName;
+			std::string cmdLine =
+				"cl /LDd /Zi /D \"WIN32\" /D \"_DEBUG\" "
+				"/D \"TESTPREDADLL_EXPORTS\" /D \"_WINDOWS\" "
+				"/D \"_USRDLL\" /D \"_WINDLL\" /D \"_UNICODE\" "
+				"/D \"UNICODE\"" +
+				std::string(relayTraceCompilerDefine) +
+				" /std:c++17 /FC /EHsc /Fo -I" + m_modulePath +
+				"../compile_env/ " + m_dbPath +
+				"/transpiledCode.cpp -o" + m_dbPath +
+				contractBinPathFileName;
 			SIZE_T eof = config_File.SeekToEnd();
 			config_File.SeekToBegin();
 			std::vector<char> buf;
@@ -1891,6 +2044,28 @@ bool CContractDatabase::Deploy(const rvm::GlobalStates* chain_state, rvm::Compil
 				std::string json = ConvertEntryToJson(&entries[idx]);
 				m_contractDB.Set(moduleId, json.c_str());
 			}
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+			else if (
+				entries[idx].compileData
+					.relayManifestBindingComplete)
+			{
+				// The executable/link artifact is already trusted under this
+				// module ID. Refresh only the trace binding so a recompile of
+				// that same module cannot leave the module-addressed manifest
+				// and the module database with different expected hashes.
+				itor->second.compileData
+					.relayManifestTranspilerVersion =
+					entries[idx].compileData
+						.relayManifestTranspilerVersion;
+				itor->second.compileData.relayManifestHash =
+					entries[idx].compileData.relayManifestHash;
+				itor->second.compileData
+					.relayManifestBindingComplete = true;
+				const std::string json =
+					ConvertEntryToJson(&itor->second);
+				m_contractDB.Set(moduleId, json.c_str());
+			}
+#endif
 		}
 	}
 
@@ -1919,6 +2094,21 @@ std::string CContractDatabase::ConvertEntryToJson(const ContractDatabaseEntry *p
 		::rvm::RvmTypeJsonify(pEntry->compileData.intermediateHash, res);
 		json += "\t\"inter_hash\": " + std::string(res.GetInternalString()) + ",\n";
 	}
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+	if (pEntry->compileData.relayManifestBindingComplete)
+	{
+		json += "\t\"relay_manifest_transpiler_version\": \"" +
+			pEntry->compileData.relayManifestTranspilerVersion +
+			"\",\n";
+		rt::Json manifestHashJson;
+		::rvm::RvmTypeJsonify(
+			pEntry->compileData.relayManifestHash,
+			manifestHashJson);
+		json += "\t\"relay_manifest_hash\": " +
+			std::string(manifestHashJson.GetInternalString()) +
+			",\n";
+	}
+#endif
 
 	// state vars
 	json += "\t\"sv\": [\n";

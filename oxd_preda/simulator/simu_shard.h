@@ -2,6 +2,11 @@
 #include "shard_data.h"
 #include "../native/types/typetraits.h"
 #include "core_contracts.h"
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+#include "../native/abi/relay_trace_abi.h"
+#include "relay_trace/RelayTraceTypes.h"
+#include <vector>
+#endif
 
 #ifndef __APPLE__
 #include <memory_resource>
@@ -59,6 +64,9 @@ struct ShardStates
 class SimuShard: public rvm::ExecutionContext
 			   , protected rvm::NativeTokens
 			   , protected ShardStates
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+			   , public rvm::IRelayTraceExecutionContext
+#endif
 {
 protected:
 	ExecutionUnit				_ExecUnits;
@@ -106,6 +114,21 @@ protected:
 	bool						_IsGlobalScope() const { return (SimuShard*)_pGlobalShard == this; }
 	uint64_t					_GetBlockTime() const { return _BlockTimeBase + _BlockHeight*SIMU_BLOCK_INTERVAL; }
 	SimuTxn*					_CreateRelayTxn(rvm::ContractInvokeId ciid, rvm::OpCode opcode, const rvm::ConstData* args_serialized, uint32_t gas_redistribution_weight) const;
+
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+	struct RelayTraceMarkerToken
+	{
+		rvm::ContractModuleID module{};
+		uint32_t ordinal = 0;
+		uint64_t generation = 0;
+	};
+	std::vector<RelayTraceMarkerToken> _RelayTraceMarkerStack;
+
+	void _FinalizeRelayTraceEmission(
+		SimuTxn* txn,
+		relay_trace::RelayKind relayKind,
+		relay_trace::ScopeKind targetScopeKind) const noexcept;
+#endif
 
 public:
 	/////////////////////////////////////////////////////
@@ -177,6 +200,15 @@ protected:
 	virtual bool					EmitRelayToGlobal(rvm::ContractInvokeId cid, rvm::OpCode opcode, const rvm::ConstData* args_serialized, uint32_t gas_redistribution_weight) override;
 	virtual bool					EmitRelayDeferred(rvm::ContractInvokeId cid, rvm::OpCode opcode, const rvm::ConstData* args_serialized, uint32_t gas_redistribution_weight) override;
 	virtual bool					EmitBroadcastToShards(rvm::ContractInvokeId cid, rvm::OpCode opcode, const rvm::ConstData* args_serialized, uint32_t gas_redistribution_weight) override;
+
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+	virtual void					PushRelayTraceSite(
+		const rvm::ContractModuleID& emittingModule,
+		uint32_t siteOrdinal) noexcept override;
+	virtual void					PopRelayTraceSite(
+		const rvm::ContractModuleID& emittingModule,
+		uint32_t siteOrdinal) noexcept override;
+#endif
 
 	virtual rvm::ContractVersionId	DeployUnnamedContract(rvm::ContractVersionId deploy_initiator, uint64_t initiator_dappname, const rvm::DeployedContract* origin_deploy) override { ASSERT(0); return rvm::ContractVersionIdInvalid; } // for global shard only
 	virtual rvm::ExecuteResult		Invoke(uint32_t gas_limit, rvm::ContractInvokeId contract, rvm::OpCode opcode, const rvm::ConstData* args_serialized) override; // return pointer will be invalid after next call of `Invoke` or `SetReturnValue`

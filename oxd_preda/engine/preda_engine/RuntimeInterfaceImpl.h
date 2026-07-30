@@ -10,6 +10,10 @@
 
 #include "../../native/abi/vm_interfaces.h"
 #include "../../bin/compile_env/include/runtime_interface.h"
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+#include "../../native/abi/relay_trace_abi.h"
+#include "../../bin/compile_env/include/relay_trace.h"
+#endif
 #include "../../../SFC/core/ext/bignum/ttmath/ttmath.h"
 #include "../../../SFC/core/ext/bignum/precision_num.h"
 #include "bigint.h"
@@ -31,7 +35,11 @@ TYPEDEFINE(512, LongInt, Int)
 class CExecutionEngine;
 class CContractDatabase;
 
-class CRuntimeInterface : public prlrt::IRuntimeInterface {
+class CRuntimeInterface : public prlrt::IRuntimeInterface
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+	, public prlrt::IRelayTraceRuntimeInterface
+#endif
+{
 private:
 	struct ContractStackEntry
 	{
@@ -207,6 +215,13 @@ public:
 public:
 	CRuntimeInterface(CContractDatabase *pDB);
 	~CRuntimeInterface();
+
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+	void PushRelayTraceSite(
+		prlrt::RelaySiteOrdinal ordinal) noexcept override;
+	void PopRelayTraceSite(
+		prlrt::RelaySiteOrdinal ordinal) noexcept override;
+#endif
 
 #define PREDA_INTERFACE_IMPL_METHOD_V(RET, FN, ...) RET FN(__VA_ARGS__) override;
 	FOR_EACH_PREDA_INTERFACE_METHOD(PREDA_INTERFACE_IMPL_METHOD_V)

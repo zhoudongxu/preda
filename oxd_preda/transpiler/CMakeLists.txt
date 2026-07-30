@@ -121,6 +121,9 @@ source_group("relay_protocol" FILES ${RELAY_PROTOCOL_FILES})
 source_group("antlr_generated" FILES ${ANTLR_GEN})
 source_group("antlr_generated/crystality" FILES ${CRYSTILITY_ANTLR_GEN})
 add_library(transpiler SHARED ${TRANSPILER_SOURCES} ${TRANSPILER_FILES} ${RELAY_PROTOCOL_FILES} ${ANTLR_GEN} ${CRYSTILITY_ANTLR_GEN})
+if(RPREDA_ENABLE_RUNTIME_TRACE)
+  target_compile_definitions(transpiler PRIVATE RPREDA_ENABLE_RUNTIME_TRACE=1)
+endif()
 if(RPREDA_ENABLE_Z3)
   target_compile_definitions(transpiler PRIVATE RPREDA_ENABLE_Z3=1)
   target_link_libraries(transpiler PRIVATE ${RPREDA_Z3_TARGET})
@@ -209,6 +212,13 @@ if(BUILD_TESTING)
     ./test/RelayProtocolIRTests.cpp
   )
   target_link_libraries(relay_protocol_ir_tests PRIVATE transpiler)
+  if(RPREDA_ENABLE_RUNTIME_TRACE)
+    target_compile_definitions(
+      relay_protocol_ir_tests
+      PRIVATE
+      RPREDA_ENABLE_RUNTIME_TRACE=1
+    )
+  endif()
   if(RPREDA_ENABLE_Z3)
     target_compile_definitions(relay_protocol_ir_tests PRIVATE RPREDA_ENABLE_Z3=1)
     target_link_libraries(relay_protocol_ir_tests PRIVATE ${RPREDA_Z3_TARGET})

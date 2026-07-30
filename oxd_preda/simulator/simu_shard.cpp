@@ -3,6 +3,13 @@
 #include "simu_global.h"
 #include "chain_simu.h"
 
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+#include "relay_trace/RelayManifestLoader.h"
+
+#include <exception>
+#include <optional>
+#endif
+
 #if defined(__linux__) && defined(AFFINITY_SET)
 #include <pthread.h>
 #include <sched.h>
@@ -11,6 +18,78 @@
 
 namespace oxd
 {
+
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+namespace
+{
+
+relay_trace::ScopeKind GetRelayTraceScopeKind(rvm::Scope scope)
+{
+	switch (scope)
+	{
+	case rvm::Scope::Global:
+		return relay_trace::ScopeKind::Global;
+	case rvm::Scope::Shard:
+		return relay_trace::ScopeKind::Shard;
+	case rvm::Scope::Address:
+		return relay_trace::ScopeKind::Address;
+	default:
+		break;
+	}
+
+	const auto keyType = static_cast<rvm::ScopeKeySized>(
+		static_cast<uint8_t>(rvm::SCOPE_KEYSIZETYPE(scope)) &
+		static_cast<uint8_t>(rvm::ScopeKeySized::BaseTypeBitmask));
+	switch (keyType)
+	{
+	case rvm::ScopeKeySized::Address:
+		return relay_trace::ScopeKind::Address;
+	case rvm::ScopeKeySized::UInt32:
+		return relay_trace::ScopeKind::Uint32;
+	case rvm::ScopeKeySized::UInt64:
+		return relay_trace::ScopeKind::Uint64;
+	case rvm::ScopeKeySized::UInt96:
+		return relay_trace::ScopeKind::Uint96;
+	case rvm::ScopeKeySized::UInt128:
+		return relay_trace::ScopeKind::Uint128;
+	case rvm::ScopeKeySized::UInt160:
+		return relay_trace::ScopeKind::Uint160;
+	case rvm::ScopeKeySized::UInt256:
+		return relay_trace::ScopeKind::Uint256;
+	case rvm::ScopeKeySized::UInt512:
+		return relay_trace::ScopeKind::Uint512;
+	default:
+		return relay_trace::ScopeKind::Unknown;
+	}
+}
+
+std::string GetRelayTraceModuleIdentity(
+	const rvm::ContractModuleID& module)
+{
+	return relay_trace::RelayManifestLoader::RuntimeHashIdentity(module);
+}
+
+template<typename Observer>
+void RunRelayTraceObservation(
+	relay_trace::RelayTraceCollector* collector,
+	const char* operation,
+	Observer&& observer) noexcept
+{
+	try
+	{
+		observer();
+	}
+	catch (...)
+	{
+		// Runtime tracing is observational. Allocation, parsing, reporting,
+		// or validation failures must never alter the transaction path.
+		if (collector != nullptr)
+			collector->RecordObserverFailureNoexcept(operation);
+	}
+}
+
+} // namespace
+#endif
 
 void ShardStates::Revert()
 {
@@ -242,8 +321,166 @@ SimuTxn* SimuShard::_CreateRelayTxn(rvm::ContractInvokeId ciid, rvm::OpCode opco
 
 	sec::Hash<sec::HASH_SHA256>().Calculate(((char*)txn) + sizeof(rvm::HashValue), txn->GetSize() - sizeof(rvm::HashValue), &txn->Hash);
 
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+	auto* relayTraceCollector = _pSimulator->GetRelayTraceCollector();
+	RunRelayTraceObservation(
+		relayTraceCollector,
+		"relay creation",
+		[&]()
+	{
+		if (relayTraceCollector == nullptr)
+			return;
+
+		std::string targetModuleId;
+		const auto* deployed = GetContractDeployed(
+			rvm::CONTRACT_UNSET_SCOPE(ciid));
+		if (deployed != nullptr)
+			targetModuleId =
+				GetRelayTraceModuleIdentity(deployed->Module);
+
+		const rvm::ConstData copiedArguments = txn->GetArguments();
+		relay_trace::RelayCreateInput input;
+		input.parentTransaction = _pTxn;
+		input.childTransaction = txn;
+		input.targetContractInvoke = ciid;
+		input.targetOpcode = static_cast<uint32_t>(opcode);
+		input.serializedArguments =
+			static_cast<const uint8_t*>(copiedArguments.DataPtr);
+		input.serializedArgumentsSize = copiedArguments.DataSize;
+		input.targetModuleId = std::move(targetModuleId);
+		input.ownerShard = _ShardIndex;
+		relayTraceCollector->RegisterRelayCreation(input);
+	});
+#endif
+
 	return txn;
 }
+
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+void SimuShard::_FinalizeRelayTraceEmission(
+	SimuTxn* txn,
+	relay_trace::RelayKind relayKind,
+	relay_trace::ScopeKind targetScopeKind) const noexcept
+{
+	auto* collector = _pSimulator->GetRelayTraceCollector();
+	RunRelayTraceObservation(
+		collector,
+		"relay emission finalization",
+		[&]()
+	{
+		if (collector == nullptr || txn == nullptr)
+			return;
+
+		std::string relaySiteId;
+		const auto pending = collector->PendingRelayIdentity(txn);
+		if (pending &&
+			pending->relaySiteOrdinal !=
+				relay_trace::InvalidRelaySiteOrdinal &&
+			!_RelayTraceMarkerStack.empty())
+		{
+			relay_trace::ManifestRelaySite site;
+			if (_pSimulator->ResolveRelayTraceSite(
+				_RelayTraceMarkerStack.back().module,
+				pending->relaySiteOrdinal,
+				site))
+			{
+				relaySiteId = site.id;
+				collector->SetPendingRelayResolvedIdentity(
+					txn,
+					site.id,
+					site.sourceFunctionId);
+			}
+		}
+
+		relay_trace::RelayFinalizeInput input;
+		input.childTransaction = txn;
+		if (relayKind == relay_trace::RelayKind::CustomScope ||
+			relayKind == relay_trace::RelayKind::DeferredNext)
+		{
+			input.targetData =
+				reinterpret_cast<const uint8_t*>(&txn->Target.u512);
+			input.targetSize = txn->Target.target_size;
+		}
+		input.targetScope = targetScopeKind;
+		input.relayKind = relayKind;
+		input.relaySiteId = std::move(relaySiteId);
+		collector->FinalizeRelayEmission(input);
+	});
+}
+
+void SimuShard::PushRelayTraceSite(
+	const rvm::ContractModuleID& emittingModule,
+	uint32_t siteOrdinal) noexcept
+{
+	auto* collector = _pSimulator == nullptr
+		? nullptr
+		: _pSimulator->GetRelayTraceCollector();
+	try
+	{
+		if (collector == nullptr ||
+			collector->Mode() == relay_trace::TraceMode::Off)
+		{
+			return;
+		}
+
+		const uint64_t generation = collector->PushMarker(
+			_pTxn,
+			GetRelayTraceModuleIdentity(emittingModule),
+			siteOrdinal);
+		if (generation != 0)
+		{
+			_RelayTraceMarkerStack.push_back(
+				{emittingModule, siteOrdinal, generation});
+		}
+	}
+	catch (...)
+	{
+		// This trace-only ABI is noexcept. A failed observation must never
+		// alter contract exception propagation or worker execution.
+		if (collector != nullptr)
+			collector->RecordObserverFailureNoexcept(
+				"relay-site marker push");
+	}
+}
+
+void SimuShard::PopRelayTraceSite(
+	const rvm::ContractModuleID& emittingModule,
+	uint32_t siteOrdinal) noexcept
+{
+	auto* collector = _pSimulator == nullptr
+		? nullptr
+		: _pSimulator->GetRelayTraceCollector();
+	try
+	{
+		if (collector == nullptr ||
+			collector->Mode() == relay_trace::TraceMode::Off)
+		{
+			return;
+		}
+
+		uint64_t generation = 0;
+		if (!_RelayTraceMarkerStack.empty())
+		{
+			generation = _RelayTraceMarkerStack.back().generation;
+			_RelayTraceMarkerStack.pop_back();
+		}
+		collector->PopMarker(
+			_pTxn,
+			generation,
+			GetRelayTraceModuleIdentity(emittingModule),
+			siteOrdinal,
+			true);
+	}
+	catch (...)
+	{
+		// See PushRelayTraceSite(): trace errors are latched by the collector
+		// when representable and are surfaced only at the simulator safe point.
+		if (collector != nullptr)
+			collector->RecordObserverFailureNoexcept(
+				"relay-site marker pop");
+	}
+}
+#endif
 
 bool SimuShard::EmitRelayToScope(rvm::ContractInvokeId ciid, const rvm::ScopeKey* key, rvm::OpCode opcode, const rvm::ConstData* args_serialized, uint32_t gas_redistribution_weight)
 {
@@ -294,6 +531,12 @@ bool SimuShard::EmitRelayToScope(rvm::ContractInvokeId ciid, const rvm::ScopeKey
 	}
 	txn->Initiator = _pTxn->IsRelay()?_pTxn->Initiator:_pTxn->Target.addr;
 
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+	_FinalizeRelayTraceEmission(
+		txn,
+		relay_trace::RelayKind::CustomScope,
+		GetRelayTraceScopeKind(rvm::CONTRACT_SCOPE(ciid)));
+#endif
 	_RelayEmitted.push_back(txn);
 	return true;
 }
@@ -305,6 +548,12 @@ bool SimuShard::EmitRelayToGlobal(rvm::ContractInvokeId cid, rvm::OpCode opcode,
 	rt::Zero(txn->Target);
 	txn->Initiator = _pTxn->IsRelay()?_pTxn->Initiator:_pTxn->Target.addr;
 
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+	_FinalizeRelayTraceEmission(
+		txn,
+		relay_trace::RelayKind::Global,
+		relay_trace::ScopeKind::Global);
+#endif
 	_RelayEmitted.push_back(txn);
 	return true;
 }
@@ -318,6 +567,12 @@ bool SimuShard::EmitRelayDeferred(rvm::ContractInvokeId cid, rvm::OpCode opcode,
 	txn->Target = _pTxn->Target;
 	txn->Initiator = _pTxn->IsRelay()?_pTxn->Initiator:_pTxn->Target.addr;
 
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+	_FinalizeRelayTraceEmission(
+		txn,
+		relay_trace::RelayKind::DeferredNext,
+		GetRelayTraceScopeKind(rvm::CONTRACT_SCOPE(cid)));
+#endif
 	_RelayEmitted.push_back(txn);
 	return true;
 }
@@ -331,9 +586,15 @@ bool SimuShard::EmitBroadcastToShards(rvm::ContractInvokeId cid, rvm::OpCode opc
 	txn->Initiator = _pTxn->IsRelay()?_pTxn->Initiator:_pTxn->Target.addr;
 	if(rvm::CONTRACT_SCOPE(_pTxn->Contract) == rvm::Scope::Global)
 	{
-		txn->Type = rvm::InvokeContextType::Scheduled; // Global to Shards 
+		txn->Type = rvm::InvokeContextType::Scheduled; // Global to Shards
 	}
 
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+	_FinalizeRelayTraceEmission(
+		txn,
+		relay_trace::RelayKind::AllShards,
+		relay_trace::ScopeKind::Shard);
+#endif
 	_RelayEmitted.push_back(txn);
 	return true;
 }
@@ -526,6 +787,25 @@ void RelayEmission::Collect(SimuTxn* origin, rt::BufferEx<SimuTxn*>& txns, uint6
 		{
 			_ToNextBlock.push_back(t);
 			APPEND_TRACE(t);
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+			{
+				auto* relayTraceCollector =
+					_pSimulator->GetRelayTraceCollector();
+				RunRelayTraceObservation(
+					relayTraceCollector,
+					"deferred relay route recording",
+					[&]()
+				{
+					if (relayTraceCollector == nullptr)
+						return;
+					relayTraceCollector->RecordRoute(
+						t,
+						_pShard->GetShardIndex(),
+						relay_trace::RouteKind::DeferredNext,
+						_pSimulator->GetShardCount());
+				});
+			}
+#endif
 			continue;
 		}
 
@@ -536,6 +816,25 @@ void RelayEmission::Collect(SimuTxn* origin, rt::BufferEx<SimuTxn*>& txns, uint6
 		case rvm::Scope::Global:
 			_ToGlobal.push_back(t);
 			APPEND_TRACE(t);
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+			{
+				auto* relayTraceCollector =
+					_pSimulator->GetRelayTraceCollector();
+				RunRelayTraceObservation(
+					relayTraceCollector,
+					"global relay route recording",
+					[&]()
+				{
+					if (relayTraceCollector == nullptr)
+						return;
+					relayTraceCollector->RecordRoute(
+						t,
+						rvm::GlobalShard,
+						relay_trace::RouteKind::Global,
+						_pSimulator->GetShardCount());
+				});
+			}
+#endif
 			break;
 		case rvm::Scope::Shard:
 			for(uint32_t i = 1; i < _ToShards.GetSize(); i++)
@@ -543,9 +842,53 @@ void RelayEmission::Collect(SimuTxn* origin, rt::BufferEx<SimuTxn*>& txns, uint6
 				SimuTxn* _clone = t->Clone();
 				_ToShards[i].push_back(_clone);
 				APPEND_TRACE(_clone);
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+				{
+					auto* relayTraceCollector =
+						_pSimulator->GetRelayTraceCollector();
+					RunRelayTraceObservation(
+						relayTraceCollector,
+						"broadcast relay clone recording",
+						[&]()
+					{
+						if (relayTraceCollector == nullptr)
+							return;
+						relayTraceCollector->CloneRelayMetadata(
+							t,
+							_clone,
+							i);
+						relayTraceCollector->RecordRoute(
+							_clone,
+							i,
+							relay_trace::RouteKind::
+								AllShardsBroadcast,
+							_pSimulator->GetShardCount());
+					});
+				}
+#endif
 			}
 			_ToShards[0].push_back(t);
 			APPEND_TRACE(t);
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+			{
+				auto* relayTraceCollector =
+					_pSimulator->GetRelayTraceCollector();
+				RunRelayTraceObservation(
+					relayTraceCollector,
+					"broadcast relay route recording",
+					[&]()
+				{
+					if (relayTraceCollector == nullptr)
+						return;
+					relayTraceCollector->RecordRoute(
+						t,
+						0,
+						relay_trace::RouteKind::
+							AllShardsBroadcast,
+						_pSimulator->GetShardCount());
+				});
+			}
+#endif
 			break;
 		default:
 			{
@@ -555,9 +898,49 @@ void RelayEmission::Collect(SimuTxn* origin, rt::BufferEx<SimuTxn*>& txns, uint6
 				{
 					_pShard->PushIntraRelay(t);
 					_pSimulator->OnTxnPushed();
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+					{
+						auto* relayTraceCollector =
+							_pSimulator->GetRelayTraceCollector();
+						RunRelayTraceObservation(
+							relayTraceCollector,
+							"intra-shard relay route recording",
+							[&]()
+						{
+							if (relayTraceCollector == nullptr)
+								return;
+							relayTraceCollector->RecordRoute(
+								t,
+								si,
+								relay_trace::RouteKind::
+									IntraShard,
+								_pSimulator->GetShardCount());
+						});
+					}
+#endif
 					continue;
 				}
 				_ToShards[si].push_back(t);
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+				{
+					auto* relayTraceCollector =
+						_pSimulator->GetRelayTraceCollector();
+					RunRelayTraceObservation(
+						relayTraceCollector,
+						"cross-shard relay route recording",
+						[&]()
+					{
+						if (relayTraceCollector == nullptr)
+							return;
+						relayTraceCollector->RecordRoute(
+							t,
+							si,
+							relay_trace::RouteKind::
+								CrossShard,
+							_pSimulator->GetShardCount());
+					});
+				}
+#endif
 			}
 		}
 	}
@@ -632,6 +1015,50 @@ rvm::ConstNativeToken SimuShard::Get(uint32_t idx) const
 void SimuShard::_Execute(SimuTxn* t)
 {
 	_pTxn = t;
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+	std::optional<relay_trace::RuntimeTxnTraceContext>
+		relayTraceExecution;
+	rvm::ContractModuleID relayTraceModule{};
+	auto* relayTraceCollector =
+		_pSimulator->GetRelayTraceCollector();
+	RunRelayTraceObservation(
+		relayTraceCollector,
+		"execution trace begin",
+		[&]()
+	{
+		if (relayTraceCollector == nullptr ||
+			_pTxn->Type == rvm::InvokeContextType::System ||
+			_pTxn->GetEngineId() != rvm::EngineId::PREDA_NATIVE)
+		{
+			return;
+		}
+
+		const auto* deployed = GetContractDeployed(
+			rvm::CONTRACT_UNSET_SCOPE(_pTxn->Contract));
+		if (deployed != nullptr)
+		{
+			relayTraceModule = deployed->Module;
+			std::string sourceFunctionId;
+			_pSimulator->ResolveRelayTraceFunction(
+				relayTraceModule,
+				static_cast<uint32_t>(_pTxn->Op),
+				sourceFunctionId);
+
+			relay_trace::ExecutionBeginInput input;
+			input.transaction = _pTxn;
+			input.contractInvoke = _pTxn->Contract;
+			input.opcode = static_cast<uint32_t>(_pTxn->Op);
+			input.moduleId =
+				GetRelayTraceModuleIdentity(relayTraceModule);
+			input.sourceFunctionId =
+				std::move(sourceFunctionId);
+			input.ownerShard = _ShardIndex;
+			input.isRelay = _pTxn->IsRelay();
+			relayTraceExecution =
+				relayTraceCollector->BeginExecution(input);
+		}
+	});
+#endif
 	rvm::ConstData args = _pTxn->GetArguments();
 	ConfirmTxn& cTxn = _TxnExecuted.push_back();
 	rvm::InvokeResult& ret = cTxn.Result;
@@ -747,6 +1174,38 @@ POST_INVOKE:
 	if(_RelayEmitted.GetSize())
 		_TxnEmitted.Collect(t, _RelayEmitted, remainingGas);
 	_TotalGasBurnt += _pTxn->Gas - remainingGas;
+
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+	if (relayTraceExecution)
+	{
+		auto* relayTraceCollector =
+			_pSimulator->GetRelayTraceCollector();
+		RunRelayTraceObservation(
+			relayTraceCollector,
+			"execution trace validation",
+			[&]()
+		{
+			_pSimulator->ValidateRelayTraceExecution(
+				relayTraceModule,
+				*relayTraceExecution,
+				ret.Code == rvm::InvokeErrorCode::Success);
+		});
+		RunRelayTraceObservation(
+			relayTraceCollector,
+			"execution trace end",
+			[&]()
+		{
+			if (relayTraceCollector != nullptr)
+			{
+				relayTraceCollector->EndExecution(
+					t,
+					true,
+					ret.Code == rvm::InvokeErrorCode::Success);
+			}
+		});
+		_RelayTraceMarkerStack.clear();
+	}
+#endif
 
 	//_LOG("Gas Burnt: " << _pTxn->Gas - remainingGas);
 }

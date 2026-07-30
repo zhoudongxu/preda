@@ -10,6 +10,9 @@
 #include "ContractData.h"
 #include "../../native/abi/vm_types.h"
 #include "../../bin/compile_env/include/runtime_interface.h"
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+#include "../../bin/compile_env/include/relay_trace.h"
+#endif
 
 class ContractRuntimeInstance;
 class CExecutionEngine;

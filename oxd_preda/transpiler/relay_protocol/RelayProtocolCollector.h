@@ -75,8 +75,16 @@ public:
 	void BeginFunctionDependencyAnalysis(
 		const std::string &functionId,
 		ScopeType scope,
-		const std::vector<RelayFunctionParameterInput> &parameters);
+		const std::vector<RelayFunctionParameterInput> &parameters,
+		const std::string &contract = std::string(),
+		const std::string &function = std::string(),
+		const std::string &functionSignature = std::string(),
+		uint64_t functionOverloadIndex = 0,
+		int64_t exportedOpcode = -1);
 	void EndFunctionDependencyAnalysis();
+	void SetFunctionExportOpcode(
+		const std::string &functionId,
+		int64_t exportedOpcode);
 	void PushDependencyScope();
 	void PopDependencyScope();
 	void DeclareLocalDependency(
@@ -95,7 +103,9 @@ public:
 		PredaParser::ExpressionContext *expression);
 	void WidenLoopDependencies(
 		antlr4::ParserRuleContext *loopContext);
-	std::string CollectRelay(const RelaySiteInput &input);
+	std::string CollectRelay(
+		const RelaySiteInput &input,
+		RelaySiteOrdinal *outOrdinal = nullptr);
 	void ResolveLambdaHandler(
 		const std::string &relaySiteId,
 		const std::string &handlerName,
@@ -137,6 +147,7 @@ private:
 	std::map<std::string, bool> m_refinementTypeSymbols;
 	std::string m_currentRefinementFunctionId;
 	std::map<std::string, size_t> m_namedHandlers;
+	std::map<std::string, int64_t> m_exportedFunctionOpcodes;
 	bool m_finalized = false;
 
 	RelayExprIR BuildSourceExpression(

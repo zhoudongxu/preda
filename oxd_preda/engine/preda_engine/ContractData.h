@@ -57,6 +57,15 @@ struct ContractCompileData
 	rvm::HashValue intermediateHash;
 	rvm::ContractModuleID moduleId;
 
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+	// Trusted, module-database-backed identity of the relay manifest that was
+	// finalized for this exact compiled module. Older database entries leave
+	// relayManifestBindingComplete false and remain executable.
+	std::string relayManifestTranspilerVersion;
+	rvm::HashValue relayManifestHash = {};
+	bool relayManifestBindingComplete = false;
+#endif
+
 	std::vector<ContractFunction> functions;
 	int32_t globalDeployFunctionIdx;
 	int32_t shardScaleOutFunctionIdx;

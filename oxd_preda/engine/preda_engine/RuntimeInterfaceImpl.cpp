@@ -289,6 +289,38 @@ void CRuntimeInterface::PushContractStack(const rvm::ContractModuleID &moduleId,
 	}
 }
 
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+void CRuntimeInterface::PushRelayTraceSite(
+	prlrt::RelaySiteOrdinal ordinal) noexcept
+{
+	if (m_pExecutionContext == nullptr || m_contractStack.empty())
+		return;
+	auto *traceContext =
+		dynamic_cast<rvm::IRelayTraceExecutionContext *>(
+			m_pExecutionContext);
+	if (traceContext == nullptr)
+		return;
+	traceContext->PushRelayTraceSite(
+		m_contractStack.back().moduleId,
+		ordinal);
+}
+
+void CRuntimeInterface::PopRelayTraceSite(
+	prlrt::RelaySiteOrdinal ordinal) noexcept
+{
+	if (m_pExecutionContext == nullptr || m_contractStack.empty())
+		return;
+	auto *traceContext =
+		dynamic_cast<rvm::IRelayTraceExecutionContext *>(
+			m_pExecutionContext);
+	if (traceContext == nullptr)
+		return;
+	traceContext->PopRelayTraceSite(
+		m_contractStack.back().moduleId,
+		ordinal);
+}
+#endif
+
 void CRuntimeInterface::ClearBigInt()
 {
 	m_bigint.clear();

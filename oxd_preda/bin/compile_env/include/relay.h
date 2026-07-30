@@ -3,6 +3,10 @@
 #include "common.h"
 #include "address_blob_hash_types.h"
 #include "gascost.h"
+#if defined(RPREDA_ENABLE_RUNTIME_TRACE)
+#include <utility>
+#include "relay_trace.h"
+#endif
 
 namespace prlrt {
 
@@ -123,6 +127,54 @@ namespace prlrt {
 		if (!PREDA_CALL(EmitRelayDeferred, opCode, args_serialized.size() > 0 ? &args_serialized[0] : nullptr, uint32_t(args_serialized.size())))
 			preda_exception::throw_exception("relay@next error", prlrt::ExceptionType::RelayError);
 	}
+
+#if defined(RPREDA_ENABLE_RUNTIME_TRACE)
+	template<typename TScope, typename ...Args>
+	void relay_traced(
+		RelaySiteOrdinal ordinal,
+		const TScope &scope_key,
+		uint32_t scope_type,
+		uint32_t opCode,
+		Args&& ...args)
+	{
+		RelayTraceSiteGuard guard(ordinal);
+		relay(
+			scope_key,
+			scope_type,
+			opCode,
+			std::forward<Args>(args)...);
+	}
+
+	template<typename ...Args>
+	void relay_shards_traced(
+		RelaySiteOrdinal ordinal,
+		uint32_t opCode,
+		Args&& ...args)
+	{
+		RelayTraceSiteGuard guard(ordinal);
+		relay_shards(opCode, std::forward<Args>(args)...);
+	}
+
+	template<typename ...Args>
+	void relay_global_traced(
+		RelaySiteOrdinal ordinal,
+		uint32_t opCode,
+		Args&& ...args)
+	{
+		RelayTraceSiteGuard guard(ordinal);
+		relay_global(opCode, std::forward<Args>(args)...);
+	}
+
+	template<typename ...Args>
+	void relay_next_traced(
+		RelaySiteOrdinal ordinal,
+		uint32_t opCode,
+		Args&& ...args)
+	{
+		RelayTraceSiteGuard guard(ordinal);
+		relay_next(opCode, std::forward<Args>(args)...);
+	}
+#endif
 
 	template<typename retType, typename ...Args>
 	retType cross_call(uint64_t contractId, uint64_t templateContractImportSlot, uint32_t opCode, Args&& ...args)

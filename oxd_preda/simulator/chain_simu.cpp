@@ -5,6 +5,15 @@
 #include "../native/types/abi_def_impl.h"
 #include "../../SFC/core/ext/botan/botan.h"
 
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+#include <algorithm>
+#include <chrono>
+#include <cctype>
+#include <set>
+#include <tuple>
+#include <utility>
+#endif
+
 namespace oxd
 {
 bool ChainSimulator::Init(const os::CommandLine& cmd)
@@ -29,9 +38,15 @@ bool ChainSimulator::Init(const os::CommandLine& cmd)
 #endif
 	rt::String repo_dir(rt::SS(homeDir, strlen(homeDir)) + PREDA_DATA_FOLDER + "chsimu_repo");
 	os::File::RemovePath(repo_dir);
+	rt::String native_repo = repo_dir + "/native";
+
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+	if(!_InitRelayTrace(cmd, native_repo))
+		return false;
+#endif
 
 	// bool isWasmReady = _InitEngine(rvm::EngineId::PREDA_WASM, "./preda_engine", repo_dir + "/wasm", "-wasm");
-	bool isNativeReady = _InitEngine(rvm::EngineId::PREDA_NATIVE, "./preda_engine", repo_dir + "/native", "-native");
+	bool isNativeReady = _InitEngine(rvm::EngineId::PREDA_NATIVE, "./preda_engine", native_repo, "-native");
 	// bool isEvmReady = _InitEngine(rvm::EngineId::SOLIDITY_EVM, "./preda_engine", repo_dir + "/evm", "-evm");
 
 	if(!isNativeReady)
@@ -43,6 +58,817 @@ bool ChainSimulator::Init(const os::CommandLine& cmd)
 	_InitChain();
 	return true;
 }
+
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+namespace
+{
+std::string _RelayTraceString(rt::String_Ref value)
+{
+	return value.Begin()
+		? std::string(value.Begin(), value.GetLength())
+		: std::string();
+}
+
+std::string _RelayTraceString(const rvm::ConstString& value)
+{
+	return value.StrPtr
+		? std::string(value.StrPtr, value.Length)
+		: std::string();
+}
+
+std::string _RelayTraceLower(std::string value)
+{
+	std::transform(
+		value.begin(),
+		value.end(),
+		value.begin(),
+		[](unsigned char c)
+		{
+			return static_cast<char>(std::tolower(c));
+		});
+	return value;
+}
+
+bool _RelayTraceBindingFailure(
+	relay_trace::ManifestLoadStatus status)
+{
+	switch(status)
+	{
+	case relay_trace::ManifestLoadStatus::Loaded:
+		return false;
+	case relay_trace::ManifestLoadStatus::ManifestBindingMissing:
+	case relay_trace::ManifestLoadStatus::ManifestBindingMismatch:
+	case relay_trace::ManifestLoadStatus::ManifestHashMismatch:
+		return true;
+	default:
+		// A missing, unparseable, or unsupported manifest cannot be bound to
+		// the deployed module either. Treat it as an effective binding
+		// failure so strict mode deterministically latches at the safe point.
+		return true;
+	}
+}
+
+bool _RelayTraceIsJsonLinesPath(const std::string& path)
+{
+	const std::string lower = _RelayTraceLower(path);
+	return lower.size() >= 6 &&
+		lower.compare(lower.size() - 6, 6, ".jsonl") == 0;
+}
+}
+
+bool ChainSimulator::_InitRelayTrace(
+	const os::CommandLine& cmd,
+	rt::String_Ref nativeRepository)
+{
+	std::string mode = "off";
+	if(cmd.HasOption("rpreda_trace"))
+		mode = _RelayTraceLower(_RelayTraceString(cmd.GetOption("rpreda_trace")));
+
+	if(mode == "off")
+		m_relayTraceMode = relay_trace::TraceMode::Off;
+	else if(mode == "observe")
+		m_relayTraceMode = relay_trace::TraceMode::Observe;
+	else if(mode == "strict")
+		m_relayTraceMode = relay_trace::TraceMode::Strict;
+	else
+	{
+		_LOG_ERROR(
+			"[R-PREDA trace]: invalid -rpreda_trace mode '" <<
+			mode << "'; expected off, observe, or strict");
+		return false;
+	}
+
+	m_relayTraceReportPath.clear();
+	m_relayTraceCollector.reset();
+	m_relayManifestLoader.reset();
+	m_relayTraceValidator.reset();
+	m_relayTraceReport.reset();
+	{
+		std::lock_guard<std::mutex> lock(m_relayManifestMutex);
+		m_relayManifestResults.clear();
+		m_relayManifestTrustedIdentities.clear();
+		m_relayManifestResultsRecorded.clear();
+	}
+	m_relayTraceDepthFinalized = false;
+	m_relayTraceReportWritten = false;
+
+	if(m_relayTraceMode == relay_trace::TraceMode::Off)
+		return true;
+
+	if(m_attribute.defaultEngineMode != rvm::EngineId::PREDA_NATIVE)
+	{
+		_LOG_ERROR(
+			"[R-PREDA trace]: runtime trace validation is supported only "
+			"by the PREDA Native Engine");
+		return false;
+	}
+
+	const std::string repository = _RelayTraceString(nativeRepository);
+	if(cmd.HasOption("rpreda_trace_report"))
+	{
+		m_relayTraceReportPath =
+			_RelayTraceString(cmd.GetOption("rpreda_trace_report"));
+	}
+	if(m_relayTraceReportPath.empty())
+		m_relayTraceReportPath =
+			repository + "/rpreda_runtime_trace.json";
+
+	m_relayTraceCollector =
+		std::make_unique<relay_trace::RelayTraceCollector>(
+			m_relayTraceMode);
+	m_relayManifestLoader =
+		std::make_unique<relay_trace::RelayManifestLoader>(
+			repository + "/relay_protocol");
+	m_relayTraceValidator =
+		std::make_unique<relay_trace::RelayTraceValidator>();
+	m_relayTraceReport =
+		std::make_unique<relay_trace::RelayTraceReport>();
+
+	_LOGC_HIGHLIGHT(
+		"[R-PREDA trace]: mode=" <<
+		relay_trace::ToString(m_relayTraceMode) <<
+		", report=" << m_relayTraceReportPath);
+	return true;
+}
+
+bool ChainSimulator::RelayTraceStrictFailureLatched() const noexcept
+{
+	return m_relayTraceMode == relay_trace::TraceMode::Strict &&
+		m_relayTraceCollector &&
+		m_relayTraceCollector->StrictFailureLatched();
+}
+
+std::shared_ptr<const relay_trace::RelayManifestLoadResult>
+ChainSimulator::LoadRelayTraceManifest(
+	const rvm::ContractModuleID& moduleId)
+{
+	if(m_relayTraceMode == relay_trace::TraceMode::Off ||
+		!m_relayTraceCollector ||
+		!m_relayManifestLoader ||
+		!m_relayTraceValidator)
+	{
+		return {};
+	}
+
+	const std::string moduleIdentity =
+		relay_trace::RelayManifestLoader::RuntimeHashIdentity(moduleId);
+	auto* provider =
+		dynamic_cast<rvm::IRelayTraceModuleMetadataProvider*>(
+			GetEngine(rvm::EngineId::PREDA_NATIVE));
+	rvm::RelayTraceArtifactBinding trusted{};
+	const bool trustedAvailable =
+		provider != nullptr &&
+		provider->GetRelayTraceArtifactBinding(moduleId, trusted) &&
+		trusted.bindingComplete;
+
+	relay_trace::ExpectedArtifactBinding expected;
+	std::string trustedIdentity;
+	if(trustedAvailable)
+	{
+		expected.identity.dapp = _RelayTraceString(trusted.dapp);
+		expected.identity.contract = _RelayTraceString(trusted.contract);
+		expected.identity.transpilerVersion =
+			_RelayTraceString(trusted.transpilerVersion);
+		expected.identity.intermediateHash =
+			relay_trace::RelayManifestLoader::RuntimeHashIdentity(
+				trusted.intermediateHash);
+		expected.identity.moduleId =
+			relay_trace::RelayManifestLoader::RuntimeHashIdentity(
+				trusted.moduleId);
+		expected.identity.moduleHashKind = "preda_module_id";
+		expected.identity.moduleHash = expected.identity.moduleId;
+		expected.identity.manifestHashAlgorithm = "sha256";
+		expected.identity.manifestHash =
+			relay_trace::BytesToHex(
+				reinterpret_cast<const uint8_t*>(
+					&trusted.manifestHash),
+				sizeof(trusted.manifestHash));
+		expected.identity.bindingComplete = true;
+		expected.requireModuleHash = true;
+		expected.trustedManifestHash = expected.identity.manifestHash;
+		trustedIdentity =
+			expected.identity.manifestHash + "|" +
+			expected.identity.intermediateHash + "|" +
+			expected.identity.transpilerVersion + "|" +
+			expected.identity.dapp + "|" +
+			expected.identity.contract;
+	}
+	else
+	{
+		trustedIdentity = provider == nullptr
+			? "<metadata-provider-unavailable>"
+			: "<binding-incomplete>";
+	}
+
+	bool invalidatePriorManifest = false;
+	{
+		std::lock_guard<std::mutex> lock(m_relayManifestMutex);
+		auto result = m_relayManifestResults.find(moduleIdentity);
+		auto identity =
+			m_relayManifestTrustedIdentities.find(moduleIdentity);
+		if(result != m_relayManifestResults.end() &&
+			identity != m_relayManifestTrustedIdentities.end() &&
+			identity->second == trustedIdentity)
+		{
+			return result->second;
+		}
+
+		invalidatePriorManifest =
+			result != m_relayManifestResults.end() ||
+			(identity != m_relayManifestTrustedIdentities.end() &&
+			 identity->second != trustedIdentity);
+		m_relayManifestResults.erase(moduleIdentity);
+		m_relayManifestResultsRecorded.erase(moduleIdentity);
+		m_relayManifestTrustedIdentities[moduleIdentity] =
+			trustedIdentity;
+	}
+	if(invalidatePriorManifest)
+		m_relayManifestLoader->Invalidate(moduleIdentity);
+
+	std::shared_ptr<const relay_trace::RelayManifestLoadResult> loaded;
+	if(!trustedAvailable)
+	{
+		auto missing =
+			std::make_shared<relay_trace::RelayManifestLoadResult>();
+		missing->status =
+			relay_trace::ManifestLoadStatus::ManifestBindingMissing;
+		missing->diagnostic = provider == nullptr
+			? "native engine does not expose trusted relay manifest metadata"
+			: "deployed module has no complete trusted relay manifest binding";
+		loaded = std::move(missing);
+	}
+	else
+	{
+		loaded = m_relayManifestLoader->Load(expected);
+	}
+
+	bool recordResult = false;
+	bool retryWithNewBinding = false;
+	{
+		std::lock_guard<std::mutex> lock(m_relayManifestMutex);
+		auto currentIdentity =
+			m_relayManifestTrustedIdentities.find(moduleIdentity);
+		if(currentIdentity ==
+				m_relayManifestTrustedIdentities.end() ||
+			currentIdentity->second != trustedIdentity)
+		{
+			retryWithNewBinding = true;
+		}
+		else
+		{
+			auto inserted =
+				m_relayManifestResults.emplace(
+					moduleIdentity,
+					loaded);
+			loaded = inserted.first->second;
+			recordResult =
+				m_relayManifestResultsRecorded.insert(
+					moduleIdentity).second;
+		}
+	}
+	if(retryWithNewBinding)
+		return LoadRelayTraceManifest(moduleId);
+
+	if(recordResult && loaded)
+	{
+		relay_trace::RelayTraceTimings timings;
+		timings.manifestLoadTimeMs = loaded->elapsedTimeMs;
+		m_relayTraceCollector->AddTimings(timings);
+		for(const auto& result :
+			m_relayTraceValidator->ValidateManifestLoad(*loaded))
+		{
+			m_relayTraceCollector->AddValidationResult(result);
+		}
+		if(loaded->status != relay_trace::ManifestLoadStatus::Loaded)
+		{
+			m_relayTraceCollector->AddManifestLoadFailure(
+				_RelayTraceBindingFailure(loaded->status));
+			_LOGC_WARNING(
+				"[R-PREDA trace]: manifest disabled for module " <<
+				moduleIdentity << ": " << loaded->diagnostic);
+		}
+	}
+
+	return loaded;
+}
+
+bool ChainSimulator::ResolveRelayTraceFunction(
+	const rvm::ContractModuleID& moduleId,
+	uint32_t opcode,
+	std::string& outSourceFunctionId)
+{
+	outSourceFunctionId.clear();
+	auto loaded = LoadRelayTraceManifest(moduleId);
+	if(!loaded || !*loaded)
+		return false;
+	auto found = loaded->manifest->functionIdByOpcode.find(opcode);
+	if(found == loaded->manifest->functionIdByOpcode.end())
+		return false;
+	outSourceFunctionId = found->second;
+	return true;
+}
+
+bool ChainSimulator::ResolveRelayTraceSite(
+	const rvm::ContractModuleID& moduleId,
+	relay_trace::RelaySiteOrdinal ordinal,
+	relay_trace::ManifestRelaySite& outSite)
+{
+	outSite = {};
+	auto loaded = LoadRelayTraceManifest(moduleId);
+	if(!loaded || !*loaded)
+		return false;
+	auto found = loaded->manifest->sitesByOrdinal.find(ordinal);
+	if(found == loaded->manifest->sitesByOrdinal.end())
+		return false;
+	outSite = found->second;
+	return true;
+}
+
+void ChainSimulator::ValidateRelayTraceExecution(
+	const rvm::ContractModuleID& moduleId,
+	const relay_trace::RuntimeTxnTraceContext& execution,
+	bool invocationSucceeded)
+{
+	if(m_relayTraceMode == relay_trace::TraceMode::Off ||
+		!m_relayTraceCollector ||
+		!m_relayTraceValidator)
+	{
+		return;
+	}
+
+	const auto executionSlice =
+		m_relayTraceCollector->ExecutionSlice(execution.traceTxId);
+	const std::string executingModule =
+		relay_trace::RelayManifestLoader::RuntimeHashIdentity(moduleId);
+	std::string executingFunction;
+	const bool executingFunctionResolved =
+		ResolveRelayTraceFunction(
+			moduleId,
+			execution.opcode,
+			executingFunction);
+
+	struct ValidationGroup
+	{
+		std::shared_ptr<const relay_trace::RelayManifestLoadResult> load;
+		relay_trace::RuntimeTxnTraceContext execution;
+		std::vector<relay_trace::RelayEmitTraceEvent> emissions;
+		bool functionOwnershipResolved = false;
+	};
+	std::unordered_map<std::string, ValidationGroup> groups;
+
+	auto makeGroupKey = [](const std::string& module,
+						   const std::string& function)
+	{
+		std::string key = module;
+		key.push_back('\0');
+		key += function;
+		return key;
+	};
+
+	auto executingLoad = LoadRelayTraceManifest(moduleId);
+	if(executingLoad && *executingLoad)
+	{
+		ValidationGroup group;
+		group.load = executingLoad;
+		group.execution = execution;
+		group.execution.moduleId = executingModule;
+		// Function ownership is always derived independently from the bound
+		// module's exported opcode table. Never trust the site-derived field
+		// that was copied into the emission side table.
+		group.execution.sourceFunctionId = executingFunction;
+		group.functionOwnershipResolved =
+			executingFunctionResolved;
+		groups.emplace(
+			makeGroupKey(executingModule, executingFunction),
+			std::move(group));
+	}
+
+	for(const auto& emission : executionSlice.emissions)
+	{
+		if(emission.parentTraceTxId != execution.traceTxId ||
+			emission.sourceModuleId.empty())
+		{
+			continue;
+		}
+
+		const bool emittedByExecutingModule =
+			emission.sourceModuleId == executingModule;
+		const std::string sourceFunctionId =
+			emittedByExecutingModule
+				? executingFunction
+				: std::string();
+		const std::string key = makeGroupKey(
+			emission.sourceModuleId,
+			sourceFunctionId);
+		auto found = groups.find(key);
+		if(found == groups.end())
+		{
+			std::shared_ptr<const relay_trace::RelayManifestLoadResult> load;
+			{
+				std::lock_guard<std::mutex> lock(m_relayManifestMutex);
+				auto cached =
+					m_relayManifestResults.find(emission.sourceModuleId);
+				if(cached != m_relayManifestResults.end())
+					load = cached->second;
+			}
+			if(!load || !*load)
+				continue;
+
+			ValidationGroup group;
+			group.load = std::move(load);
+			group.execution = execution;
+			group.execution.moduleId = emission.sourceModuleId;
+			group.execution.sourceFunctionId =
+				sourceFunctionId;
+			group.functionOwnershipResolved = false;
+			found = groups.emplace(key, std::move(group)).first;
+		}
+
+		relay_trace::RelayEmitTraceEvent independentlyBound = emission;
+		independentlyBound.sourceFunctionId = sourceFunctionId;
+		found->second.emissions.push_back(std::move(independentlyBound));
+	}
+
+	const auto validationBegin = std::chrono::steady_clock::now();
+	for(auto& entry : groups)
+	{
+		ValidationGroup& group = entry.second;
+		relay_trace::RelayExecutionValidationInput input;
+		input.execution = group.execution;
+		input.emissions = group.emissions;
+		input.activeShardCount = GetShardCount();
+
+		for(const auto& route : executionSlice.routes)
+		{
+			if(route.parentTraceTxId != execution.traceTxId)
+				continue;
+			const bool belongsToGroup = std::any_of(
+				group.emissions.begin(),
+				group.emissions.end(),
+				[&route](const relay_trace::RelayEmitTraceEvent& emission)
+				{
+					return emission.sourceModuleId ==
+							route.sourceModuleId &&
+						emission.relaySiteOrdinal ==
+							route.relaySiteOrdinal &&
+						emission.occurrenceIndex ==
+							route.occurrenceIndex &&
+						emission.relaySiteId == route.relaySiteId;
+				});
+			if(belongsToGroup)
+				input.routes.push_back(route);
+		}
+
+		for(auto result :
+			m_relayTraceValidator->ValidateExecution(
+				*group.load->manifest,
+				input))
+		{
+			if(result.checkKind ==
+				relay_trace::ValidationCheckKind::Depth)
+			{
+				// Transitive depth is finalized once the worker set has
+				// stopped and the complete observed trace forest is stable.
+				continue;
+			}
+			if(!group.functionOwnershipResolved &&
+				result.checkKind ==
+					relay_trace::ValidationCheckKind::RelaySiteIdentity &&
+				result.status ==
+					relay_trace::ValidationStatus::Passed)
+			{
+				result.status =
+					relay_trace::ValidationStatus::SkippedUnsupported;
+				result.reason =
+					group.execution.moduleId == executingModule
+						? "executing function cannot be resolved "
+						  "independently from the bound module and "
+						  "runtime opcode"
+						: "relay was emitted by a synchronous "
+						  "cross-module invocation whose executing "
+						  "opcode is not represented by this SimuTxn";
+				result.detail.expected.clear();
+				result.detail.actual.clear();
+				result.detail.diagnosticReason = result.reason;
+			}
+			if(!invocationSucceeded &&
+				(result.checkKind ==
+					relay_trace::ValidationCheckKind::DirectCount ||
+				 result.checkKind ==
+					relay_trace::ValidationCheckKind::CountUpperBound ||
+				 result.checkKind ==
+					relay_trace::ValidationCheckKind::GuardNecessity))
+			{
+				result.status =
+					relay_trace::ValidationStatus::SkippedUnsupported;
+				result.reason =
+					"invocation failed; normal count/guard conclusions "
+					"are not valid for a partial execution";
+				result.detail.expected.clear();
+				result.detail.actual.clear();
+				result.detail.diagnosticReason = result.reason;
+			}
+			m_relayTraceCollector->AddValidationResult(result);
+		}
+	}
+	const auto validationEnd = std::chrono::steady_clock::now();
+	relay_trace::RelayTraceTimings timings;
+	timings.validationTimeMs =
+		std::chrono::duration<double, std::milli>(
+			validationEnd - validationBegin).count();
+	m_relayTraceCollector->AddTimings(timings);
+}
+
+void ChainSimulator::_FinalizeRelayTraceDepthValidation()
+{
+	if(m_relayTraceDepthFinalized ||
+		m_relayTraceMode == relay_trace::TraceMode::Off ||
+		!m_relayTraceCollector ||
+		!m_relayTraceValidator)
+	{
+		return;
+	}
+	m_relayTraceDepthFinalized = true;
+
+	const auto validationBegin = std::chrono::steady_clock::now();
+	try
+	{
+		const auto snapshot = m_relayTraceCollector->Snapshot();
+		std::unordered_map<uint64_t, std::vector<uint64_t>> children;
+		std::unordered_map<uint64_t, uint32_t> depthByTraceId;
+
+		for(const auto& event : snapshot.executions)
+			depthByTraceId[event.traceTxId] = event.depth;
+
+		using LogicalEmissionKey = std::tuple<
+			uint64_t,
+			std::string,
+			relay_trace::RelaySiteOrdinal,
+			uint32_t>;
+		std::map<LogicalEmissionKey, uint32_t> logicalDepths;
+		for(const auto& emission : snapshot.emissions)
+		{
+			children[emission.parentTraceTxId].push_back(
+				emission.childTraceTxId);
+			depthByTraceId[emission.childTraceTxId] =
+				emission.depth;
+			logicalDepths.emplace(
+				LogicalEmissionKey{
+					emission.parentTraceTxId,
+					emission.sourceModuleId,
+					emission.relaySiteOrdinal,
+					emission.occurrenceIndex,
+				},
+				emission.depth);
+		}
+		for(const auto& route : snapshot.routes)
+		{
+			children[route.parentTraceTxId].push_back(
+				route.physicalTraceTxId);
+			auto logical = logicalDepths.find(
+				LogicalEmissionKey{
+					route.parentTraceTxId,
+					route.sourceModuleId,
+					route.relaySiteOrdinal,
+					route.occurrenceIndex,
+				});
+			if(logical != logicalDepths.end())
+				depthByTraceId[route.physicalTraceTxId] =
+					logical->second;
+		}
+
+		auto addSkippedDepth = [this](
+			const relay_trace::RelayExecutionTraceEvent& event,
+			const std::string& reason,
+			const relay_trace::LoadedRelayManifest* manifest)
+		{
+			relay_trace::RelayValidationResult result;
+			result.status =
+				relay_trace::ValidationStatus::SkippedUnsupported;
+			result.checkKind =
+				relay_trace::ValidationCheckKind::Depth;
+			result.reason = reason;
+			result.detail.rootTraceTxId = event.rootTraceTxId;
+			result.detail.parentTraceTxId = event.parentTraceTxId;
+			result.detail.currentTraceTxId = event.traceTxId;
+			result.detail.function = event.sourceFunctionId;
+			result.detail.opcode = event.opcode;
+			result.detail.checkKind = result.checkKind;
+			result.detail.moduleIdentity = event.moduleId;
+			result.detail.diagnosticReason = reason;
+			if(manifest != nullptr)
+				result.detail.manifestIdentity = manifest->binding;
+			m_relayTraceCollector->AddValidationResult(result);
+		};
+
+		for(const auto& event : snapshot.executions)
+		{
+			std::shared_ptr<
+				const relay_trace::RelayManifestLoadResult> load;
+			{
+				std::lock_guard<std::mutex> lock(
+					m_relayManifestMutex);
+				auto found =
+					m_relayManifestResults.find(event.moduleId);
+				if(found != m_relayManifestResults.end())
+					load = found->second;
+			}
+			if(!load || !*load)
+				continue;
+
+			if(!event.completed)
+			{
+				addSkippedDepth(
+					event,
+					"execution did not complete before trace shutdown; "
+					"no transitive depth conclusion is valid",
+					load->manifest.get());
+				continue;
+			}
+			if(!event.succeeded)
+			{
+				addSkippedDepth(
+					event,
+					"invocation failed; normal transitive depth "
+					"conclusions are not valid for a partial execution",
+					load->manifest.get());
+				continue;
+			}
+			if(event.sourceFunctionId.empty())
+			{
+				addSkippedDepth(
+					event,
+					"executing function is unavailable from the "
+					"bound module opcode table",
+					load->manifest.get());
+				continue;
+			}
+
+			uint32_t maximumObservedDepth = event.depth;
+			std::vector<uint64_t> pending{event.traceTxId};
+			std::unordered_set<uint64_t> visited;
+			while(!pending.empty())
+			{
+				const uint64_t current = pending.back();
+				pending.pop_back();
+				if(!visited.insert(current).second)
+					continue;
+
+				auto depth = depthByTraceId.find(current);
+				if(depth != depthByTraceId.end())
+				{
+					maximumObservedDepth =
+						std::max(
+							maximumObservedDepth,
+							depth->second);
+				}
+				auto next = children.find(current);
+				if(next != children.end())
+				{
+					pending.insert(
+						pending.end(),
+						next->second.begin(),
+						next->second.end());
+				}
+			}
+
+			relay_trace::RelayExecutionValidationInput input;
+			input.execution.traceTxId = event.traceTxId;
+			input.execution.rootTraceTxId =
+				event.rootTraceTxId;
+			input.execution.parentTraceTxId =
+				event.parentTraceTxId;
+			input.execution.opcode = event.opcode;
+			input.execution.sourceFunctionId =
+				event.sourceFunctionId;
+			input.execution.moduleId = event.moduleId;
+			input.execution.depth = event.depth;
+			input.execution.isRelay = event.isRelay;
+			input.activeShardCount = GetShardCount();
+			input.observedTransitiveDepth =
+				maximumObservedDepth >= event.depth
+					? maximumObservedDepth - event.depth
+					: 0;
+
+			bool emittedDepthResult = false;
+			for(auto result :
+				m_relayTraceValidator->ValidateExecution(
+					*load->manifest,
+					input))
+			{
+				if(result.checkKind !=
+					relay_trace::ValidationCheckKind::Depth)
+				{
+					continue;
+				}
+				emittedDepthResult = true;
+				m_relayTraceCollector->AddValidationResult(result);
+			}
+			if(!emittedDepthResult)
+			{
+				addSkippedDepth(
+					event,
+					"executing function has no manifest depth summary",
+					load->manifest.get());
+			}
+		}
+	}
+	catch(const std::exception& exception)
+	{
+		relay_trace::RelayValidationResult result;
+		result.status =
+			relay_trace::ValidationStatus::TraceInstrumentationError;
+		result.checkKind =
+			relay_trace::ValidationCheckKind::Instrumentation;
+		result.reason =
+			"final transitive depth validation failed: " +
+			std::string(exception.what());
+		result.detail.checkKind = result.checkKind;
+		result.detail.diagnosticReason = result.reason;
+		m_relayTraceCollector->AddValidationResult(result);
+	}
+
+	const auto validationEnd = std::chrono::steady_clock::now();
+	relay_trace::RelayTraceTimings timings;
+	timings.validationTimeMs =
+		std::chrono::duration<double, std::milli>(
+			validationEnd - validationBegin).count();
+	m_relayTraceCollector->AddTimings(timings);
+}
+
+void ChainSimulator::_WriteRelayTraceReport()
+{
+	if(m_relayTraceReportWritten ||
+		m_relayTraceMode == relay_trace::TraceMode::Off ||
+		!m_relayTraceCollector ||
+		!m_relayTraceReport)
+	{
+		return;
+	}
+	m_relayTraceReportWritten = true;
+
+	try
+	{
+		const bool jsonLines =
+			_RelayTraceIsJsonLinesPath(m_relayTraceReportPath);
+		const auto initialSnapshot = m_relayTraceCollector->Snapshot();
+		const auto serialized = jsonLines
+			? m_relayTraceReport->BuildJsonLines(initialSnapshot)
+			: m_relayTraceReport->BuildJson(initialSnapshot);
+		relay_trace::RelayTraceTimings timings;
+		timings.reportSerializationTimeMs =
+			serialized.elapsedTimeMs;
+		m_relayTraceCollector->AddTimings(timings);
+
+		const auto finalSnapshot = m_relayTraceCollector->Snapshot();
+		std::string error;
+		const bool written = jsonLines
+			? m_relayTraceReport->WriteJsonLines(
+				m_relayTraceReportPath,
+				finalSnapshot,
+				&error)
+			: m_relayTraceReport->WriteJson(
+				m_relayTraceReportPath,
+				finalSnapshot,
+				&error);
+		if(!written)
+		{
+			relay_trace::RelayValidationResult result;
+			result.status =
+				relay_trace::ValidationStatus::TraceInstrumentationError;
+			result.checkKind =
+				relay_trace::ValidationCheckKind::Instrumentation;
+			result.reason =
+				"runtime trace report write failed: " + error;
+			result.detail.checkKind = result.checkKind;
+			result.detail.diagnosticReason = result.reason;
+			m_relayTraceCollector->AddValidationResult(result);
+			_LOGC_WARNING("[R-PREDA trace]: " << result.reason);
+			return;
+		}
+
+		_LOGC_HIGHLIGHT(
+			"[R-PREDA trace]: validation report written to " <<
+			m_relayTraceReportPath);
+	}
+	catch(const std::exception& exception)
+	{
+		relay_trace::RelayValidationResult result;
+		result.status =
+			relay_trace::ValidationStatus::TraceInstrumentationError;
+		result.checkKind =
+			relay_trace::ValidationCheckKind::Instrumentation;
+		result.reason =
+			"runtime trace report serialization failed: " +
+			std::string(exception.what());
+		result.detail.checkKind = result.checkKind;
+		result.detail.diagnosticReason = result.reason;
+		m_relayTraceCollector->AddValidationResult(result);
+		_LOGC_WARNING("[R-PREDA trace]: " << result.reason);
+	}
+}
+#endif
+
 bool ChainSimulator::Compile(const std::vector<std::pair<rt::String, rt::String>>& prdFiles)
 {
 	auto* engine = GetEngine(m_attribute.defaultEngineMode);
@@ -178,6 +1004,16 @@ void ChainSimulator::Term()
 		for(auto p : m_shards)p->Term();
 		m_pGlobalShard->Term();
 
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+		// All workers are stopped before pointer-keyed local trace metadata is
+		// cleared. At this safe point the observed relay forest is stable, so
+		// transitive maximum-depth checks can be finalized without racing a
+		// worker or speculating about future nested emissions.
+		_FinalizeRelayTraceDepthValidation();
+		if(m_relayTraceCollector)
+			m_relayTraceCollector->ShutdownClearLiveTransactions();
+#endif
+
 		for(auto p : m_shards)_SafeDel(p);
 		_SafeDel(m_pGlobalShard);
 	}
@@ -194,6 +1030,12 @@ void ChainSimulator::Term()
 			}
 		}
 	}
+
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+	if(m_relayManifestLoader)
+		m_relayManifestLoader->Clear();
+	_WriteRelayTraceReport();
+#endif
 }
 
 void ChainSimulator::Info()

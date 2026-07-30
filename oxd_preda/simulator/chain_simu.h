@@ -3,6 +3,20 @@
 #include "simu_global.h"
 #include "simu_script.h"
 
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+#include "../native/abi/relay_trace_abi.h"
+#include "relay_trace/RelayManifestLoader.h"
+#include "relay_trace/RelayTraceCollector.h"
+#include "relay_trace/RelayTraceReport.h"
+#include "relay_trace/RelayTraceValidator.h"
+
+#include <memory>
+#include <mutex>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+#endif
+
 #if defined(PLATFORM_WIN)
 static const constexpr char* PREDA_DATA_FOLDER = "\\AppData\\Roaming\\.preda\\";
 #elif defined(PLATFORM_MAC)
@@ -69,6 +83,29 @@ protected:
 	oxd::SimuGlobalShard*			m_pGlobalShard = nullptr;
 	rt::Buffer<oxd::SimuShard*>		m_shards;
 
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+	relay_trace::TraceMode			m_relayTraceMode = relay_trace::TraceMode::Off;
+	std::string						m_relayTraceReportPath;
+	std::unique_ptr<relay_trace::RelayTraceCollector>
+									m_relayTraceCollector;
+	std::unique_ptr<relay_trace::RelayManifestLoader>
+									m_relayManifestLoader;
+	std::unique_ptr<relay_trace::RelayTraceValidator>
+									m_relayTraceValidator;
+	std::unique_ptr<relay_trace::RelayTraceReport>
+									m_relayTraceReport;
+	mutable std::mutex				m_relayManifestMutex;
+	std::unordered_map<
+		std::string,
+		std::shared_ptr<const relay_trace::RelayManifestLoadResult>>
+									m_relayManifestResults;
+	std::unordered_map<std::string, std::string>
+									m_relayManifestTrustedIdentities;
+	std::unordered_set<std::string>	m_relayManifestResultsRecorded;
+	bool							m_relayTraceDepthFinalized = false;
+	bool							m_relayTraceReportWritten = false;
+#endif
+
 public:
 	// Constructor //
 	ChainSimulator():m_pScriptRunner(nullptr), m_pScriptListener(nullptr){rt::Zero(m_engines);}
@@ -117,6 +154,11 @@ public:
 	uint32_t 			GetLineNum() { ASSERT(m_pScriptListener); return m_pScriptListener->GetLineNum(); }
 	auto*				GetGlobalStates() const { return (const rvm::GlobalStates*)(m_pGlobalShard); }
 
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+	relay_trace::TraceMode GetRelayTraceMode() const noexcept { return m_relayTraceMode; }
+	bool				RelayTraceStrictFailureLatched() const noexcept;
+#endif
+
 	// SET Interfaces //
 	void				SetScriptGasLimit(uint64_t gas_limit) { m_runtimeInfo.gasLimit = gas_limit; }
 	void				SetScriptGlobalGasLimit(uint64_t gas_limit) { m_runtimeInfo.globalGasLimit = gas_limit; }
@@ -134,6 +176,29 @@ protected:
 	rvm::RvmEngine* 	GetEngine(rvm::EngineId e) const { return m_engines[(int)e].pEngine; }
 	const auto*			GetAllEngines() const { return &m_engines[0]; }
 	rvm::Address&		GetMiner() { if(m_pScriptListener) m_miner =  m_pScriptListener->GetUserAddr(0); return m_miner; }
+
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+	// Read-only Native Engine observation interfaces. These never participate
+	// in transaction serialization, hashing, routing, or queue ownership.
+	relay_trace::RelayTraceCollector* GetRelayTraceCollector() noexcept
+	{
+		return m_relayTraceCollector.get();
+	}
+	std::shared_ptr<const relay_trace::RelayManifestLoadResult>
+						LoadRelayTraceManifest(const rvm::ContractModuleID& moduleId);
+	bool				ResolveRelayTraceFunction(
+							const rvm::ContractModuleID& moduleId,
+							uint32_t opcode,
+							std::string& outSourceFunctionId);
+	bool				ResolveRelayTraceSite(
+							const rvm::ContractModuleID& moduleId,
+							relay_trace::RelaySiteOrdinal ordinal,
+							relay_trace::ManifestRelaySite& outSite);
+	void				ValidateRelayTraceExecution(
+							const rvm::ContractModuleID& moduleId,
+							const relay_trace::RuntimeTxnTraceContext& execution,
+							bool invocationSucceeded);
+#endif
 
 	void				OnTxnPushed(){ if(os::AtomicIncrement(&m_runtimeInfo.pendingTxnCount) < 2) m_chainIdle.Reset(); }
 	void				OnTxnPushed(uint32_t count){ if(os::AtomicAdd(count, &m_runtimeInfo.pendingTxnCount) < (int)(2 + count)) m_chainIdle.Reset(); }
@@ -161,6 +226,14 @@ private:
 	bool 				_ResolveTokensSupplied(rt::String_Ref tokensSuppliedStr, rt::BufferEx<uint8_t>& out);
 	bool				_ResolveExistingState(rvm::ContractInvokeId ciid, uint32_t shardId, const rvm::ScopeKey& sk, rvm::StringStreamImpl& out);
 	bool				_ComposeStateData(rvm::ContractInvokeId ciid, rt::String_Ref jsonParameters, const rt::String_Ref& existing_state, rvm::ConstData &out_buf);
+
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+	bool				_InitRelayTrace(
+							const os::CommandLine& cmd,
+							rt::String_Ref nativeRepository);
+	void				_FinalizeRelayTraceDepthValidation();
+	void				_WriteRelayTraceReport();
+#endif
 
 protected:
 	///////////////////////////////////////////////////////

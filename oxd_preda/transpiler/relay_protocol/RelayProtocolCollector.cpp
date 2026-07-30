@@ -332,6 +332,7 @@ void RelayProtocolCollector::Reset(
 	m_refinementTypeSymbols.clear();
 	m_currentRefinementFunctionId.clear();
 	m_namedHandlers.clear();
+	m_exportedFunctionOpcodes.clear();
 	m_finalized = false;
 }
 
@@ -364,8 +365,33 @@ void RelayProtocolCollector::RegisterTypeSymbol(
 void RelayProtocolCollector::BeginFunctionDependencyAnalysis(
 	const std::string &functionId,
 	ScopeType scope,
-	const std::vector<RelayFunctionParameterInput> &parameters)
+	const std::vector<RelayFunctionParameterInput> &parameters,
+	const std::string &contract,
+	const std::string &function,
+	const std::string &functionSignature,
+	uint64_t functionOverloadIndex,
+	int64_t exportedOpcode)
 {
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+	if (exportedOpcode >= 0)
+		SetFunctionExportOpcode(functionId, exportedOpcode);
+	FunctionProtocol &protocol = GetOrCreateFunction(
+		contract,
+		function,
+		functionId,
+		functionSignature,
+		functionOverloadIndex,
+		scope);
+	if (exportedOpcode >= 0)
+		protocol.exportedOpcode = exportedOpcode;
+#else
+	(void)contract;
+	(void)function;
+	(void)functionSignature;
+	(void)functionOverloadIndex;
+	(void)exportedOpcode;
+#endif
+
 	std::vector<std::string> parameterNames;
 	parameterNames.reserve(parameters.size());
 	for (const RelayFunctionParameterInput &parameter : parameters)
@@ -424,6 +450,28 @@ void RelayProtocolCollector::EndFunctionDependencyAnalysis()
 			m_currentRefinementFunctionId);
 	}
 	m_currentRefinementFunctionId.clear();
+}
+
+void RelayProtocolCollector::SetFunctionExportOpcode(
+	const std::string &functionId,
+	int64_t exportedOpcode)
+{
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+	if (functionId.empty() || exportedOpcode < 0)
+		return;
+	m_exportedFunctionOpcodes[functionId] = exportedOpcode;
+	for (FunctionProtocol &function : m_ir.functions)
+	{
+		if (function.sourceFunctionId == functionId)
+		{
+			function.exportedOpcode = exportedOpcode;
+			break;
+		}
+	}
+#else
+	(void)functionId;
+	(void)exportedOpcode;
+#endif
 }
 
 void RelayProtocolCollector::PushDependencyScope()
@@ -1178,6 +1226,9 @@ FunctionProtocol &RelayProtocolCollector::GetOrCreateFunction(
 	protocol.sourceFunctionId = sourceFunctionId;
 	protocol.sourceFunctionSignature = sourceFunctionSignature;
 	protocol.sourceFunctionOverloadIndex = sourceFunctionOverloadIndex;
+	const auto opcode = m_exportedFunctionOpcodes.find(sourceFunctionId);
+	if (opcode != m_exportedFunctionOpcodes.end())
+		protocol.exportedOpcode = opcode->second;
 	protocol.scope = scope;
 	protocol.root.kind = ProtocolNodeKind::Sequence;
 	m_ir.functions.push_back(std::move(protocol));
@@ -1254,11 +1305,17 @@ ProtocolNode RelayProtocolCollector::BuildProtocolNode(const RelaySite &site) co
 	return current;
 }
 
-std::string RelayProtocolCollector::CollectRelay(const RelaySiteInput &input)
+std::string RelayProtocolCollector::CollectRelay(
+	const RelaySiteInput &input,
+	RelaySiteOrdinal *outOrdinal)
 {
 	m_finalized = false;
 	RelaySite site;
 	site.id = "relay_site_" + std::to_string(m_ir.relaySites.size());
+	site.ordinal =
+		static_cast<RelaySiteOrdinal>(m_ir.relaySites.size());
+	if (outOrdinal != nullptr)
+		*outOrdinal = site.ordinal;
 	site.sourceContract = input.sourceContract;
 	site.sourceFunction = input.sourceFunction;
 	site.sourceFunctionId = input.sourceFunctionId;
@@ -1408,6 +1465,9 @@ std::string RelayProtocolCollector::CollectRelay(const RelaySiteInput &input)
 	function.root.children.push_back(BuildProtocolNode(site));
 	m_ir.relaySites.push_back(std::move(site));
 	m_ir.edges.push_back(std::move(edge));
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+	SetFunctionExportOpcode(input.targetFunctionId, input.opcode);
+#endif
 	return siteId;
 }
 
@@ -1438,6 +1498,7 @@ void RelayProtocolCollector::ResolveLambdaHandler(
 			handler.targetFunctionOverloadIndex =
 				targetFunctionOverloadIndex;
 			handler.resolved = true;
+			SetFunctionExportOpcode(targetFunctionId, opcode);
 			break;
 		}
 		for (RelayProtocolEdge &edge : m_ir.edges)

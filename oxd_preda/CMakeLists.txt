@@ -24,6 +24,12 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR})
 
+option(
+    RPREDA_ENABLE_RUNTIME_TRACE
+    "Enable read-only R-PREDA Native relay runtime tracing"
+    OFF
+)
+
 if(WIN32)
     # Use the USERPROFILE environment variable to get the user's home directory on Windows
     execute_process(COMMAND cmd /c "echo %USERPROFILE%" OUTPUT_VARIABLE HOME_DIR OUTPUT_STRIP_TRAILING_WHITESPACE)

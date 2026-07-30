@@ -29,7 +29,7 @@ file(GLOB_RECURSE TEST EXCLUDE contracts/scope.*
   contracts/*.prdts
   contracts/*.prd
 )
-file(GLOB SIMULATOR 
+file(GLOB SIMULATOR
 	chain_simu.h
 	chain_simu.cpp
 	core_contracts.h
@@ -43,6 +43,17 @@ file(GLOB SIMULATOR
 	simu_shard.h
 	simu_shard.cpp
 )
+if(RPREDA_ENABLE_RUNTIME_TRACE)
+  file(GLOB RELAY_RUNTIME_TRACE
+    relay_trace/*.h
+    relay_trace/*.cpp
+  )
+  set(
+    RELAY_RUNTIME_TRACE_TEST
+    ${CMAKE_CURRENT_SOURCE_DIR}/relay_trace/RelayRuntimeTraceTests.cpp
+  )
+  list(REMOVE_ITEM RELAY_RUNTIME_TRACE ${RELAY_RUNTIME_TRACE_TEST})
+endif()
 file(GLOB ANTLR_GENERATED
   antlr_generated/*.cpp
   antlr_generated/*.h
@@ -63,7 +74,38 @@ source_group("Source Files" FILES ${proj_win})
 source_group("rvm" FILES ${RVM})
 source_group("rvm/types" FILES ${RVM_TYPE})
 source_group("main" FILES ${CHAIN_SIMULATOR_FILE})
-add_executable(chain_simulator ${CHAIN_SIMULATOR_FILE} ${TEST} ${SIMULATOR} ${ANTLR_GENERATED} ${RVM} ${RVM_TYPE} ${proj_win})
+add_executable(chain_simulator ${CHAIN_SIMULATOR_FILE} ${TEST} ${SIMULATOR} ${RELAY_RUNTIME_TRACE} ${ANTLR_GENERATED} ${RVM} ${RVM_TYPE} ${proj_win})
+
+if(RPREDA_ENABLE_RUNTIME_TRACE)
+  add_executable(
+    relay_runtime_trace_tests
+    ${RELAY_RUNTIME_TRACE}
+    ${RELAY_RUNTIME_TRACE_TEST}
+  )
+  target_compile_definitions(
+    relay_runtime_trace_tests
+    PRIVATE
+    RPREDA_ENABLE_RUNTIME_TRACE=1
+    RPREDA_RUNTIME_TRACE_STANDALONE_TEST_MAIN=1
+  )
+  target_link_directories(
+    relay_runtime_trace_tests
+    PRIVATE
+    ../../oxd_libsec/lib
+  )
+  set_property(
+    TARGET relay_runtime_trace_tests
+    PROPERTY CXX_STANDARD 17
+  )
+  add_dependencies(
+    relay_runtime_trace_tests
+    oxd_libsec
+  )
+  add_test(
+    NAME relay_runtime_trace_tests
+    COMMAND relay_runtime_trace_tests
+  )
+endif()
 
 # Add macro definitions based on options
 if(ENABLE_VERIFY_SIG)
@@ -72,6 +114,14 @@ endif()
 
 if(ENABLE_AFFINITY_SET)
     target_compile_definitions(chain_simulator PRIVATE AFFINITY_SET=1)
+endif()
+
+if(RPREDA_ENABLE_RUNTIME_TRACE)
+    target_compile_definitions(
+      chain_simulator
+      PRIVATE
+      RPREDA_ENABLE_RUNTIME_TRACE=1
+    )
 endif()
 
 target_sources(chain_simulator PRIVATE
@@ -118,6 +168,62 @@ elseif(APPLE)
     SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-rpath -Wl,${CMAKE_SOURCE_DIR}/bin/bin_debug/")
   else()
     SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-rpath -Wl,${CMAKE_SOURCE_DIR}/bin/bin_release/")
+  endif()
+endif()
+
+if(RPREDA_ENABLE_RUNTIME_TRACE)
+  if(WIN32)
+    target_link_options(
+      relay_runtime_trace_tests
+      PRIVATE
+      "/DEFAULTLIB:$<IF:$<CONFIG:Debug>,oxd_libsec_d.lib,oxd_libsec.lib>"
+    )
+    target_link_directories(
+      relay_runtime_trace_tests
+      PRIVATE
+      ../../SFC/libs/win
+    )
+    target_link_libraries(
+      relay_runtime_trace_tests
+      PRIVATE
+      ${IPP_LIB}
+    )
+    win_sdk_rule(relay_runtime_trace_tests)
+  elseif(UNIX AND NOT APPLE)
+    target_link_libraries(
+      relay_runtime_trace_tests
+      PRIVATE
+      "-l:liboxd_libsec.a"
+    )
+    target_link_directories(
+      relay_runtime_trace_tests
+      PRIVATE
+      ../../SFC/libs/linux
+    )
+    linux_link_ipp_rule(relay_runtime_trace_tests)
+    target_compile_options(
+      relay_runtime_trace_tests
+      PRIVATE
+      -fPIC
+      -pthread
+    )
+  elseif(APPLE)
+    target_link_libraries(
+      relay_runtime_trace_tests
+      PRIVATE
+      "-loxd_libsec"
+    )
+    target_link_directories(
+      relay_runtime_trace_tests
+      PRIVATE
+      ../../SFC/libs/mac
+    )
+    target_link_libraries(
+      relay_runtime_trace_tests
+      PRIVATE
+      ${IPP_LIB}
+    )
+    mac_link_rule(relay_runtime_trace_tests)
   endif()
 endif()
 

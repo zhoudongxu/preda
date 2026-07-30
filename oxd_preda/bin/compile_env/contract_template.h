@@ -32,6 +32,10 @@ extern "C" {
 
 thread_local prlrt::IRuntimeInterface* prlrt::g_executionEngineInterface = nullptr;
 thread_local bool prlrt::g_inRelaySerialization = false;
+#if defined(RPREDA_ENABLE_RUNTIME_TRACE) && !defined(__wasm32__)
+thread_local prlrt::IRelayTraceRuntimeInterface*
+	prlrt::g_relayTraceRuntimeInterface = nullptr;
+#endif
 
 #if !defined(__wasm32__) && !defined(__APPLE__)
 thread_local std::pmr::unsynchronized_pool_resource prlrt::g_memory_pool;

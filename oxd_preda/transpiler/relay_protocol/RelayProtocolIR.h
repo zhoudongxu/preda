@@ -16,6 +16,8 @@
 namespace transpiler {
 namespace relay_protocol {
 
+using RelaySiteOrdinal = uint32_t;
+
 enum class RelayKind : uint8_t
 {
 	CustomScope,
@@ -79,6 +81,7 @@ struct LoopProtocol
 struct RelaySite
 {
 	std::string id;
+	RelaySiteOrdinal ordinal = 0;
 	std::string sourceContract;
 	std::string sourceFunction;
 	std::string sourceFunctionId;
@@ -148,6 +151,7 @@ struct FunctionProtocol
 	std::string sourceFunctionId;
 	std::string sourceFunctionSignature;
 	uint64_t sourceFunctionOverloadIndex = 0;
+	int64_t exportedOpcode = -1;
 	ScopeType scope = ScopeType::None;
 	ProtocolNode root;
 	std::vector<std::string> relaySiteIds;
@@ -157,7 +161,11 @@ struct FunctionProtocol
 
 struct RelayProtocolIR
 {
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+	uint32_t schemaVersion = 5;
+#else
 	uint32_t schemaVersion = 4;
+#endif
 	std::string dapp;
 	std::string contract;
 	std::vector<RelaySite> relaySites;
@@ -171,7 +179,11 @@ struct RelayProtocolIR
 
 	void Reset(const std::string &dappName, const std::string &contractName)
 	{
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+		schemaVersion = 5;
+#else
 		schemaVersion = 4;
+#endif
 		dapp = dappName;
 		contract = contractName;
 		relaySites.clear();

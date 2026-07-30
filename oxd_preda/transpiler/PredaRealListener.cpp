@@ -1525,27 +1525,65 @@ void PredaRealListener::enterRelayStatement(PredaParser::RelayStatementContext *
 	protocolInput.arguments = std::move(protocolArguments);
 	protocolInput.lambdaHandler = isLambdaHandler;
 	protocolInput.opcode = opCode;
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+	transpiler::relay_protocol::RelaySiteOrdinal protocolSiteOrdinal = 0;
+	const std::string protocolSiteId =
+		m_relayProtocolCollector.CollectRelay(
+			protocolInput,
+			&protocolSiteOrdinal);
+#else
 	const std::string protocolSiteId =
 		m_relayProtocolCollector.CollectRelay(protocolInput);
+#endif
 	if (isLambdaHandler && !m_pendingRelayLambdas.empty())
 		m_pendingRelayLambdas.back().protocolSiteId = protocolSiteId;
 
 	if (bRelayNext)
 	{
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+		codeSerializer.AddLine(
+			"prlrt::relay_next_traced(" +
+			std::to_string(protocolSiteOrdinal) + ", " +
+			std::to_string(opCode) + argumentsString + ");");
+#else
 		codeSerializer.AddLine("prlrt::relay_next(" + std::to_string(opCode) + argumentsString + ");");
+#endif
 	}
 	else
 	{
 		switch (relayType)
 		{
 		case RelayType::CustomScope:
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+			codeSerializer.AddLine(
+				"prlrt::relay_traced(" +
+				std::to_string(protocolSiteOrdinal) + ", " +
+				targetScopeExpRes.text + ", " +
+				std::to_string(uint32_t(expectedfuncScope)) + ", " +
+				std::to_string(opCode) + argumentsString + ");");
+#else
 			codeSerializer.AddLine("prlrt::relay(" + targetScopeExpRes.text + ", " + std::to_string(uint32_t(expectedfuncScope)) + ", " + std::to_string(opCode) + argumentsString + ");");
+#endif
 			break;
 		case RelayType::Shards:
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+			codeSerializer.AddLine(
+				"prlrt::relay_shards_traced(" +
+				std::to_string(protocolSiteOrdinal) + ", " +
+				std::to_string(opCode) + argumentsString + ");");
+#else
 			codeSerializer.AddLine("prlrt::relay_shards(" + std::to_string(opCode) + argumentsString + ");");
+#endif
 			break;
 		case RelayType::Global:
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+			codeSerializer.AddLine(
+				"prlrt::relay_global_traced(" +
+				std::to_string(protocolSiteOrdinal) + ", " +
+				std::to_string(opCode) + argumentsString + ");");
+#else
 			codeSerializer.AddLine("prlrt::relay_global(" + std::to_string(opCode) + argumentsString + ");");
+#endif
 			break;
 		default:
 			assert(0);
@@ -2686,6 +2724,25 @@ void PredaRealListener::DefinePendingRelayLambdas()
 				vParamNameCtxs[parameterIndex]->identifier();
 			refinementParameters.push_back(std::move(parameter));
 		}
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+		const transpiler::FunctionRef &lambdaFunction =
+			m_transpilerCtx.functionCtx.functionRef;
+		const std::string lambdaFunctionSignature =
+			RelayProtocolFunctionSignature(
+				lambdaFunction);
+		m_relayProtocolCollector.BeginFunctionDependencyAnalysis(
+			RelayProtocolFunctionId(
+				m_currentDAppName,
+				m_currentContractName,
+				lambdaFunction),
+			lambda.funcScope,
+			refinementParameters,
+			m_currentDAppName + "." + m_currentContractName,
+			lambdaFunction.functionIdentifier->inputName,
+			lambdaFunctionSignature,
+			static_cast<uint64_t>(lambdaFunction.overloadIndex),
+			static_cast<int64_t>(lambda.exportFuncSlot));
+#else
 		m_relayProtocolCollector.BeginFunctionDependencyAnalysis(
 			RelayProtocolFunctionId(
 				m_currentDAppName,
@@ -2693,6 +2750,7 @@ void PredaRealListener::DefinePendingRelayLambdas()
 				m_transpilerCtx.functionCtx.functionRef),
 			lambda.funcScope,
 			refinementParameters);
+#endif
 
 		m_lastStatementInFunctionIsReturnStatement = false;
 
@@ -2971,12 +3029,18 @@ void PredaRealListener::GenerateAuxiliaryFunctions()
 
 		codeSerializer.AddLine("");
 
-		codeSerializer.AddLine("API_EXPORT void* Contract_" + m_currentContractUniqueIdentifierStr + "_CreateInstance(prlrt::IRuntimeInterface *pInterface, uint64_t curContractId, const uint64_t *importedContractIds, uint32_t numImportedContracts, uint64_t gas_limit) {");
-		codeSerializer.PushIndent();
+		auto emitCreateInstanceBody = [&](bool traceFactory)
 		{
+			codeSerializer.PushIndent();
 			codeSerializer.AddLine("prlrt::RemainingGas = gas_limit;");
 			codeSerializer.AddLine("if (numImportedContracts != " + std::to_string(m_importedContracts.size()) + ") return nullptr;");
 			codeSerializer.AddLine("prlrt::g_executionEngineInterface = pInterface;");
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+			if (traceFactory)
+				codeSerializer.AddLine("prlrt::g_relayTraceRuntimeInterface = pTraceInterface;");
+#else
+			(void)traceFactory;
+#endif
 			codeSerializer.AddMacroLine("#if !defined(__wasm32__) && !defined(__APPLE__)");
 			codeSerializer.AddLine(m_currentContractOutputName + " *ret = (" + m_currentContractOutputName + " *)prlrt::g_memory_pool.allocate(sizeof(" + m_currentContractOutputName + "));");
 			codeSerializer.AddMacroLine("#else");
@@ -2998,9 +3062,23 @@ void PredaRealListener::GenerateAuxiliaryFunctions()
 				codeSerializer.AddLine("ret->" + definedVariable->outputName + ".link_external_map(curContractId, " + std::to_string(definedVariable->flags - 1) + ", " + std::to_string(var.slotId) + ");");
 			}
 			codeSerializer.AddLine("return ret;");
-		}
-		codeSerializer.PopIndent();
-		codeSerializer.AddLine("}");
+			codeSerializer.PopIndent();
+			codeSerializer.AddLine("}");
+		};
+
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+		codeSerializer.AddMacroLine("#if defined(__wasm32__)");
+		codeSerializer.AddLine("API_EXPORT void* Contract_" + m_currentContractUniqueIdentifierStr + "_CreateInstance(prlrt::IRuntimeInterface *pInterface, uint64_t curContractId, const uint64_t *importedContractIds, uint32_t numImportedContracts, uint64_t gas_limit) {");
+		emitCreateInstanceBody(false);
+		codeSerializer.AddMacroLine("#else");
+		codeSerializer.AddLine("API_EXPORT uint32_t Contract_" + m_currentContractUniqueIdentifierStr + "_RPredaRuntimeTraceAbiVersion() { return 1; }");
+		codeSerializer.AddLine("API_EXPORT void* Contract_" + m_currentContractUniqueIdentifierStr + "_CreateInstance_RPredaTraceV1(prlrt::IRuntimeInterface *pInterface, prlrt::IRelayTraceRuntimeInterface *pTraceInterface, uint64_t curContractId, const uint64_t *importedContractIds, uint32_t numImportedContracts, uint64_t gas_limit) {");
+		emitCreateInstanceBody(true);
+		codeSerializer.AddMacroLine("#endif");
+#else
+		codeSerializer.AddLine("API_EXPORT void* Contract_" + m_currentContractUniqueIdentifierStr + "_CreateInstance(prlrt::IRuntimeInterface *pInterface, uint64_t curContractId, const uint64_t *importedContractIds, uint32_t numImportedContracts, uint64_t gas_limit) {");
+		emitCreateInstanceBody(false);
+#endif
 
 		codeSerializer.AddLine("");
 
@@ -3690,6 +3768,40 @@ void PredaRealListener::enterFunctionDefinition(PredaParser::FunctionDefinitionC
 		refinementParameters.push_back(
 			std::move(refinementParameter));
 	}
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+	const transpiler::FunctionRef &protocolFunction =
+		m_transpilerCtx.functionCtx.functionRef;
+	int64_t exportedOpcode = -1;
+	for (size_t exportIndex = 0;
+		exportIndex < m_exportedFunctions.size();
+		++exportIndex)
+	{
+		if (m_exportedFunctions[exportIndex].functionIdentifier ==
+				protocolFunction.functionIdentifier &&
+			m_exportedFunctions[exportIndex].overloadIndex ==
+				protocolFunction.overloadIndex)
+		{
+			exportedOpcode = static_cast<int64_t>(exportIndex);
+			break;
+		}
+	}
+	const std::string protocolFunctionSignature =
+		RelayProtocolFunctionSignature(protocolFunction);
+	m_relayProtocolCollector.BeginFunctionDependencyAnalysis(
+		RelayProtocolFunctionId(
+			m_currentDAppName,
+			m_currentContractName,
+			protocolFunction),
+		transpiler::ScopeType(
+			functionSignature.flags &
+			uint32_t(transpiler::ScopeType::Mask)),
+		refinementParameters,
+		m_currentDAppName + "." + m_currentContractName,
+		protocolFunction.functionIdentifier->inputName,
+		protocolFunctionSignature,
+		static_cast<uint64_t>(protocolFunction.overloadIndex),
+		exportedOpcode);
+#else
 	m_relayProtocolCollector.BeginFunctionDependencyAnalysis(
 		RelayProtocolFunctionId(
 			m_currentDAppName,
@@ -3699,6 +3811,7 @@ void PredaRealListener::enterFunctionDefinition(PredaParser::FunctionDefinitionC
 			functionSignature.flags &
 			uint32_t(transpiler::ScopeType::Mask)),
 		refinementParameters);
+#endif
 
 	m_lastStatementInFunctionIsReturnStatement = false;
 

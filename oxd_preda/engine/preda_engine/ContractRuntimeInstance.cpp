@@ -4,7 +4,18 @@
 
 class ContractModuleDLL : public ContractModule {
 public:
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+	typedef uint32_t (*FNRPredaRuntimeTraceAbiVersion)();
+	typedef void* (*FNCreateContractInstance)(
+		prlrt::IRuntimeInterface* ____pInterface,
+		prlrt::IRelayTraceRuntimeInterface* ____pTraceInterface,
+		uint64_t contractId,
+		const uint64_t *importedContractIds,
+		uint32_t numImportedContracts,
+		uint64_t gas_limit);
+#else
 	typedef void* (*FNCreateContractInstance)(prlrt::IRuntimeInterface* ____pInterface, uint64_t contractId, const uint64_t *importedContractIds, uint32_t numImportedContracts, uint64_t gas_limit);
+#endif
 	typedef void* (*FNDestroyContractInstance)(void* pContractInstancce);
 	typedef bool(*FNMapContractContextToInstance)(void* pInstance, prlrt::ContractContextType type, const uint8_t* buffer, uint32_t bufferSize);
 	typedef uint32_t(*FNTransactionCall)(void* pContractInstance, uint32_t functionId, const uint8_t* args, uint32_t args_size);
@@ -17,6 +28,9 @@ public:
 	typedef uint32_t (*FNSetRemainingGas)(uint64_t remainingGas);
 	typedef uint32_t (*FNCommitJournaledStates)(void* pContractInstance, bool isGlobalContext);
 
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+	FNRPredaRuntimeTraceAbiVersion fnRPredaRuntimeTraceAbiVersion;
+#endif
 	FNCreateContractInstance fnCreateInstance;
 	FNDestroyContractInstance fnDestroyContractInstance;
 	FNMapContractContextToInstance fnMapContractContextToInstance;
@@ -59,7 +73,22 @@ std::unique_ptr<ContractModule> ContractModule::FromLibrary(const ContractDataba
 
 	std::unique_ptr<ContractModuleDLL> dllModule = std::make_unique<ContractModuleDLL>();
 
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+	dllModule->fnRPredaRuntimeTraceAbiVersion =
+		(ContractModuleDLL::FNRPredaRuntimeTraceAbiVersion)
+			os::GetDynamicLibrarySymbol(
+				mod,
+				("Contract_" + exportUniqueStr +
+					"_RPredaRuntimeTraceAbiVersion").c_str());
+	dllModule->fnCreateInstance =
+		(ContractModuleDLL::FNCreateContractInstance)
+			os::GetDynamicLibrarySymbol(
+				mod,
+				("Contract_" + exportUniqueStr +
+					"_CreateInstance_RPredaTraceV1").c_str());
+#else
 	dllModule->fnCreateInstance = (ContractModuleDLL::FNCreateContractInstance)os::GetDynamicLibrarySymbol(mod, ("Contract_" + exportUniqueStr + "_CreateInstance").c_str());
+#endif
 	dllModule->fnDestroyContractInstance = (ContractModuleDLL::FNDestroyContractInstance)os::GetDynamicLibrarySymbol(mod, ("Contract_" + exportUniqueStr + "_DestroyInstance").c_str());
 	dllModule->fnMapContractContextToInstance = (ContractModuleDLL::FNMapContractContextToInstance)os::GetDynamicLibrarySymbol(mod, ("Contract_" + exportUniqueStr + "_MapContractContextToInstance").c_str());
 	dllModule->fnTransactionCall = (ContractModuleDLL::FNTransactionCall)os::GetDynamicLibrarySymbol(mod, ("Contract_" + exportUniqueStr + "_TransactionCallEntry").c_str());
@@ -70,7 +99,13 @@ std::unique_ptr<ContractModule> ContractModule::FromLibrary(const ContractDataba
 	dllModule->fnGetRemainingGas = (ContractModuleDLL::FNGetRemainingGas)os::GetDynamicLibrarySymbol(mod, ("Contract_" + exportUniqueStr + "_GetRemainingGas").c_str());
 	dllModule->fnSetRemainingGas = (ContractModuleDLL::FNSetRemainingGas)os::GetDynamicLibrarySymbol(mod, ("Contract_" + exportUniqueStr + "_SetRemainingGas").c_str());
 	dllModule->fnCommitJournaledStates = (ContractModuleDLL::FNCommitJournaledStates)os::GetDynamicLibrarySymbol(mod, ("Contract_" + exportUniqueStr + "_CommitJournaledStates").c_str());
-	if (dllModule->fnCreateInstance == nullptr
+	if (
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+		dllModule->fnRPredaRuntimeTraceAbiVersion == nullptr ||
+		dllModule->fnRPredaRuntimeTraceAbiVersion() !=
+			prlrt::RPREDA_RUNTIME_TRACE_ABI_VERSION ||
+#endif
+		dllModule->fnCreateInstance == nullptr
 		|| dllModule->fnDestroyContractInstance == nullptr
 		|| dllModule->fnMapContractContextToInstance == nullptr
 		|| dllModule->fnTransactionCall == nullptr
@@ -149,7 +184,17 @@ public:
 ContractRuntimeInstance* ContractModuleDLLLoaded::NewInstance(CExecutionEngine& engine, rvm::ContractVersionId contractId, const rvm::ContractVersionId* importedContractIds, uint32_t numImportedContracts, uint64_t gas_limit)
 {
 	static_assert(sizeof(uint64_t) == sizeof(rvm::ContractVersionId), "rvm::ContractVersionId is no longer a 64-bit integer, need to change contract CreateInstance() argument type");
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+	void* pInstance = m_dll.fnCreateInstance(
+		&engine.runtimeInterface(),
+		&engine.runtimeInterface(),
+		uint64_t(contractId),
+		(const uint64_t*)importedContractIds,
+		numImportedContracts,
+		gas_limit);
+#else
 	void* pInstance = m_dll.fnCreateInstance(&engine.runtimeInterface(), uint64_t(contractId), (const uint64_t*)importedContractIds, numImportedContracts, gas_limit);
+#endif
 	if (!pInstance) {
 		return nullptr;
 	}

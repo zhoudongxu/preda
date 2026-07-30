@@ -54,6 +54,13 @@ source_group("PredaEngine/ExecutionEngine" FILES ${ExecutionEngine})
 source_group("rocksdb" FILES ${ROCKSDB})
 source_group("Source Files" FILES "${main}")
 add_library(preda_engine SHARED ${main} ${PREDA_ENGINE_FILES} ${PREDA_ENGINE_FILES_RVM} ${EVMEngine} ${native} ${ExecutionEngine} ${RuntimeInterface} ${ROCKSDB})
+if(RPREDA_ENABLE_RUNTIME_TRACE)
+  target_compile_definitions(preda_engine PRIVATE RPREDA_ENABLE_RUNTIME_TRACE=1)
+  target_sources(preda_engine PRIVATE
+    preda_engine/RelayManifestBinding.h
+    preda_engine/RelayManifestBinding.cpp
+  )
+endif()
 target_sources(preda_engine
   PRIVATE
   ../../SFC/core/ext/bignum/big_num.cpp

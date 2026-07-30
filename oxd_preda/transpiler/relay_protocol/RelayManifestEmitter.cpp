@@ -263,6 +263,9 @@ std::string RelayManifestEmitter::Emit(const RelayProtocolIR &protocol)
 			{"target_function", site.targetFunction},
 			{"handler_id", site.handlerId},
 		};
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+		item["ordinal"] = site.ordinal;
+#endif
 		item["arguments"] = Json::array();
 		for (const RelayArgument &argument : site.arguments)
 		{
@@ -333,6 +336,9 @@ std::string RelayManifestEmitter::Emit(const RelayProtocolIR &protocol)
 			{"relay_site_ids", function.relaySiteIds},
 			{"root", EmitNode(function.root)},
 		};
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+		item["exported_opcode"] = function.exportedOpcode;
+#endif
 		item["summary"] =
 			analysis::RelaySummaryEmitter::Emit(function.summary);
 		root["functions"].push_back(std::move(item));

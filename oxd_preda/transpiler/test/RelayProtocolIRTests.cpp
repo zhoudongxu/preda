@@ -8,12 +8,17 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
 #include "../transpiler.h"
 #include "../relay_protocol/analysis/RelaySummaryBuilder.h"
 #include "../../3rdParty/nlohmann/json.hpp"
+
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+#include "../../bin/compile_env/include/relay_trace.h"
+#endif
 
 #ifdef RPREDA_ENABLE_Z3
 #include "../relay_protocol/refinement/solver/RelayProofRunner.h"
@@ -24,6 +29,11 @@
 extern "C" __declspec(dllimport) transpiler::ITranspiler* CreateTranspilerInstance(const char* options);
 #else
 extern "C" transpiler::ITranspiler* CreateTranspilerInstance(const char* options);
+#endif
+
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+thread_local prlrt::IRelayTraceRuntimeInterface*
+	prlrt::g_relayTraceRuntimeInterface = nullptr;
 #endif
 
 namespace {
@@ -187,11 +197,55 @@ void CheckGeneratedCppGolden(
 	size_t expectedSize,
 	uint64_t expectedHash)
 {
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+	(void)expectedSize;
+	(void)expectedHash;
+	const std::string& generated = result.generatedCpp;
+	const size_t legacyFactory =
+		generated.find("_CreateInstance(prlrt::IRuntimeInterface *pInterface");
+	const size_t traceAbi =
+		generated.find("_RPredaRuntimeTraceAbiVersion() { return 1; }");
+	const size_t traceFactory =
+		generated.find("_CreateInstance_RPredaTraceV1(");
+	CHECK(legacyFactory != std::string::npos);
+	CHECK(traceAbi != std::string::npos);
+	CHECK(traceFactory != std::string::npos);
+	const size_t wasmGuard =
+		generated.rfind("#if defined(__wasm32__)", legacyFactory);
+	const size_t nativeBranch = generated.find("#else", legacyFactory);
+	const size_t factoryEnd = generated.find("#endif", traceFactory);
+	CHECK(wasmGuard != std::string::npos);
+	CHECK(nativeBranch != std::string::npos);
+	CHECK(factoryEnd != std::string::npos);
+	CHECK(wasmGuard < legacyFactory);
+	CHECK(legacyFactory < nativeBranch);
+	CHECK(nativeBranch < traceAbi);
+	CHECK(traceAbi < traceFactory);
+	CHECK(traceFactory < factoryEnd);
+	CHECK(
+		generated.find(
+			"prlrt::g_relayTraceRuntimeInterface = pTraceInterface;",
+			traceFactory) < factoryEnd);
+#else
 	std::ostringstream detail;
 	detail << "generated C++ changed: size=" << result.generatedCpp.size()
 		<< ", fnv1a64=0x" << std::hex << Fnv1a64(result.generatedCpp);
 	CHECK_DETAIL(result.generatedCpp.size() == expectedSize, detail.str());
 	CHECK_DETAIL(Fnv1a64(result.generatedCpp) == expectedHash, detail.str());
+#endif
+}
+
+void CheckGeneratedRelayCall(
+	const CompileResult& result,
+	const std::string& stockCall,
+	const std::string& tracedCall)
+{
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+	CHECK(result.generatedCpp.find(tracedCall) != std::string::npos);
+#else
+	(void)tracedCall;
+	CHECK(result.generatedCpp.find(stockCall) != std::string::npos);
+#endif
 }
 
 bool EndsWith(const std::string& text, const std::string& suffix)
@@ -834,15 +888,35 @@ void CheckTopLevel(const CompileResult& result, const std::string& contract)
 	const Json& manifest = result.manifest;
 	CHECK(manifest.is_object());
 	CHECK(RequireField(manifest, "schema_version").is_number_unsigned());
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+	CHECK(RequireField(manifest, "schema_version").get<uint64_t>() == 5);
+#else
 	CHECK(RequireField(manifest, "schema_version").get<uint64_t>() == 4);
+#endif
 	CHECK(RequireString(manifest, "dapp") == "RelayProtocolTests");
 	CHECK(RequireString(manifest, "contract") == contract);
-	RequireArray(manifest, "relay_sites");
+	const Json& sites = RequireArray(manifest, "relay_sites");
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+	for (size_t siteIndex = 0; siteIndex < sites.size(); ++siteIndex)
+	{
+		const Json& ordinal = RequireField(sites[siteIndex], "ordinal");
+		CHECK(
+			ordinal.is_number_unsigned() ||
+			ordinal.is_number_integer());
+		CHECK(ordinal.get<uint64_t>() == siteIndex);
+	}
+#endif
 	RequireArray(manifest, "handlers");
 	RequireArray(manifest, "edges");
 	const Json& functions = RequireArray(manifest, "functions");
 	for (const Json& function : functions)
 	{
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+		CHECK(
+			RequireField(
+				function,
+				"exported_opcode").is_number_integer());
+#endif
 		const Json& summary = RequireField(function, "summary");
 		CheckSummaryRequiredFields(summary);
 	}
@@ -901,7 +975,10 @@ void TestNamedAddress(const std::string& fixtureDirectory)
 	const CompileResult result = CompileFixture(fixtureDirectory, "named_address.prd");
 	CheckTopLevel(result, "ProtocolNamedAddress");
 	CheckGeneratedCppGolden(result, 11536, UINT64_C(0xecb496c05dadef7a));
-	CHECK(result.generatedCpp.find("prlrt::relay(") != std::string::npos);
+	CheckGeneratedRelayCall(
+		result,
+		"prlrt::relay(",
+		"prlrt::relay_traced(0, ");
 
 	const Json& sites = RequireArray(result.manifest, "relay_sites");
 	CHECK(sites.size() == 1);
@@ -933,6 +1010,25 @@ void TestNamedAddress(const std::string& fixtureDirectory)
 	const Json* handler = FindHandlerById(result.manifest, RequireField(site, "handler_id"));
 	CHECK(RequireString(*handler, "name") == "receive");
 	CHECK(RequireArray(*handler, "parameter_types") == Json::array({ "int32" }));
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+	const std::string targetFunctionId =
+		RequireString(*handler, "target_function_id");
+	const Json* targetFunction = nullptr;
+	for (const Json& function : RequireArray(result.manifest, "functions"))
+	{
+		if (RequireString(function, "source_function_id") ==
+			targetFunctionId)
+		{
+			targetFunction = &function;
+			break;
+		}
+	}
+	CHECK(targetFunction != nullptr);
+	CHECK(RequireArray(*targetFunction, "relay_site_ids").empty());
+	CHECK(
+		RequireField(*targetFunction, "exported_opcode").get<int64_t>() ==
+		RequireField(*handler, "opcode").get<int64_t>());
+#endif
 	CHECK(RequireArray(result.manifest, "edges").size() == 1);
 	CHECK(ContainsNodeKind(RequireArray(result.manifest, "functions"), "Sequence"));
 	CHECK(ContainsNodeKind(RequireArray(result.manifest, "functions"), "Emit"));
@@ -1004,7 +1100,10 @@ void TestLambdaAddress(const std::string& fixtureDirectory)
 	const CompileResult result = CompileFixture(fixtureDirectory, "lambda_address.prd");
 	CheckTopLevel(result, "ProtocolLambdaAddress");
 	CheckGeneratedCppGolden(result, 11606, UINT64_C(0x04e76cef5d6c344a));
-	CHECK(result.generatedCpp.find("prlrt::relay(") != std::string::npos);
+	CheckGeneratedRelayCall(
+		result,
+		"prlrt::relay(",
+		"prlrt::relay_traced(0, ");
 
 	const Json& sites = RequireArray(result.manifest, "relay_sites");
 	CHECK(sites.size() == 1);
@@ -1033,6 +1132,25 @@ void TestLambdaAddress(const std::string& fixtureDirectory)
 	const Json* handler = FindHandlerById(result.manifest, RequireField(site, "handler_id"));
 	CHECK(RequireString(*handler, "name").find("__relaylambda_") == 0);
 	CHECK(RequireArray(*handler, "parameter_types") == Json::array({ "int32" }));
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+	const std::string targetFunctionId =
+		RequireString(*handler, "target_function_id");
+	const Json* targetFunction = nullptr;
+	for (const Json& function : RequireArray(result.manifest, "functions"))
+	{
+		if (RequireString(function, "source_function_id") ==
+			targetFunctionId)
+		{
+			targetFunction = &function;
+			break;
+		}
+	}
+	CHECK(targetFunction != nullptr);
+	CHECK(RequireArray(*targetFunction, "relay_site_ids").empty());
+	CHECK(
+		RequireField(*targetFunction, "exported_opcode").get<int64_t>() ==
+		RequireField(*handler, "opcode").get<int64_t>());
+#endif
 	CHECK(ContainsNodeKind(RequireArray(result.manifest, "functions"), "Emit"));
 }
 
@@ -1041,7 +1159,10 @@ void TestGlobal(const std::string& fixtureDirectory)
 	const CompileResult result = CompileFixture(fixtureDirectory, "global.prd");
 	CheckTopLevel(result, "ProtocolGlobal");
 	CheckGeneratedCppGolden(result, 11093, UINT64_C(0x69d91801a572b556));
-	CHECK(result.generatedCpp.find("prlrt::relay_global(") != std::string::npos);
+	CheckGeneratedRelayCall(
+		result,
+		"prlrt::relay_global(",
+		"prlrt::relay_global_traced(0, ");
 
 	const Json& sites = RequireArray(result.manifest, "relay_sites");
 	CHECK(sites.size() == 1);
@@ -1058,7 +1179,10 @@ void TestShards(const std::string& fixtureDirectory)
 	const CompileResult result = CompileFixture(fixtureDirectory, "shards.prd");
 	CheckTopLevel(result, "ProtocolShards");
 	CheckGeneratedCppGolden(result, 11117, UINT64_C(0x9883a654003c85b4));
-	CHECK(result.generatedCpp.find("prlrt::relay_shards(") != std::string::npos);
+	CheckGeneratedRelayCall(
+		result,
+		"prlrt::relay_shards(",
+		"prlrt::relay_shards_traced(0, ");
 
 	const Json& sites = RequireArray(result.manifest, "relay_sites");
 	CHECK(sites.size() == 1);
@@ -1770,6 +1894,14 @@ void TestExpressionDependencies(
 				fixtureDirectory,
 				dependencyCase.fixture);
 		CheckTopLevel(result, dependencyCase.contract);
+		if (std::string(dependencyCase.fixture) ==
+			"dependency_next.prd")
+		{
+			CheckGeneratedRelayCall(
+				result,
+				"prlrt::relay_next(",
+				"prlrt::relay_next_traced(0, ");
+		}
 		const Json& sites =
 			RequireArray(result.manifest, "relay_sites");
 		CHECK_DETAIL(
@@ -2081,7 +2213,10 @@ void TestSummaryConditional(const std::string& fixtureDirectory)
 	const CompileResult result =
 		CompileFixture(fixtureDirectory, "summary_conditional.prd");
 	CheckTopLevel(result, "ProtocolSummaryConditional");
-	CHECK(result.generatedCpp.find("prlrt::relay(") != std::string::npos);
+	CheckGeneratedRelayCall(
+		result,
+		"prlrt::relay(",
+		"prlrt::relay_traced(");
 
 	const Json& sites = RequireArray(result.manifest, "relay_sites");
 	CHECK(sites.size() == 1);
@@ -2216,7 +2351,10 @@ void TestSummarySequential(const std::string& fixtureDirectory)
 	const CompileResult result =
 		CompileFixture(fixtureDirectory, "summary_sequential.prd");
 	CheckTopLevel(result, "ProtocolSummarySequential");
-	CHECK(result.generatedCpp.find("prlrt::relay(") != std::string::npos);
+	CheckGeneratedRelayCall(
+		result,
+		"prlrt::relay(",
+		"prlrt::relay_traced(");
 
 	const Json& sites = RequireArray(result.manifest, "relay_sites");
 	CHECK(sites.size() == 2);
@@ -2256,7 +2394,10 @@ void TestSummaryRecursiveHandler(const std::string& fixtureDirectory)
 			fixtureDirectory,
 			"summary_recursive_handler.prd");
 	CheckTopLevel(result, "ProtocolSummaryRecursiveHandler");
-	CHECK(result.generatedCpp.find("prlrt::relay(") != std::string::npos);
+	CheckGeneratedRelayCall(
+		result,
+		"prlrt::relay(",
+		"prlrt::relay_traced(");
 	CHECK(RequireArray(result.manifest, "relay_sites").size() == 2);
 
 	for (const std::string functionName : { std::string("recur"), std::string("send") })
@@ -2391,14 +2532,21 @@ void TestOverloadedSource(const std::string& fixtureDirectory)
 {
 	const CompileResult result = CompileFixture(fixtureDirectory, "overloaded_source.prd");
 	CheckTopLevel(result, "ProtocolOverloadedSource");
-	CHECK(result.generatedCpp.find("prlrt::relay(") != std::string::npos);
+	CheckGeneratedRelayCall(
+		result,
+		"prlrt::relay(",
+		"prlrt::relay_traced(");
 
 	const Json& sites = RequireArray(result.manifest, "relay_sites");
 	const Json& edges = RequireArray(result.manifest, "edges");
 	const Json& functions = RequireArray(result.manifest, "functions");
 	CHECK(sites.size() == 2);
 	CHECK(edges.size() == 2);
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+	CHECK(functions.size() == 4);
+#else
 	CHECK(functions.size() == 2);
+#endif
 
 	std::vector<std::string> sourceFunctionIds;
 	std::vector<std::string> sourceFunctionSignatures;
@@ -2431,9 +2579,28 @@ void TestOverloadedSource(const std::string& fixtureDirectory)
 	}));
 	CHECK(overloadIndexes == std::vector<uint64_t>({ 0, 1 }));
 
+	size_t sourceFunctionCount = 0;
+	size_t zeroRelayHandlerCount = 0;
 	for (const Json& function : functions)
 	{
-		CHECK(RequireString(function, "function") == "send");
+		const std::string functionName =
+			RequireString(function, "function");
+		if (functionName != "send")
+		{
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+			CHECK(functionName == "receive");
+			CHECK(RequireArray(function, "relay_site_ids").empty());
+			CHECK(
+				RequireField(
+					function,
+					"exported_opcode").get<int64_t>() >= 0);
+			++zeroRelayHandlerCount;
+			continue;
+#else
+			CHECK(functionName == "send");
+#endif
+		}
+		++sourceFunctionCount;
 		CHECK(!RequireString(function, "source_function_id").empty());
 		CHECK(!RequireString(function, "source_function_signature").empty());
 		CHECK(RequireField(
@@ -2441,6 +2608,12 @@ void TestOverloadedSource(const std::string& fixtureDirectory)
 			"source_function_overload_index").is_number_unsigned());
 		CHECK(RequireArray(function, "relay_site_ids").size() == 1);
 	}
+	CHECK(sourceFunctionCount == 2);
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+	CHECK(zeroRelayHandlerCount == 2);
+#else
+	CHECK(zeroRelayHandlerCount == 0);
+#endif
 
 	for (const Json& edge : edges)
 	{
@@ -3025,6 +3198,106 @@ void TestZ3SemanticTargetIsConstructionFact(
 }
 #endif
 
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+using RelayTraceMethod =
+	void (prlrt::IRelayTraceRuntimeInterface::*)(
+		prlrt::RelaySiteOrdinal) noexcept;
+
+static_assert(
+	std::is_same<
+		decltype(
+			&prlrt::IRelayTraceRuntimeInterface::PushRelayTraceSite),
+		RelayTraceMethod>::value,
+	"relay trace push ABI changed");
+static_assert(
+	std::is_same<
+		decltype(
+			&prlrt::IRelayTraceRuntimeInterface::PopRelayTraceSite),
+		RelayTraceMethod>::value,
+	"relay trace pop ABI changed");
+static_assert(
+	std::is_nothrow_constructible<
+		prlrt::RelayTraceSiteGuard,
+		prlrt::RelaySiteOrdinal>::value,
+	"relay trace guard construction must remain noexcept");
+static_assert(
+	std::is_nothrow_destructible<
+		prlrt::RelayTraceSiteGuard>::value,
+	"relay trace guard destruction must remain noexcept");
+static_assert(
+	!std::is_copy_constructible<
+		prlrt::RelayTraceSiteGuard>::value,
+	"relay trace guard must not be copied");
+static_assert(
+	!std::is_move_constructible<
+		prlrt::RelayTraceSiteGuard>::value,
+	"relay trace guard must not be moved");
+
+class RecordingRelayTraceRuntime
+	: public prlrt::IRelayTraceRuntimeInterface
+{
+public:
+	struct Event
+	{
+		bool push;
+		prlrt::RelaySiteOrdinal ordinal;
+	};
+
+	void PushRelayTraceSite(
+		prlrt::RelaySiteOrdinal ordinal) noexcept override
+	{
+		events.push_back({true, ordinal});
+	}
+
+	void PopRelayTraceSite(
+		prlrt::RelaySiteOrdinal ordinal) noexcept override
+	{
+		events.push_back({false, ordinal});
+	}
+
+	std::vector<Event> events;
+};
+
+void TestRuntimeTraceAbi(const std::string&)
+{
+	CHECK(prlrt::RPREDA_RUNTIME_TRACE_ABI_VERSION == 1);
+	RecordingRelayTraceRuntime recorder;
+	prlrt::IRelayTraceRuntimeInterface* previous =
+		prlrt::g_relayTraceRuntimeInterface;
+	prlrt::g_relayTraceRuntimeInterface = &recorder;
+
+	{
+		prlrt::RelayTraceSiteGuard outer(7);
+		{
+			prlrt::RelayTraceSiteGuard inner(11);
+		}
+	}
+	try
+	{
+		prlrt::RelayTraceSiteGuard exceptional(19);
+		throw std::runtime_error("trace guard unwind");
+	}
+	catch (const std::runtime_error&)
+	{
+	}
+	prlrt::g_relayTraceRuntimeInterface = previous;
+
+	CHECK(recorder.events.size() == 6);
+	CHECK(recorder.events[0].push);
+	CHECK(recorder.events[0].ordinal == 7);
+	CHECK(recorder.events[1].push);
+	CHECK(recorder.events[1].ordinal == 11);
+	CHECK(!recorder.events[2].push);
+	CHECK(recorder.events[2].ordinal == 11);
+	CHECK(!recorder.events[3].push);
+	CHECK(recorder.events[3].ordinal == 7);
+	CHECK(recorder.events[4].push);
+	CHECK(recorder.events[4].ordinal == 19);
+	CHECK(!recorder.events[5].push);
+	CHECK(recorder.events[5].ordinal == 19);
+}
+#endif
+
 struct TestCase
 {
 	const char* name;
@@ -3043,6 +3316,9 @@ int main(int argc, char** argv)
 
 	const std::string fixtureDirectory = argv[1];
 	const std::vector<TestCase> tests = {
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+		{ "runtime trace ABI and RAII guard", &TestRuntimeTraceAbi },
+#endif
 		{ "named address relay", &TestNamedAddress },
 		{ "lambda address relay", &TestLambdaAddress },
 		{ "global relay", &TestGlobal },
