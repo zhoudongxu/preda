@@ -1,0 +1,5 @@
+contract ProtocolCFGImplicitFailure {
+    @address function uint32 divide(uint32 value, uint32 divisor) export {
+        return value / divisor;
+    }
+}

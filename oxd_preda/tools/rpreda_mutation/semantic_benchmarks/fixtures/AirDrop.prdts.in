@@ -1,0 +1,24 @@
+// Deterministic one-to-many AirDrop fixture using Token.transfer_n.
+// The total equals the source balance and one zero entry exercises both
+// total <= balance and recipient.amount > 0 boundary conditions.
+random.reseed $~seed$
+allocate.address $~addresses$
+chain.gaslimit 256
+
+chain.deploy @1 {{SOURCE}}
+state.set Token.address @all { balance:"1000" }
+
+txn_airdrop = Token.transfer_n @0 { recipients:[ \
+    { to:"$@1$", amount:"100" }, { to:"$@2$", amount:"200" }, \
+    { to:"$@3$", amount:"150" }, { to:"$@4$", amount:"50" }, \
+    { to:"$@5$", amount:"100" }, { to:"$@6$", amount:"200" }, \
+    { to:"$@7$", amount:"150" }, { to:"$@1$", amount:"50" }, \
+    { to:"$@2$", amount:"0" } \
+]}
+
+chain.run
+chain.info
+
+viz.addr @all Token
+viz.block #g
+viz.block #all

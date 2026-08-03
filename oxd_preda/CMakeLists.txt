@@ -29,6 +29,39 @@ option(
     "Enable read-only R-PREDA Native relay runtime tracing"
     OFF
 )
+option(
+    RPREDA_ENABLE_TRACE_FAULT_INJECTION
+    "Enable test-only mutation of copied R-PREDA validation slices"
+    OFF
+)
+if(RPREDA_ENABLE_TRACE_FAULT_INJECTION AND NOT RPREDA_ENABLE_RUNTIME_TRACE)
+    message(FATAL_ERROR
+        "RPREDA_ENABLE_TRACE_FAULT_INJECTION requires "
+        "RPREDA_ENABLE_RUNTIME_TRACE=ON")
+endif()
+option(
+    RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+    "Enable R-PREDA protocol-guided Native runtime optimization"
+    OFF
+)
+option(
+    RPREDA_ENABLE_ANALYSIS_PROFILING
+    "Enable opt-in R-PREDA compiler analysis profiling tools"
+    OFF
+)
+
+# The bound schema-v5 relay manifest is shared by tracing, optimization, and
+# the standalone offline-analysis driver.
+# Keep this internal switch separate from trace instrumentation: an
+# optimization-only build must retain the stock prlrt::relay* lowering and
+# Native contract ABI.
+if(RPREDA_ENABLE_RUNTIME_TRACE OR
+   RPREDA_ENABLE_RUNTIME_OPTIMIZATION OR
+   RPREDA_ENABLE_ANALYSIS_PROFILING)
+    set(RPREDA_ENABLE_BOUND_RELAY_MANIFEST ON)
+else()
+    set(RPREDA_ENABLE_BOUND_RELAY_MANIFEST OFF)
+endif()
 
 if(WIN32)
     # Use the USERPROFILE environment variable to get the user's home directory on Windows
@@ -214,3 +247,10 @@ add_subdirectory(transpiler)
 
 # ############## build chain_simulator #################
 add_subdirectory(simulator)
+
+# ############## build R-PREDA research tools ##########
+add_subdirectory(tools/rpreda_mutation)
+add_subdirectory(tools/rpreda_evaluation)
+if(RPREDA_ENABLE_ANALYSIS_PROFILING)
+    add_subdirectory(tools/rpreda_coverage)
+endif()

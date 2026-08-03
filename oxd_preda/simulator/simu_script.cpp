@@ -9,8 +9,11 @@ namespace oxd
 
 int SimulatorMain(const os::CommandLine& cmd)
 {
-#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+#if defined(RPREDA_ENABLE_RUNTIME_TRACE) || \
+	defined(RPREDA_ENABLE_RUNTIME_OPTIMIZATION)
 	int simulatorExitCode = 0;
+#endif
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
 	bool relayTraceValidationRequested = false;
 	if(cmd.HasOption("rpreda_trace"))
 	{
@@ -19,6 +22,14 @@ int SimulatorMain(const os::CommandLine& cmd)
 		relayTraceValidationRequested =
 			relayTraceMode != "off";
 	}
+#endif
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+	const bool relayOptimizationRequested =
+		cmd.HasOption("rpreda_opt") ||
+		cmd.HasOption("rpreda_opt_ablation") ||
+		cmd.HasOption("rpreda_opt_report") ||
+		cmd.HasOption("rpreda_audit_sample_rate") ||
+		cmd.HasOption("rpreda_max_relay_reserve");
 #endif
 
 #ifdef _DEBUG
@@ -225,19 +236,29 @@ int SimulatorMain(const os::CommandLine& cmd)
 		}
 		chsimu.ExportViz();
 
-#ifdef RPREDA_ENABLE_RUNTIME_TRACE
-		// Strict mode is observed only after workers have stopped and the
-		// final report has been emitted. Worker threads never throw, abort, or
-		// alter scheduling in response to validation.
+#if defined(RPREDA_ENABLE_RUNTIME_TRACE) || \
+	defined(RPREDA_ENABLE_RUNTIME_OPTIMIZATION)
+		// Strict trace and lightweight optimization audit are observed only
+		// after workers stop and reports are published. Worker threads never
+		// throw, abort, or alter scheduling in response to validation.
 		chsimu.Term();
 		if(!initialized)
 		{
-			// A trace-enabled binary running in mode=off preserves the stock
-			// simulator's exit behavior, including initialization failures.
-			// Invalid/observe/strict requests still return a useful failure.
+			bool validationRequested = false;
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+			validationRequested =
+				validationRequested ||
+				relayTraceValidationRequested;
+#endif
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+			validationRequested =
+				validationRequested ||
+				relayOptimizationRequested;
+#endif
 			simulatorExitCode =
-				relayTraceValidationRequested ? 1 : 0;
+				validationRequested ? 1 : 0;
 		}
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
 		else if(chsimu.RelayTraceStrictFailureLatched())
 		{
 			_LOGC_WARNING(
@@ -246,11 +267,22 @@ int SimulatorMain(const os::CommandLine& cmd)
 			simulatorExitCode = 2;
 		}
 #endif
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+		else if(chsimu.RelayOptimizationAuditFailureLatched())
+		{
+			_LOGC_WARNING(
+				"[R-PREDA optimization]: audit validation failed; "
+				"returning a non-zero simulator status after shutdown");
+			simulatorExitCode = 2;
+		}
+#endif
+#endif
 	}
 
 	lockfile.Unlock();
 	lockfile.Close();
-#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+#if defined(RPREDA_ENABLE_RUNTIME_TRACE) || \
+	defined(RPREDA_ENABLE_RUNTIME_OPTIMIZATION)
 	return simulatorExitCode;
 #else
 	return 0;
@@ -672,6 +704,10 @@ void PredaScriptRealListener::enterLogError(PredaScriptParser::LogErrorContext *
 void PredaScriptRealListener::enterStopWatchRestart(PredaScriptParser::StopWatchRestartContext * ctx)
 {
 	_LOG("[PRD]: Stopwatch restarted");
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+	m_chsimu.GetRelayOptimizationMetrics()->
+		RestartMeasurementWindow();
+#endif
 	m_stopWatch.Restart();
 	m_stopWatch.SetOutputMillisecond();
 	m_stopWatchPendingTxnCount = m_chsimu.GetPendingTxnsCount();
@@ -681,6 +717,10 @@ void PredaScriptRealListener::enterStopWatchRestart(PredaScriptParser::StopWatch
 void PredaScriptRealListener::enterStopWatchReport(PredaScriptParser::StopWatchReportContext * ctx)
 {
 	uint64_t lapsed = rt::max<long long>(1LL, m_stopWatch.TimeLapse());
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+	m_chsimu.GetRelayOptimizationMetrics()->
+		ReportMeasurementWindow();
+#endif
 
 	_LOG_HIGHLIGHT("[PRD]: Stopwatch: "<< lapsed <<" msec\n"
 					"[PRD]: Order: "<< m_chsimu.GetShardOrder() <<", "

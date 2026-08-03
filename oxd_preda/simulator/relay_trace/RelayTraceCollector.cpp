@@ -277,6 +277,8 @@ MarkerOperationResult RelayTraceCollector::RegisterRelayCreation(
 		parent->second.context.NextOccurrence(
 			marker.marker->moduleId,
 			marker.marker->ordinal);
+	const uint64_t emissionSequence =
+		parent->second.context.NextEmissionSequence();
 
 	RuntimeTxnTraceContext childContext;
 	childContext.traceTxId = AllocateTraceId();
@@ -295,6 +297,7 @@ MarkerOperationResult RelayTraceCollector::RegisterRelayCreation(
 	pending.event.parentTraceTxId = childContext.parentTraceTxId;
 	pending.event.relaySiteOrdinal = marker.marker->ordinal;
 	pending.event.occurrenceIndex = occurrence;
+	pending.event.emissionSequence = emissionSequence;
 	pending.event.depth = childContext.depth;
 	pending.event.sourceModuleId = marker.marker->moduleId;
 	if (marker.marker->moduleId == parentContext.moduleId)

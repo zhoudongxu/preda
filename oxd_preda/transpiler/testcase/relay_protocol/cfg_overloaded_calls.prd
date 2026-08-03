@@ -1,0 +1,17 @@
+contract ProtocolCFGOverloadedCalls {
+    @address int32 signed_value;
+    @address uint32 unsigned_value;
+
+    @address function helper(int32 value) {
+        signed_value = value;
+    }
+
+    @address function helper(uint32 value) {
+        unsigned_value = value;
+    }
+
+    @address function send(int32 signed_input, uint32 unsigned_input) export {
+        helper(signed_input);
+        helper(unsigned_input);
+    }
+}

@@ -3,6 +3,8 @@
 #include "RelayExprIR.h"
 #include "analysis/RelayExpressionDependency.h"
 #include "analysis/RelayProtocolSummary.h"
+#include "cfg/PredaCFG.h"
+#include "certificate/ParallelRelayCertificate.h"
 #include "refinement/RelayConstraint.h"
 #include "refinement/RelayFormulaIR.h"
 #include "refinement/RelayProofObligation.h"
@@ -161,7 +163,7 @@ struct FunctionProtocol
 
 struct RelayProtocolIR
 {
-#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+#ifdef RPREDA_ENABLE_BOUND_RELAY_MANIFEST
 	uint32_t schemaVersion = 5;
 #else
 	uint32_t schemaVersion = 4;
@@ -176,10 +178,16 @@ struct RelayProtocolIR
 	std::vector<refinement::RelayConstraint> refinementConstraints;
 	std::vector<refinement::RelayProofObligation>
 		refinementProofObligations;
+	// Additive source-level analysis extension.  It is observational only and
+	// is deliberately separate from the listener-order protocol tree above.
+	cfg::PredaControlFlowIR controlFlow;
+	// Additive schema-preserving Phase-E static certificate extension. It is
+	// observational only and is never consumed by lowering or execution.
+	certificate::ParallelRelayCertificate parallelCertificate;
 
 	void Reset(const std::string &dappName, const std::string &contractName)
 	{
-#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+#ifdef RPREDA_ENABLE_BOUND_RELAY_MANIFEST
 		schemaVersion = 5;
 #else
 		schemaVersion = 4;
@@ -193,6 +201,8 @@ struct RelayProtocolIR
 		refinementSymbols.clear();
 		refinementConstraints.clear();
 		refinementProofObligations.clear();
+		controlFlow.Reset();
+		parallelCertificate.Reset();
 	}
 };
 

@@ -97,7 +97,8 @@ const char *ConstraintKindName(RelayConstraintKind kind)
 	}
 }
 
-#ifdef RPREDA_ENABLE_Z3
+#if defined(RPREDA_ENABLE_Z3) || \
+	defined(RPREDA_ENABLE_BOUND_RELAY_MANIFEST)
 const char *ConstraintRoleName(RelayConstraintRole role)
 {
 	switch (role)
@@ -132,6 +133,10 @@ const char *ProofObligationKindName(
 		return "RelayCountUpperBound";
 	case RelayProofObligationKind::TargetNonAliasCandidate:
 		return "TargetNonAliasCandidate";
+	case RelayProofObligationKind::RelayMutualExclusion:
+		return "RelayMutualExclusion";
+	case RelayProofObligationKind::RelayTargetIndependence:
+		return "RelayTargetIndependence";
 	case RelayProofObligationKind::BooleanRefinement:
 		return "BooleanRefinement";
 	case RelayProofObligationKind::Unknown:
@@ -153,7 +158,8 @@ const char *ProofObligationStatusName(
 	}
 }
 
-#ifdef RPREDA_ENABLE_Z3
+#if defined(RPREDA_ENABLE_Z3) || \
+	defined(RPREDA_ENABLE_BOUND_RELAY_MANIFEST)
 const char *ProofObligationRoleName(
 	RelayProofObligationRole role)
 {
@@ -348,13 +354,15 @@ Json EmitConstraint(const RelayConstraint &constraint)
 		{"formula", EmitFormula(constraint.formula)},
 		{"location", EmitLocation(constraint.location)},
 	};
-#ifdef RPREDA_ENABLE_Z3
+#if defined(RPREDA_ENABLE_Z3) || \
+	defined(RPREDA_ENABLE_BOUND_RELAY_MANIFEST)
 	result["role"] = ConstraintRoleName(constraint.role);
 #endif
 	return result;
 }
 
-#ifdef RPREDA_ENABLE_Z3
+#if defined(RPREDA_ENABLE_Z3) || \
+	defined(RPREDA_ENABLE_BOUND_RELAY_MANIFEST)
 Json EmitSolverResult(
 	const solver::RelaySolverResult &solverResult)
 {
@@ -412,7 +420,8 @@ Json EmitProofObligation(
 		{"location", EmitLocation(obligation.location)},
 		{"reason", obligation.reason},
 	};
-#ifdef RPREDA_ENABLE_Z3
+#if defined(RPREDA_ENABLE_Z3) || \
+	defined(RPREDA_ENABLE_BOUND_RELAY_MANIFEST)
 	result["proof_role"] =
 		ProofObligationRoleName(obligation.role);
 	result["solver_result"] =

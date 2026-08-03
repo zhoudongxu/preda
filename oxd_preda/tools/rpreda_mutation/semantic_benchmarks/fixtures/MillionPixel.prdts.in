@@ -1,0 +1,17 @@
+// Deterministic uint32 custom-scope target-arithmetic fixture.
+random.reseed $~seed$
+allocate.address $~addresses$
+chain.gaslimit 256
+
+chain.deploy @0 {{SOURCE}}
+
+txn_xy = MillionPixel.occupy @0 { x:1, y:2 }
+txn_neighbor = MillionPixel.occupy @1 { x:1, y:3 }
+txn_swapped = MillionPixel.occupy @2 { x:2, y:1 }
+
+chain.run
+chain.info
+
+viz.uint_scope #32 MillionPixel:all
+viz.block #g
+viz.block #all

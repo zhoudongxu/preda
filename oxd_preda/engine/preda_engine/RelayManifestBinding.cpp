@@ -1,6 +1,6 @@
 #include "RelayManifestBinding.h"
 
-#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+#ifdef RPREDA_ENABLE_BOUND_RELAY_MANIFEST
 
 #include <exception>
 #include <limits>
@@ -197,4 +197,4 @@ bool FinalizeAndPublishRelayManifest(
 
 } // namespace rpreda
 
-#endif // RPREDA_ENABLE_RUNTIME_TRACE
+#endif // RPREDA_ENABLE_BOUND_RELAY_MANIFEST

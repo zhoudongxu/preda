@@ -1,0 +1,34 @@
+{
+  "contract": "MutationStudy",
+  "description": "negate enclosing branch guard 'choose'",
+  "edits": [
+    {
+      "byte_end_offset": 491,
+      "byte_start_offset": 486,
+      "expected_original": "choose",
+      "replacement": "!(choose)"
+    }
+  ],
+  "generation_status": "Generated",
+  "location": {
+    "byte_end_offset": 491,
+    "byte_start_offset": 486,
+    "column": 12,
+    "end_column": 18,
+    "end_line": 24,
+    "end_offset": 491,
+    "line": 24,
+    "start_offset": 486
+  },
+  "mutated_code_path": "generation/mutants/mut_GuardNegate_d060133a5abec561e1ff97a11a7c4f78/MutationStudy.prd",
+  "mutated_fragment": "!(choose)",
+  "mutation_id": "mut_GuardNegate_d060133a5abec561e1ff97a11a7c4f78",
+  "mutation_type": "GuardNegate",
+  "original_code_path": "generation/mutants/mut_GuardNegate_d060133a5abec561e1ff97a11a7c4f78/original.prd",
+  "original_fragment": "choose",
+  "reason": "",
+  "relay_site_ids": [
+    "relay_site_2"
+  ],
+  "source_function_id": "chsimu.MutationStudy::exercise(bool,uint32,uint32,uint32)"
+}

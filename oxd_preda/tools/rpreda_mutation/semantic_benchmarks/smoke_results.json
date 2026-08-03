@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "engine": "PREDA_NATIVE",
+  "trace_mode": "strict",
+  "seed": 88,
+  "shard_order": 2,
+  "artifact_sha256": {
+    "chsimu": "05c8cc1d8a0d21b63e308ab586fd675595d1f9b65dbac61b718cbce820cc1fa1",
+    "transpiler.so": "b5124904704c850e85a5193d24d34ea05f1cdb812e732ea81326f6f732bbbf5c",
+    "preda_engine.so": "c914468aaa2f730c31e6f10d6bca6d77fa4f07ce305255b839c035d285f3f6a2"
+  },
+  "results": {
+    "Token": {
+      "status": "Passed",
+      "compiled_native": true,
+      "linked_native": true,
+      "run_script_succeeded": true,
+      "total_transactions": 6,
+      "observed_relay_site_ids": [
+        "relay_site_0"
+      ],
+      "coverage_allowlist_satisfied": true,
+      "strict_checks_passed": 45,
+      "strict_checks_skipped_unsupported": 9,
+      "certificate_mismatches": 0,
+      "runtime_mismatches": 0,
+      "infrastructure_failures": 0
+    },
+    "Ballot": {
+      "status": "Passed",
+      "compiled_native": true,
+      "linked_native": true,
+      "run_script_succeeded": true,
+      "total_transactions": 17,
+      "observed_relay_site_ids": [
+        "relay_site_0",
+        "relay_site_1",
+        "relay_site_2",
+        "relay_site_3"
+      ],
+      "coverage_allowlist_satisfied": true,
+      "strict_checks_passed": 153,
+      "strict_checks_skipped_unsupported": 23,
+      "certificate_mismatches": 0,
+      "runtime_mismatches": 0,
+      "infrastructure_failures": 0
+    },
+    "MillionPixel": {
+      "status": "Passed",
+      "compiled_native": true,
+      "linked_native": true,
+      "run_script_succeeded": true,
+      "total_transactions": 7,
+      "observed_relay_site_ids": [
+        "relay_site_0"
+      ],
+      "coverage_allowlist_satisfied": true,
+      "strict_checks_passed": 61,
+      "strict_checks_skipped_unsupported": 9,
+      "certificate_mismatches": 0,
+      "runtime_mismatches": 0,
+      "infrastructure_failures": 0
+    },
+    "Kitty": {
+      "status": "Passed",
+      "compiled_native": true,
+      "linked_native": true,
+      "run_script_succeeded": true,
+      "total_transactions": 44,
+      "observed_relay_site_ids": [
+        "relay_site_0",
+        "relay_site_1",
+        "relay_site_2",
+        "relay_site_3",
+        "relay_site_4",
+        "relay_site_5"
+      ],
+      "coverage_allowlist_satisfied": true,
+      "strict_checks_passed": 437,
+      "strict_checks_skipped_unsupported": 108,
+      "certificate_mismatches": 0,
+      "runtime_mismatches": 0,
+      "infrastructure_failures": 0
+    },
+    "AirDrop": {
+      "status": "Passed",
+      "compiled_native": true,
+      "linked_native": true,
+      "run_script_succeeded": true,
+      "total_transactions": 10,
+      "observed_relay_site_ids": [
+        "relay_site_1"
+      ],
+      "coverage_allowlist_satisfied": true,
+      "strict_checks_passed": 107,
+      "strict_checks_skipped_unsupported": 29,
+      "certificate_mismatches": 0,
+      "runtime_mismatches": 0,
+      "infrastructure_failures": 0
+    },
+    "Synthetic": {
+      "status": "Passed",
+      "compiled_native": true,
+      "linked_native": true,
+      "run_script_succeeded": true,
+      "total_transactions": 25,
+      "observed_relay_site_ids": [
+        "relay_site_0",
+        "relay_site_1",
+        "relay_site_2",
+        "relay_site_3",
+        "relay_site_4",
+        "relay_site_5",
+        "relay_site_6",
+        "relay_site_7",
+        "relay_site_8",
+        "relay_site_9",
+        "relay_site_10"
+      ],
+      "coverage_allowlist_satisfied": true,
+      "strict_checks_passed": 261,
+      "strict_checks_skipped_unsupported": 48,
+      "certificate_mismatches": 0,
+      "runtime_mismatches": 0,
+      "infrastructure_failures": 0
+    }
+  }
+}

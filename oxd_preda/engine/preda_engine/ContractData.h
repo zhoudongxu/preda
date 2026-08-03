@@ -57,7 +57,7 @@ struct ContractCompileData
 	rvm::HashValue intermediateHash;
 	rvm::ContractModuleID moduleId;
 
-#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+#ifdef RPREDA_ENABLE_BOUND_RELAY_MANIFEST
 	// Trusted, module-database-backed identity of the relay manifest that was
 	// finalized for this exact compiled module. Older database entries leave
 	// relayManifestBindingComplete false and remain executable.

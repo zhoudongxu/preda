@@ -1,0 +1,23 @@
+contract ProtocolCFGCallOrder {
+    @address uint32 observed;
+
+    @address function uint32 inner(uint32 value) const {
+        return value;
+    }
+
+    @address function consume_one(uint32 value) {
+        observed = value;
+    }
+
+    @address function consume_two(uint32 first, uint32 second) {
+        observed = first + second;
+    }
+
+    @address function nested(uint32 value) export {
+        consume_one(inner(value));
+    }
+
+    @address function siblings(uint32 first, uint32 second) export {
+        consume_two(inner(first), inner(second));
+    }
+}

@@ -12,6 +12,18 @@ include(../CMake_rules.txt)
 project("transpiler")
 
 option(RPREDA_ENABLE_Z3 "Enable the optional R-PREDA Z3 solver backend" OFF)
+option(
+  RPREDA_ENABLE_ANALYSIS_PROFILING
+  "Enable opt-in R-PREDA compiler analysis profiling tools"
+  OFF
+)
+
+set(RPREDA_ENABLE_BOUND_RELAY_MANIFEST OFF)
+if(RPREDA_ENABLE_RUNTIME_TRACE OR
+   RPREDA_ENABLE_RUNTIME_OPTIMIZATION OR
+   RPREDA_ENABLE_ANALYSIS_PROFILING)
+  set(RPREDA_ENABLE_BOUND_RELAY_MANIFEST ON)
+endif()
 
 set(RELAY_Z3_FILES)
 set(RPREDA_Z3_TARGET)
@@ -90,6 +102,41 @@ set(RELAY_PROTOCOL_FILES
   ./relay_protocol/analysis/RelaySummaryBuilder.cpp
   ./relay_protocol/analysis/RelaySummaryEmitter.h
   ./relay_protocol/analysis/RelaySummaryEmitter.cpp
+  ./relay_protocol/metrics/RelayAnalysisMetrics.h
+  ./relay_protocol/metrics/RelayAnalysisMetrics.cpp
+  ./relay_protocol/cfg/PredaCFG.h
+  ./relay_protocol/cfg/PredaCFGBuilder.h
+  ./relay_protocol/cfg/PredaCFGBuilder.cpp
+  ./relay_protocol/cfg/PredaCFGAnalysis.h
+  ./relay_protocol/cfg/PredaCFGAnalysis.cpp
+  ./relay_protocol/cfg/PredaCallGraphAnalysis.h
+  ./relay_protocol/cfg/PredaCallGraphAnalysis.cpp
+  ./relay_protocol/cfg/PredaEffectAnalysis.h
+  ./relay_protocol/cfg/PredaEffectAnalysis.cpp
+  ./relay_protocol/cfg/RelayICFGBuilder.h
+  ./relay_protocol/cfg/RelayICFGBuilder.cpp
+  ./relay_protocol/cfg/PredaCFGEmitter.h
+  ./relay_protocol/cfg/PredaCFGEmitter.cpp
+  ./relay_protocol/certificate/RelayPairCandidate.h
+  ./relay_protocol/certificate/RelayPairCandidateBuilder.h
+  ./relay_protocol/certificate/RelayPairCandidateBuilder.cpp
+  ./relay_protocol/certificate/RelayPathFormulaBuilder.h
+  ./relay_protocol/certificate/RelayPathFormulaBuilder.cpp
+  ./relay_protocol/certificate/RelayCertificateConstraintGenerator.h
+  ./relay_protocol/certificate/RelayCertificateConstraintGenerator.cpp
+  ./relay_protocol/certificate/RelayPrecedenceAnalyzer.h
+  ./relay_protocol/certificate/RelayPrecedenceAnalyzer.cpp
+  ./relay_protocol/certificate/RelayIndependenceAnalyzer.h
+  ./relay_protocol/certificate/RelayIndependenceAnalyzer.cpp
+  ./relay_protocol/certificate/RelayWorkBoundAnalyzer.h
+  ./relay_protocol/certificate/RelayWorkBoundAnalyzer.cpp
+  ./relay_protocol/certificate/RelayDepthBoundAnalyzer.h
+  ./relay_protocol/certificate/RelayDepthBoundAnalyzer.cpp
+  ./relay_protocol/certificate/ParallelRelayCertificate.h
+  ./relay_protocol/certificate/ParallelRelayCertificateBuilder.h
+  ./relay_protocol/certificate/ParallelRelayCertificateBuilder.cpp
+  ./relay_protocol/certificate/ParallelRelayCertificateEmitter.h
+  ./relay_protocol/certificate/ParallelRelayCertificateEmitter.cpp
   ./relay_protocol/refinement/RelayFormulaIR.h
   ./relay_protocol/refinement/RelayFormulaBuilder.h
   ./relay_protocol/refinement/RelayFormulaBuilder.cpp
@@ -121,6 +168,25 @@ source_group("relay_protocol" FILES ${RELAY_PROTOCOL_FILES})
 source_group("antlr_generated" FILES ${ANTLR_GEN})
 source_group("antlr_generated/crystality" FILES ${CRYSTILITY_ANTLR_GEN})
 add_library(transpiler SHARED ${TRANSPILER_SOURCES} ${TRANSPILER_FILES} ${RELAY_PROTOCOL_FILES} ${ANTLR_GEN} ${CRYSTILITY_ANTLR_GEN})
+target_compile_definitions(
+  transpiler
+  PRIVATE
+  RPREDA_ANALYSIS_PROFILER_EXPORTS=1
+)
+if(RPREDA_ENABLE_ANALYSIS_PROFILING)
+  target_compile_definitions(
+    transpiler
+    PRIVATE
+    RPREDA_ENABLE_ANALYSIS_PROFILING=1
+  )
+endif()
+if(RPREDA_ENABLE_BOUND_RELAY_MANIFEST)
+  target_compile_definitions(
+    transpiler
+    PRIVATE
+    RPREDA_ENABLE_BOUND_RELAY_MANIFEST=1
+  )
+endif()
 if(RPREDA_ENABLE_RUNTIME_TRACE)
   target_compile_definitions(transpiler PRIVATE RPREDA_ENABLE_RUNTIME_TRACE=1)
 endif()
@@ -212,6 +278,13 @@ if(BUILD_TESTING)
     ./test/RelayProtocolIRTests.cpp
   )
   target_link_libraries(relay_protocol_ir_tests PRIVATE transpiler)
+  if(RPREDA_ENABLE_BOUND_RELAY_MANIFEST)
+    target_compile_definitions(
+      relay_protocol_ir_tests
+      PRIVATE
+      RPREDA_ENABLE_BOUND_RELAY_MANIFEST=1
+    )
+  endif()
   if(RPREDA_ENABLE_RUNTIME_TRACE)
     target_compile_definitions(
       relay_protocol_ir_tests

@@ -1,0 +1,74 @@
+contract SemanticMutationStudy {
+    @uint32 uint32 observed;
+
+    @uint32 function handler_a(uint32 value) {
+        observed += value;
+    }
+
+    @uint32 function handler_b(uint32 value) {
+        observed += value + 1u32;
+    }
+
+    @global function global_handler(uint32 value) {
+    }
+
+    @shard function shard_handler(uint32 value) {
+    }
+
+    // Refinement oracle: the exact uint32 cast and overflow semantics must be
+    // preserved by Formula IR and the differential Z3 preservation query.
+    @address function target_arithmetic(
+        uint16 x,
+        uint16 y,
+        uint32 value
+    ) export {
+        relay@(uint32(x) * 65536u32 + uint32(y)) handler_a(value);
+    }
+
+    // The equality boundary exercises a semantic guard edit (>= to >).
+    @address function guarded_argument(
+        uint32 balance,
+        uint32 amount,
+        uint32 target,
+        uint32 value
+    ) export {
+        if (balance >= amount) {
+            relay@target handler_a(value);
+        }
+    }
+
+    // A direct literal trip count gives a finite work certificate of three.
+    @address function bounded_loop(uint32 target, uint32 value) export {
+        for (uint32 i = 0u32; i < 3u32; i++) {
+            relay@(target + i) handler_a(value);
+        }
+    }
+
+    // The first straight-line pair supplies a proved MustPrecede relation.
+    // The second pair supplies a proved non-alias/co-emission relation.
+    @address function ordered_independent(
+        uint32 first,
+        uint32 second,
+        uint32 value
+    ) export {
+        relay@first handler_a(value);
+        relay@second handler_b(value);
+        relay@first handler_a(value);
+        relay@(first + 1u32) handler_b(value);
+    }
+
+    // Custom-keyed handlers are reached through this address-scoped source
+    // transaction so the nested relay chain appears in a strict runtime trace.
+    @address function nested_driver(uint32 target, uint32 value) export {
+        relay@target nested_handler(target, value);
+    }
+
+    @uint32 function nested_handler(uint32 target, uint32 value) {
+        relay@target handler_a(value);
+    }
+
+    @global function broadcast(uint32 value) export {
+        relay@shards shard_handler(value);
+        relay@next global_handler(value);
+    }
+}

@@ -1,0 +1,123 @@
+{
+  "schema_version": 1,
+  "defaults": {
+    "seed": 88,
+    "order": 2,
+    "timeout_seconds": 60,
+    "warmup_repetitions": 3,
+    "measured_repetitions": 5
+  },
+  "real_world_benchmarks": [
+    {
+      "id": "Token",
+      "source": "oxd_preda/simulator/contracts/Token.prd",
+      "runtime_template": "oxd_preda/tools/rpreda_mutation/semantic_benchmarks/fixtures/Token.prdts.in",
+      "runtime_parameters": {"addresses": 8, "count": 1},
+      "runtime_function_filters": ["transfer(address,bigint)"],
+      "runtime_coverage": {
+        "required_function_ids": ["chsimu.Token::transfer(address,bigint)"],
+        "required_site_ids": ["relay_site_0"],
+        "unresolved_site_ids": []
+      },
+      "include_in_static_aggregate": true
+    },
+    {
+      "id": "Ballot",
+      "source": "oxd_preda/simulator/contracts/Ballot.prd",
+      "runtime_template": "oxd_preda/tools/rpreda_mutation/semantic_benchmarks/fixtures/Ballot.prdts.in",
+      "runtime_parameters": {"addresses": 4, "count": 4},
+      "runtime_coverage": {
+        "required_function_ids": [
+          "chsimu.Ballot::init(array string)",
+          "chsimu.Ballot::finalize()",
+          "chsimu.Ballot::__relaylambda_4_finalize()",
+          "chsimu.Ballot::__relaylambda_5_finalize()"
+        ],
+        "required_site_ids": ["relay_site_0", "relay_site_1", "relay_site_2", "relay_site_3"],
+        "unresolved_site_ids": []
+      },
+      "include_in_static_aggregate": true
+    },
+    {
+      "id": "MillionPixel",
+      "source": "oxd_preda/simulator/contracts/MillionPixel.prd",
+      "runtime_template": "oxd_preda/tools/rpreda_mutation/semantic_benchmarks/fixtures/MillionPixel.prdts.in",
+      "runtime_parameters": {"addresses": 4, "count": 3},
+      "runtime_function_filters": ["occupy(uint16,uint16)"],
+      "runtime_coverage": {
+        "required_function_ids": ["chsimu.MillionPixel::occupy(uint16,uint16)"],
+        "required_site_ids": ["relay_site_0"],
+        "unresolved_site_ids": []
+      },
+      "include_in_static_aggregate": true
+    },
+    {
+      "id": "Kitty",
+      "source": "oxd_preda/simulator/contracts/Kitty.prd",
+      "runtime_template": "oxd_preda/tools/rpreda_mutation/semantic_benchmarks/fixtures/Kitty.prdts.in",
+      "runtime_parameters": {"addresses": 4, "count": 4},
+      "runtime_coverage": {
+        "required_function_ids": [
+          "chsimu.KittyBreeding::mint(bigint,bool,address)",
+          "chsimu.KittyBreeding::breed(uint32,uint32,bool)",
+          "chsimu.KittyBreeding::registerNewBorns()",
+          "chsimu.KittyBreeding::__relaylambda_4_breed(uint32,uint32,bool)",
+          "chsimu.KittyBreeding::__relaylambda_5_registerNewBorns(array chsimu.KittyBreeding.KittyInfo)",
+          "chsimu.KittyBreeding::__relaylambda_6_breed(bigint,uint32,uint32,bool)"
+        ],
+        "required_site_ids": ["relay_site_0", "relay_site_1", "relay_site_2", "relay_site_3", "relay_site_4", "relay_site_5"],
+        "unresolved_site_ids": []
+      },
+      "include_in_static_aggregate": true
+    },
+    {
+      "id": "AirDrop",
+      "source": "oxd_preda/simulator/contracts/Token.prd",
+      "source_alias": "Token.transfer_n",
+      "runtime_template": "oxd_preda/tools/rpreda_mutation/semantic_benchmarks/fixtures/AirDrop.prdts.in",
+      "runtime_parameters": {"addresses": 8, "count": 1},
+      "static_function_filters": ["transfer_n(array chsimu.Token.payment)"],
+      "runtime_function_filters": ["transfer_n(array chsimu.Token.payment)"],
+      "runtime_coverage": {
+        "required_function_ids": ["chsimu.Token::transfer_n(array chsimu.Token.payment)"],
+        "required_site_ids": ["relay_site_1"],
+        "unresolved_site_ids": []
+      },
+      "include_in_static_aggregate": false,
+      "aggregate_exclusion_reason": "AirDrop is a Token.transfer_n workload and shares Token's module_id"
+    },
+    {
+      "id": "FCA",
+      "source": "oxd_preda/simulator/contracts/FCA.prd",
+      "runtime_enabled": false,
+      "include_in_static_aggregate": true
+    }
+  ],
+  "scalability": {
+    "relay_width_fixed_sites": 16,
+    "relay_depth_fixed_sites": 8,
+    "base": {
+      "functions": 16,
+      "statements": 128,
+      "relay_sites": 4,
+      "relay_width": 4,
+      "relay_depth": 1,
+      "branch_depth": 0,
+      "loop_depth": 0,
+      "sync_call_depth": 0,
+      "arguments_per_relay": 1,
+      "target_expression_terms": 1
+    },
+    "sweeps": {
+      "functions": [8, 16, 32, 64],
+      "statements": [32, 64, 128, 256],
+      "relay_sites": [1, 2, 4, 8, 16],
+      "relay_width": [1, 2, 4, 8, 16],
+      "relay_depth": [1, 2, 4, 8],
+      "branch_depth": [0, 1, 2, 4],
+      "loop_depth": [0, 1, 2, 3],
+      "sync_call_depth": [0, 1, 2, 4, 8],
+      "arguments_per_relay": [0, 1, 2, 4, 8]
+    }
+  }
+}

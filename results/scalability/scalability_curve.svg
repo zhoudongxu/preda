@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1320" height="520" viewBox="0 0 1320 520">
+<rect width="100%" height="100%" fill="white"/>
+<text x="660" y="30" text-anchor="middle" font-family="sans-serif" font-size="20">R-PREDA scalability</text>
+<line x1="62" y1="410" x2="442" y2="410" stroke="#2d3748"/>
+<line x1="62" y1="72" x2="62" y2="410" stroke="#2d3748"/>
+<line x1="442" y1="72" x2="442" y2="410" stroke="#718096"/>
+<text x="252.0" y="447" text-anchor="middle" font-family="sans-serif" font-size="13">Relay sites</text>
+<text x="62" y="62" text-anchor="start" fill="#2563eb" font-family="sans-serif" font-size="11">time max 3367.62 ms</text>
+<text x="442" y="62" text-anchor="end" fill="#dd6b20" font-family="sans-serif" font-size="11">RSS max 112.91 MiB</text>
+<text x="58" y="75.0" text-anchor="end" fill="#2563eb" font-family="sans-serif" font-size="9">3367.62 ms</text>
+<text x="446" y="75.0" text-anchor="start" fill="#dd6b20" font-family="sans-serif" font-size="9">112.91 MiB</text>
+<text x="58" y="410" text-anchor="end" fill="#2563eb" font-family="sans-serif" font-size="9">0</text>
+<text x="446" y="410" text-anchor="start" fill="#dd6b20" font-family="sans-serif" font-size="9">0</text>
+<text x="62" y="428" text-anchor="middle" font-family="sans-serif" font-size="10">1</text>
+<text x="442" y="428" text-anchor="middle" font-family="sans-serif" font-size="10">16</text>
+<circle cx="62.0" cy="364.6" r="4" fill="#2563eb"><title>relay_sites_1: x 1.000, time 451.996 ms</title></circle>
+<circle cx="62.0" cy="277.9" r="4" fill="#dd6b20"><title>relay_sites_1: x 1.000, RSS 44.125 MiB</title></circle>
+<circle cx="87.3" cy="365.5" r="4" fill="#2563eb"><title>relay_sites_2: x 2.000, time 442.980 ms</title></circle>
+<circle cx="87.3" cy="275.5" r="4" fill="#dd6b20"><title>relay_sites_2: x 2.000, RSS 44.941 MiB</title></circle>
+<circle cx="138.0" cy="347.7" r="4" fill="#2563eb"><title>relay_sites_4: x 4.000, time 620.313 ms</title></circle>
+<circle cx="138.0" cy="271.3" r="4" fill="#dd6b20"><title>relay_sites_4: x 4.000, RSS 46.328 MiB</title></circle>
+<circle cx="239.3" cy="272.0" r="4" fill="#2563eb"><title>relay_sites_8: x 8.000, time 1374.753 ms</title></circle>
+<circle cx="239.3" cy="238.6" r="4" fill="#dd6b20"><title>relay_sites_8: x 8.000, RSS 57.258 MiB</title></circle>
+<circle cx="442.0" cy="72.0" r="4" fill="#2563eb"><title>relay_sites_16: x 16.000, time 3367.621 ms</title></circle>
+<circle cx="442.0" cy="72.0" r="4" fill="#dd6b20"><title>relay_sites_16: x 16.000, RSS 112.910 MiB</title></circle>
+<polyline fill="none" stroke="#2563eb" stroke-width="2" points="62.0,364.6 87.3,365.5 138.0,347.7 239.3,272.0 442.0,72.0"/>
+<polyline fill="none" stroke="#dd6b20" stroke-width="2" points="62.0,277.9 87.3,275.5 138.0,271.3 239.3,238.6 442.0,72.0"/>
+<line x1="487" y1="410" x2="867" y2="410" stroke="#2d3748"/>
+<line x1="487" y1="72" x2="487" y2="410" stroke="#2d3748"/>
+<line x1="867" y1="72" x2="867" y2="410" stroke="#718096"/>
+<text x="677.0" y="447" text-anchor="middle" font-family="sans-serif" font-size="13">Source statements</text>
+<text x="487" y="62" text-anchor="start" fill="#2563eb" font-family="sans-serif" font-size="11">time max 2583.96 ms</text>
+<text x="867" y="62" text-anchor="end" fill="#dd6b20" font-family="sans-serif" font-size="11">RSS max 93.17 MiB</text>
+<text x="483" y="75.0" text-anchor="end" fill="#2563eb" font-family="sans-serif" font-size="9">2583.96 ms</text>
+<text x="871" y="75.0" text-anchor="start" fill="#dd6b20" font-family="sans-serif" font-size="9">93.17 MiB</text>
+<text x="483" y="410" text-anchor="end" fill="#2563eb" font-family="sans-serif" font-size="9">0</text>
+<text x="871" y="410" text-anchor="start" fill="#dd6b20" font-family="sans-serif" font-size="9">0</text>
+<text x="487" y="428" text-anchor="middle" font-family="sans-serif" font-size="10">32</text>
+<text x="867" y="428" text-anchor="middle" font-family="sans-serif" font-size="10">256</text>
+<circle cx="487.0" cy="391.8" r="4" fill="#2563eb"><title>statements_32: x 32.000, time 139.398 ms</title></circle>
+<circle cx="487.0" cy="262.3" r="4" fill="#dd6b20"><title>statements_32: x 32.000, RSS 40.723 MiB</title></circle>
+<circle cx="541.3" cy="387.3" r="4" fill="#2563eb"><title>statements_64: x 64.000, time 173.860 ms</title></circle>
+<circle cx="541.3" cy="259.6" r="4" fill="#dd6b20"><title>statements_64: x 64.000, RSS 41.469 MiB</title></circle>
+<circle cx="649.9" cy="327.1" r="4" fill="#2563eb"><title>statements_128: x 128.000, time 633.864 ms</title></circle>
+<circle cx="649.9" cy="242.7" r="4" fill="#dd6b20"><title>statements_128: x 128.000, RSS 46.121 MiB</title></circle>
+<circle cx="867.0" cy="72.0" r="4" fill="#2563eb"><title>statements_256: x 256.000, time 2583.959 ms</title></circle>
+<circle cx="867.0" cy="72.0" r="4" fill="#dd6b20"><title>statements_256: x 256.000, RSS 93.172 MiB</title></circle>
+<polyline fill="none" stroke="#2563eb" stroke-width="2" points="487.0,391.8 541.3,387.3 649.9,327.1 867.0,72.0"/>
+<polyline fill="none" stroke="#dd6b20" stroke-width="2" points="487.0,262.3 541.3,259.6 649.9,242.7 867.0,72.0"/>
+<line x1="912" y1="410" x2="1292" y2="410" stroke="#2d3748"/>
+<line x1="912" y1="72" x2="912" y2="410" stroke="#2d3748"/>
+<line x1="1292" y1="72" x2="1292" y2="410" stroke="#718096"/>
+<text x="1102.0" y="447" text-anchor="middle" font-family="sans-serif" font-size="13">FormulaIR constraints</text>
+<text x="912" y="62" text-anchor="start" fill="#2563eb" font-family="sans-serif" font-size="11">time max 743.77 ms</text>
+<text x="1292" y="62" text-anchor="end" fill="#dd6b20" font-family="sans-serif" font-size="11">RSS max 52.15 MiB</text>
+<text x="908" y="75.0" text-anchor="end" fill="#2563eb" font-family="sans-serif" font-size="9">743.77 ms</text>
+<text x="1296" y="75.0" text-anchor="start" fill="#dd6b20" font-family="sans-serif" font-size="9">52.15 MiB</text>
+<text x="908" y="410" text-anchor="end" fill="#2563eb" font-family="sans-serif" font-size="9">0</text>
+<text x="1296" y="410" text-anchor="start" fill="#dd6b20" font-family="sans-serif" font-size="9">0</text>
+<text x="912" y="428" text-anchor="middle" font-family="sans-serif" font-size="10">56</text>
+<text x="1292" y="428" text-anchor="middle" font-family="sans-serif" font-size="10">88</text>
+<circle cx="912.0" cy="138.8" r="4" fill="#2563eb"><title>arguments_per_relay_0: x 56.000, time 596.769 ms</title></circle>
+<circle cx="912.0" cy="113.1" r="4" fill="#dd6b20"><title>arguments_per_relay_0: x 56.000, RSS 45.812 MiB</title></circle>
+<circle cx="959.5" cy="115.8" r="4" fill="#2563eb"><title>arguments_per_relay_1: x 60.000, time 647.335 ms</title></circle>
+<circle cx="959.5" cy="112.1" r="4" fill="#dd6b20"><title>arguments_per_relay_1: x 60.000, RSS 45.957 MiB</title></circle>
+<circle cx="1007.0" cy="131.3" r="4" fill="#2563eb"><title>arguments_per_relay_2: x 64.000, time 613.387 ms</title></circle>
+<circle cx="1007.0" cy="102.5" r="4" fill="#dd6b20"><title>arguments_per_relay_2: x 64.000, RSS 47.449 MiB</title></circle>
+<circle cx="1102.0" cy="125.2" r="4" fill="#2563eb"><title>arguments_per_relay_4: x 72.000, time 626.675 ms</title></circle>
+<circle cx="1102.0" cy="91.0" r="4" fill="#dd6b20"><title>arguments_per_relay_4: x 72.000, RSS 49.215 MiB</title></circle>
+<circle cx="1292.0" cy="72.0" r="4" fill="#2563eb"><title>arguments_per_relay_8: x 88.000, time 743.770 ms</title></circle>
+<circle cx="1292.0" cy="72.0" r="4" fill="#dd6b20"><title>arguments_per_relay_8: x 88.000, RSS 52.148 MiB</title></circle>
+<polyline fill="none" stroke="#2563eb" stroke-width="2" points="912.0,138.8 959.5,115.8 1007.0,131.3 1102.0,125.2 1292.0,72.0"/>
+<polyline fill="none" stroke="#dd6b20" stroke-width="2" points="912.0,113.1 959.5,112.1 1007.0,102.5 1102.0,91.0 1292.0,72.0"/>
+<line x1="450" y1="486" x2="480" y2="486" stroke="#2563eb" stroke-width="3"/><text x="488" y="490" font-family="sans-serif" font-size="12">analysis time</text>
+<line x1="690" y1="486" x2="720" y2="486" stroke="#dd6b20" stroke-width="3"/><text x="728" y="490" font-family="sans-serif" font-size="12">peak RSS</text>
+</svg>

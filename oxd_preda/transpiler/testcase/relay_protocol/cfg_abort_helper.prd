@@ -1,0 +1,5 @@
+contract ProtocolCFGAbortHelper {
+    @address function check(bool ok) export {
+        __debug.assert(ok);
+    }
+}

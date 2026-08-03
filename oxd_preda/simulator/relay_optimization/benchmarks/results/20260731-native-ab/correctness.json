@@ -1,0 +1,629 @@
+{
+  "passed": true,
+  "schema_version": 1,
+  "workloads": {
+    "AirDrop": {
+      "compared_fields": [
+        "process_success",
+        "final_contract_state_sha256",
+        "source_transaction_count",
+        "logical_relay_count",
+        "physical_route_count",
+        "relay_execution_count",
+        "destination_shard_multiset",
+        "confirmed_semantic_transaction_multiset_sha256",
+        "per_block_dependency_shape_sha256",
+        "broadcast_clone_count",
+        "invoke_result_multiset",
+        "diagnostic_multiset"
+      ],
+      "comparisons": {
+        "baseline": {
+          "mismatches": {},
+          "passed": true
+        },
+        "generic_batch_only": {
+          "mismatches": {},
+          "passed": true
+        },
+        "verified_reserve_only": {
+          "mismatches": {},
+          "passed": true
+        },
+        "verified_reserve_plus_batch": {
+          "mismatches": {},
+          "passed": true
+        }
+      },
+      "invariants": {
+        "baseline": {
+          "broadcast_clone_count": 0,
+          "confirmed_semantic_transaction_multiset_sha256": "b487a1b5a4f365c296ddca72bd4d3c2a41a7aada6f68adca86a8546dcb8c0f7c",
+          "destination_shard_multiset": {
+            "0": 411,
+            "1": 392,
+            "2": 408,
+            "3": 389
+          },
+          "diagnostic_multiset": {},
+          "final_contract_state_sha256": "cb67915deffe9db658a7fa6778fc87345d6b95d96f2d74d7a41f726661613440",
+          "invoke_result_multiset": {
+            "Success": 1617
+          },
+          "logical_relay_count": 1600,
+          "per_block_dependency_shape_sha256": "bf51d0ba59bad750b6b42d1ad294ecc6fdc99155596aa490af4689cc57c4503c",
+          "physical_route_count": 1600,
+          "process_success": true,
+          "relay_execution_count": 1600,
+          "source_transaction_count": 16
+        },
+        "generic_batch_only": {
+          "broadcast_clone_count": 0,
+          "confirmed_semantic_transaction_multiset_sha256": "b487a1b5a4f365c296ddca72bd4d3c2a41a7aada6f68adca86a8546dcb8c0f7c",
+          "destination_shard_multiset": {
+            "0": 411,
+            "1": 392,
+            "2": 408,
+            "3": 389
+          },
+          "diagnostic_multiset": {},
+          "final_contract_state_sha256": "cb67915deffe9db658a7fa6778fc87345d6b95d96f2d74d7a41f726661613440",
+          "invoke_result_multiset": {
+            "Success": 1617
+          },
+          "logical_relay_count": 1600,
+          "per_block_dependency_shape_sha256": "bf51d0ba59bad750b6b42d1ad294ecc6fdc99155596aa490af4689cc57c4503c",
+          "physical_route_count": 1600,
+          "process_success": true,
+          "relay_execution_count": 1600,
+          "source_transaction_count": 16
+        },
+        "verified_reserve_only": {
+          "broadcast_clone_count": 0,
+          "confirmed_semantic_transaction_multiset_sha256": "b487a1b5a4f365c296ddca72bd4d3c2a41a7aada6f68adca86a8546dcb8c0f7c",
+          "destination_shard_multiset": {
+            "0": 411,
+            "1": 392,
+            "2": 408,
+            "3": 389
+          },
+          "diagnostic_multiset": {},
+          "final_contract_state_sha256": "cb67915deffe9db658a7fa6778fc87345d6b95d96f2d74d7a41f726661613440",
+          "invoke_result_multiset": {
+            "Success": 1617
+          },
+          "logical_relay_count": 1600,
+          "per_block_dependency_shape_sha256": "bf51d0ba59bad750b6b42d1ad294ecc6fdc99155596aa490af4689cc57c4503c",
+          "physical_route_count": 1600,
+          "process_success": true,
+          "relay_execution_count": 1600,
+          "source_transaction_count": 16
+        },
+        "verified_reserve_plus_batch": {
+          "broadcast_clone_count": 0,
+          "confirmed_semantic_transaction_multiset_sha256": "b487a1b5a4f365c296ddca72bd4d3c2a41a7aada6f68adca86a8546dcb8c0f7c",
+          "destination_shard_multiset": {
+            "0": 411,
+            "1": 392,
+            "2": 408,
+            "3": 389
+          },
+          "diagnostic_multiset": {},
+          "final_contract_state_sha256": "cb67915deffe9db658a7fa6778fc87345d6b95d96f2d74d7a41f726661613440",
+          "invoke_result_multiset": {
+            "Success": 1617
+          },
+          "logical_relay_count": 1600,
+          "per_block_dependency_shape_sha256": "bf51d0ba59bad750b6b42d1ad294ecc6fdc99155596aa490af4689cc57c4503c",
+          "physical_route_count": 1600,
+          "process_success": true,
+          "relay_execution_count": 1600,
+          "source_transaction_count": 16
+        }
+      },
+      "passed": true,
+      "reference_variant": "baseline",
+      "workload": "AirDrop"
+    },
+    "Ballot": {
+      "compared_fields": [
+        "process_success",
+        "final_contract_state_sha256",
+        "source_transaction_count",
+        "logical_relay_count",
+        "physical_route_count",
+        "relay_execution_count",
+        "destination_shard_multiset",
+        "confirmed_semantic_transaction_multiset_sha256",
+        "per_block_dependency_shape_sha256",
+        "broadcast_clone_count",
+        "invoke_result_multiset",
+        "diagnostic_multiset"
+      ],
+      "comparisons": {
+        "baseline": {
+          "mismatches": {},
+          "passed": true
+        },
+        "generic_batch_only": {
+          "mismatches": {},
+          "passed": true
+        },
+        "verified_reserve_only": {
+          "mismatches": {},
+          "passed": true
+        },
+        "verified_reserve_plus_batch": {
+          "mismatches": {},
+          "passed": true
+        }
+      },
+      "invariants": {
+        "baseline": {
+          "broadcast_clone_count": 3,
+          "confirmed_semantic_transaction_multiset_sha256": "dd354a1c1d3791cad3ed404e678d83fe56ceacf64054336cea47bf443e6408f3",
+          "destination_shard_multiset": {
+            "0": 1,
+            "1": 1,
+            "2": 1,
+            "3": 1,
+            "g": 6
+          },
+          "diagnostic_multiset": {},
+          "final_contract_state_sha256": "a4f92d55d42d179d712730fa378e1545c4e677b83dc0b504bc85c3810f7d62de",
+          "invoke_result_multiset": {
+            "Success": 77
+          },
+          "logical_relay_count": 7,
+          "per_block_dependency_shape_sha256": "58e1295995c1cc4718e5458aeb577f6db88c64a9c9681a625464c724ad70e86b",
+          "physical_route_count": 10,
+          "process_success": true,
+          "relay_execution_count": 10,
+          "source_transaction_count": 66
+        },
+        "generic_batch_only": {
+          "broadcast_clone_count": 3,
+          "confirmed_semantic_transaction_multiset_sha256": "dd354a1c1d3791cad3ed404e678d83fe56ceacf64054336cea47bf443e6408f3",
+          "destination_shard_multiset": {
+            "0": 1,
+            "1": 1,
+            "2": 1,
+            "3": 1,
+            "g": 6
+          },
+          "diagnostic_multiset": {},
+          "final_contract_state_sha256": "a4f92d55d42d179d712730fa378e1545c4e677b83dc0b504bc85c3810f7d62de",
+          "invoke_result_multiset": {
+            "Success": 77
+          },
+          "logical_relay_count": 7,
+          "per_block_dependency_shape_sha256": "58e1295995c1cc4718e5458aeb577f6db88c64a9c9681a625464c724ad70e86b",
+          "physical_route_count": 10,
+          "process_success": true,
+          "relay_execution_count": 10,
+          "source_transaction_count": 66
+        },
+        "verified_reserve_only": {
+          "broadcast_clone_count": 3,
+          "confirmed_semantic_transaction_multiset_sha256": "dd354a1c1d3791cad3ed404e678d83fe56ceacf64054336cea47bf443e6408f3",
+          "destination_shard_multiset": {
+            "0": 1,
+            "1": 1,
+            "2": 1,
+            "3": 1,
+            "g": 6
+          },
+          "diagnostic_multiset": {},
+          "final_contract_state_sha256": "a4f92d55d42d179d712730fa378e1545c4e677b83dc0b504bc85c3810f7d62de",
+          "invoke_result_multiset": {
+            "Success": 77
+          },
+          "logical_relay_count": 7,
+          "per_block_dependency_shape_sha256": "58e1295995c1cc4718e5458aeb577f6db88c64a9c9681a625464c724ad70e86b",
+          "physical_route_count": 10,
+          "process_success": true,
+          "relay_execution_count": 10,
+          "source_transaction_count": 66
+        },
+        "verified_reserve_plus_batch": {
+          "broadcast_clone_count": 3,
+          "confirmed_semantic_transaction_multiset_sha256": "dd354a1c1d3791cad3ed404e678d83fe56ceacf64054336cea47bf443e6408f3",
+          "destination_shard_multiset": {
+            "0": 1,
+            "1": 1,
+            "2": 1,
+            "3": 1,
+            "g": 6
+          },
+          "diagnostic_multiset": {},
+          "final_contract_state_sha256": "a4f92d55d42d179d712730fa378e1545c4e677b83dc0b504bc85c3810f7d62de",
+          "invoke_result_multiset": {
+            "Success": 77
+          },
+          "logical_relay_count": 7,
+          "per_block_dependency_shape_sha256": "58e1295995c1cc4718e5458aeb577f6db88c64a9c9681a625464c724ad70e86b",
+          "physical_route_count": 10,
+          "process_success": true,
+          "relay_execution_count": 10,
+          "source_transaction_count": 66
+        }
+      },
+      "passed": true,
+      "reference_variant": "baseline",
+      "workload": "Ballot"
+    },
+    "Kitty": {
+      "compared_fields": [
+        "process_success",
+        "final_contract_state_sha256",
+        "source_transaction_count",
+        "logical_relay_count",
+        "physical_route_count",
+        "relay_execution_count",
+        "destination_shard_multiset",
+        "confirmed_semantic_transaction_multiset_sha256",
+        "per_block_dependency_shape_sha256",
+        "broadcast_clone_count",
+        "invoke_result_multiset",
+        "diagnostic_multiset"
+      ],
+      "comparisons": {
+        "baseline": {
+          "mismatches": {},
+          "passed": true
+        },
+        "generic_batch_only": {
+          "mismatches": {},
+          "passed": true
+        },
+        "verified_reserve_only": {
+          "mismatches": {},
+          "passed": true
+        },
+        "verified_reserve_plus_batch": {
+          "mismatches": {},
+          "passed": true
+        }
+      },
+      "invariants": {
+        "baseline": {
+          "broadcast_clone_count": 0,
+          "confirmed_semantic_transaction_multiset_sha256": "ee042671bf818078940dfe531a3d111b2834de983232e6a620dd02153d606273",
+          "destination_shard_multiset": {
+            "0": 48,
+            "1": 50,
+            "2": 41,
+            "3": 53,
+            "g": 4
+          },
+          "diagnostic_multiset": {},
+          "final_contract_state_sha256": "3cebebdde9fc21c5dddde082837d71f545093d1e160bea0e026b4bc6874de604",
+          "invoke_result_multiset": {
+            "Success": 297
+          },
+          "logical_relay_count": 196,
+          "per_block_dependency_shape_sha256": "8f9226d53196aaaed1ee5c6a82403741a5be41e84543b4b4c21b0cc1417fe729",
+          "physical_route_count": 196,
+          "process_success": true,
+          "relay_execution_count": 196,
+          "source_transaction_count": 100
+        },
+        "generic_batch_only": {
+          "broadcast_clone_count": 0,
+          "confirmed_semantic_transaction_multiset_sha256": "ee042671bf818078940dfe531a3d111b2834de983232e6a620dd02153d606273",
+          "destination_shard_multiset": {
+            "0": 48,
+            "1": 50,
+            "2": 41,
+            "3": 53,
+            "g": 4
+          },
+          "diagnostic_multiset": {},
+          "final_contract_state_sha256": "3cebebdde9fc21c5dddde082837d71f545093d1e160bea0e026b4bc6874de604",
+          "invoke_result_multiset": {
+            "Success": 297
+          },
+          "logical_relay_count": 196,
+          "per_block_dependency_shape_sha256": "8f9226d53196aaaed1ee5c6a82403741a5be41e84543b4b4c21b0cc1417fe729",
+          "physical_route_count": 196,
+          "process_success": true,
+          "relay_execution_count": 196,
+          "source_transaction_count": 100
+        },
+        "verified_reserve_only": {
+          "broadcast_clone_count": 0,
+          "confirmed_semantic_transaction_multiset_sha256": "ee042671bf818078940dfe531a3d111b2834de983232e6a620dd02153d606273",
+          "destination_shard_multiset": {
+            "0": 48,
+            "1": 50,
+            "2": 41,
+            "3": 53,
+            "g": 4
+          },
+          "diagnostic_multiset": {},
+          "final_contract_state_sha256": "3cebebdde9fc21c5dddde082837d71f545093d1e160bea0e026b4bc6874de604",
+          "invoke_result_multiset": {
+            "Success": 297
+          },
+          "logical_relay_count": 196,
+          "per_block_dependency_shape_sha256": "8f9226d53196aaaed1ee5c6a82403741a5be41e84543b4b4c21b0cc1417fe729",
+          "physical_route_count": 196,
+          "process_success": true,
+          "relay_execution_count": 196,
+          "source_transaction_count": 100
+        },
+        "verified_reserve_plus_batch": {
+          "broadcast_clone_count": 0,
+          "confirmed_semantic_transaction_multiset_sha256": "ee042671bf818078940dfe531a3d111b2834de983232e6a620dd02153d606273",
+          "destination_shard_multiset": {
+            "0": 48,
+            "1": 50,
+            "2": 41,
+            "3": 53,
+            "g": 4
+          },
+          "diagnostic_multiset": {},
+          "final_contract_state_sha256": "3cebebdde9fc21c5dddde082837d71f545093d1e160bea0e026b4bc6874de604",
+          "invoke_result_multiset": {
+            "Success": 297
+          },
+          "logical_relay_count": 196,
+          "per_block_dependency_shape_sha256": "8f9226d53196aaaed1ee5c6a82403741a5be41e84543b4b4c21b0cc1417fe729",
+          "physical_route_count": 196,
+          "process_success": true,
+          "relay_execution_count": 196,
+          "source_transaction_count": 100
+        }
+      },
+      "passed": true,
+      "reference_variant": "baseline",
+      "workload": "Kitty"
+    },
+    "MillionPixel": {
+      "compared_fields": [
+        "process_success",
+        "final_contract_state_sha256",
+        "source_transaction_count",
+        "logical_relay_count",
+        "physical_route_count",
+        "relay_execution_count",
+        "destination_shard_multiset",
+        "confirmed_semantic_transaction_multiset_sha256",
+        "per_block_dependency_shape_sha256",
+        "broadcast_clone_count",
+        "invoke_result_multiset",
+        "diagnostic_multiset"
+      ],
+      "comparisons": {
+        "baseline": {
+          "mismatches": {},
+          "passed": true
+        },
+        "generic_batch_only": {
+          "mismatches": {},
+          "passed": true
+        },
+        "verified_reserve_only": {
+          "mismatches": {},
+          "passed": true
+        },
+        "verified_reserve_plus_batch": {
+          "mismatches": {},
+          "passed": true
+        }
+      },
+      "invariants": {
+        "baseline": {
+          "broadcast_clone_count": 0,
+          "confirmed_semantic_transaction_multiset_sha256": "873a6efa2fb48beab82a04417e1cd18cc39781cbf4f4f3a7b3bba4df9ccd8719",
+          "destination_shard_multiset": {
+            "0": 29,
+            "1": 27,
+            "2": 37,
+            "3": 35
+          },
+          "diagnostic_multiset": {},
+          "final_contract_state_sha256": "b0a99bd04bc055cf3c0aa2f9124ce88ed3bd1043a67375941a444f4e9f980340",
+          "invoke_result_multiset": {
+            "Success": 257
+          },
+          "logical_relay_count": 128,
+          "per_block_dependency_shape_sha256": "448dee9c75e2ae7e03a07177333e61033e452d9afda982d78dac14fb7958ac2b",
+          "physical_route_count": 128,
+          "process_success": true,
+          "relay_execution_count": 128,
+          "source_transaction_count": 128
+        },
+        "generic_batch_only": {
+          "broadcast_clone_count": 0,
+          "confirmed_semantic_transaction_multiset_sha256": "873a6efa2fb48beab82a04417e1cd18cc39781cbf4f4f3a7b3bba4df9ccd8719",
+          "destination_shard_multiset": {
+            "0": 29,
+            "1": 27,
+            "2": 37,
+            "3": 35
+          },
+          "diagnostic_multiset": {},
+          "final_contract_state_sha256": "b0a99bd04bc055cf3c0aa2f9124ce88ed3bd1043a67375941a444f4e9f980340",
+          "invoke_result_multiset": {
+            "Success": 257
+          },
+          "logical_relay_count": 128,
+          "per_block_dependency_shape_sha256": "448dee9c75e2ae7e03a07177333e61033e452d9afda982d78dac14fb7958ac2b",
+          "physical_route_count": 128,
+          "process_success": true,
+          "relay_execution_count": 128,
+          "source_transaction_count": 128
+        },
+        "verified_reserve_only": {
+          "broadcast_clone_count": 0,
+          "confirmed_semantic_transaction_multiset_sha256": "873a6efa2fb48beab82a04417e1cd18cc39781cbf4f4f3a7b3bba4df9ccd8719",
+          "destination_shard_multiset": {
+            "0": 29,
+            "1": 27,
+            "2": 37,
+            "3": 35
+          },
+          "diagnostic_multiset": {},
+          "final_contract_state_sha256": "b0a99bd04bc055cf3c0aa2f9124ce88ed3bd1043a67375941a444f4e9f980340",
+          "invoke_result_multiset": {
+            "Success": 257
+          },
+          "logical_relay_count": 128,
+          "per_block_dependency_shape_sha256": "448dee9c75e2ae7e03a07177333e61033e452d9afda982d78dac14fb7958ac2b",
+          "physical_route_count": 128,
+          "process_success": true,
+          "relay_execution_count": 128,
+          "source_transaction_count": 128
+        },
+        "verified_reserve_plus_batch": {
+          "broadcast_clone_count": 0,
+          "confirmed_semantic_transaction_multiset_sha256": "873a6efa2fb48beab82a04417e1cd18cc39781cbf4f4f3a7b3bba4df9ccd8719",
+          "destination_shard_multiset": {
+            "0": 29,
+            "1": 27,
+            "2": 37,
+            "3": 35
+          },
+          "diagnostic_multiset": {},
+          "final_contract_state_sha256": "b0a99bd04bc055cf3c0aa2f9124ce88ed3bd1043a67375941a444f4e9f980340",
+          "invoke_result_multiset": {
+            "Success": 257
+          },
+          "logical_relay_count": 128,
+          "per_block_dependency_shape_sha256": "448dee9c75e2ae7e03a07177333e61033e452d9afda982d78dac14fb7958ac2b",
+          "physical_route_count": 128,
+          "process_success": true,
+          "relay_execution_count": 128,
+          "source_transaction_count": 128
+        }
+      },
+      "passed": true,
+      "reference_variant": "baseline",
+      "workload": "MillionPixel"
+    },
+    "Token": {
+      "compared_fields": [
+        "process_success",
+        "final_contract_state_sha256",
+        "source_transaction_count",
+        "logical_relay_count",
+        "physical_route_count",
+        "relay_execution_count",
+        "destination_shard_multiset",
+        "confirmed_semantic_transaction_multiset_sha256",
+        "per_block_dependency_shape_sha256",
+        "broadcast_clone_count",
+        "invoke_result_multiset",
+        "diagnostic_multiset"
+      ],
+      "comparisons": {
+        "baseline": {
+          "mismatches": {},
+          "passed": true
+        },
+        "generic_batch_only": {
+          "mismatches": {},
+          "passed": true
+        },
+        "verified_reserve_only": {
+          "mismatches": {},
+          "passed": true
+        },
+        "verified_reserve_plus_batch": {
+          "mismatches": {},
+          "passed": true
+        }
+      },
+      "invariants": {
+        "baseline": {
+          "broadcast_clone_count": 0,
+          "confirmed_semantic_transaction_multiset_sha256": "22586ddd1ff0840ea87548dceb9764d7d4c2ec3436d35c120e22ce77105bed8c",
+          "destination_shard_multiset": {
+            "0": 39,
+            "1": 28,
+            "2": 35,
+            "3": 26
+          },
+          "diagnostic_multiset": {},
+          "final_contract_state_sha256": "f166b80707f7813fd12709882c0486187809d606ff21681cac0cd7de99051621",
+          "invoke_result_multiset": {
+            "Success": 257
+          },
+          "logical_relay_count": 128,
+          "per_block_dependency_shape_sha256": "8a0229409948722aa1c54fc331c2efa639e72e19b8ec0dd862e0260c59e4599b",
+          "physical_route_count": 128,
+          "process_success": true,
+          "relay_execution_count": 128,
+          "source_transaction_count": 128
+        },
+        "generic_batch_only": {
+          "broadcast_clone_count": 0,
+          "confirmed_semantic_transaction_multiset_sha256": "22586ddd1ff0840ea87548dceb9764d7d4c2ec3436d35c120e22ce77105bed8c",
+          "destination_shard_multiset": {
+            "0": 39,
+            "1": 28,
+            "2": 35,
+            "3": 26
+          },
+          "diagnostic_multiset": {},
+          "final_contract_state_sha256": "f166b80707f7813fd12709882c0486187809d606ff21681cac0cd7de99051621",
+          "invoke_result_multiset": {
+            "Success": 257
+          },
+          "logical_relay_count": 128,
+          "per_block_dependency_shape_sha256": "8a0229409948722aa1c54fc331c2efa639e72e19b8ec0dd862e0260c59e4599b",
+          "physical_route_count": 128,
+          "process_success": true,
+          "relay_execution_count": 128,
+          "source_transaction_count": 128
+        },
+        "verified_reserve_only": {
+          "broadcast_clone_count": 0,
+          "confirmed_semantic_transaction_multiset_sha256": "22586ddd1ff0840ea87548dceb9764d7d4c2ec3436d35c120e22ce77105bed8c",
+          "destination_shard_multiset": {
+            "0": 39,
+            "1": 28,
+            "2": 35,
+            "3": 26
+          },
+          "diagnostic_multiset": {},
+          "final_contract_state_sha256": "f166b80707f7813fd12709882c0486187809d606ff21681cac0cd7de99051621",
+          "invoke_result_multiset": {
+            "Success": 257
+          },
+          "logical_relay_count": 128,
+          "per_block_dependency_shape_sha256": "8a0229409948722aa1c54fc331c2efa639e72e19b8ec0dd862e0260c59e4599b",
+          "physical_route_count": 128,
+          "process_success": true,
+          "relay_execution_count": 128,
+          "source_transaction_count": 128
+        },
+        "verified_reserve_plus_batch": {
+          "broadcast_clone_count": 0,
+          "confirmed_semantic_transaction_multiset_sha256": "22586ddd1ff0840ea87548dceb9764d7d4c2ec3436d35c120e22ce77105bed8c",
+          "destination_shard_multiset": {
+            "0": 39,
+            "1": 28,
+            "2": 35,
+            "3": 26
+          },
+          "diagnostic_multiset": {},
+          "final_contract_state_sha256": "f166b80707f7813fd12709882c0486187809d606ff21681cac0cd7de99051621",
+          "invoke_result_multiset": {
+            "Success": 257
+          },
+          "logical_relay_count": 128,
+          "per_block_dependency_shape_sha256": "8a0229409948722aa1c54fc331c2efa639e72e19b8ec0dd862e0260c59e4599b",
+          "physical_route_count": 128,
+          "process_success": true,
+          "relay_execution_count": 128,
+          "source_transaction_count": 128
+        }
+      },
+      "passed": true,
+      "reference_variant": "baseline",
+      "workload": "Token"
+    }
+  }
+}

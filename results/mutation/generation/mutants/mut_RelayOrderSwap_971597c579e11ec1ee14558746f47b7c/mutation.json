@@ -1,0 +1,41 @@
+{
+  "contract": "MutationStudy",
+  "description": "swap the source order of relay_site_4 and relay_site_5",
+  "edits": [
+    {
+      "byte_end_offset": 644,
+      "byte_start_offset": 616,
+      "expected_original": "relay@first handler_a(value);",
+      "replacement": "relay@second handler_b(value);"
+    },
+    {
+      "byte_end_offset": 683,
+      "byte_start_offset": 654,
+      "expected_original": "relay@second handler_b(value);",
+      "replacement": "relay@first handler_a(value);"
+    }
+  ],
+  "generation_status": "Generated",
+  "location": {
+    "byte_end_offset": 644,
+    "byte_start_offset": 616,
+    "column": 8,
+    "end_column": 37,
+    "end_line": 29,
+    "end_offset": 644,
+    "line": 29,
+    "start_offset": 616
+  },
+  "mutated_code_path": "generation/mutants/mut_RelayOrderSwap_971597c579e11ec1ee14558746f47b7c/MutationStudy.prd",
+  "mutated_fragment": "relay@second handler_b(value);relay@first handler_a(value);",
+  "mutation_id": "mut_RelayOrderSwap_971597c579e11ec1ee14558746f47b7c",
+  "mutation_type": "RelayOrderSwap",
+  "original_code_path": "generation/mutants/mut_RelayOrderSwap_971597c579e11ec1ee14558746f47b7c/original.prd",
+  "original_fragment": "relay@first handler_a(value);relay@second handler_b(value);",
+  "reason": "",
+  "relay_site_ids": [
+    "relay_site_4",
+    "relay_site_5"
+  ],
+  "source_function_id": "chsimu.MutationStudy::exercise(bool,uint32,uint32,uint32)"
+}

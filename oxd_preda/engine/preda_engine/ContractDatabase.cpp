@@ -85,10 +85,10 @@ bool ReadEntryFromJson(const rt::JsonObject &json, ContractDatabaseEntry &outEnt
 		::rvm::RvmTypeJsonParse(outEntry.compileData.intermediateHash, jsonStr);
 	}
 
-#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+#ifdef RPREDA_ENABLE_BOUND_RELAY_MANIFEST
 	// These fields are additive. A database created by a trace-disabled or
 	// older engine remains loadable; it simply has no trusted manifest
-	// binding and validation must treat it as BindingMissing.
+	// binding and every consumer must treat it as BindingMissing.
 	outEntry.compileData.relayManifestTranspilerVersion.clear();
 	outEntry.compileData.relayManifestHash = {};
 	outEntry.compileData.relayManifestBindingComplete = false;
@@ -762,10 +762,10 @@ const ContractDatabaseEntry* CContractDatabase::FindContractEntry(const rvm::Con
 	return FindContractEntry(*moduleId);
 }
 
-#ifdef RPREDA_ENABLE_RUNTIME_TRACE
-bool CContractDatabase::GetRelayTraceArtifactBinding(
+#ifdef RPREDA_ENABLE_BOUND_RELAY_MANIFEST
+bool CContractDatabase::GetRelayManifestArtifactBinding(
 	const rvm::ContractModuleID &moduleId,
-	rvm::RelayTraceArtifactBinding &out) const noexcept
+	rvm::RelayManifestArtifactBinding &out) const noexcept
 {
 	out = {};
 	const ContractDatabaseEntry *entry = FindContractEntry(moduleId);
@@ -1128,7 +1128,7 @@ bool CContractDatabase::_Compile(IContractFullNameToModuleIdLookupTable* lookup,
 			}
 			oxd::SecuritySuite::Hash(&buffer[0], (uint32_t)buffer.size(), &curContractCompiledData.moduleId);
 
-#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+#ifdef RPREDA_ENABLE_BOUND_RELAY_MANIFEST
 			const char *compilationTranspilerVersion =
 				currentTranspiler->GetVersion();
 			std::string relayManifestBindingError;
@@ -1167,10 +1167,9 @@ bool CContractDatabase::_Compile(IContractFullNameToModuleIdLookupTable* lookup,
 					"[R-PREDA]: Relay manifest binding was not "
 					"published: " << relayManifestBindingError);
 
-				// Trace metadata is read-only. Failure to publish it must
+				// Bound-manifest metadata is read-only. Failure to publish it must
 				// not suppress the normal compiler/linker path. Observe
-				// mode will disable validation for this module; strict mode
-				// will latch the missing binding at its simulator safe point.
+				// and optimization consumers must fall back for this module.
 			}
 #endif
 
@@ -2044,13 +2043,13 @@ bool CContractDatabase::Deploy(const rvm::GlobalStates* chain_state, rvm::Compil
 				std::string json = ConvertEntryToJson(&entries[idx]);
 				m_contractDB.Set(moduleId, json.c_str());
 			}
-#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+#ifdef RPREDA_ENABLE_BOUND_RELAY_MANIFEST
 			else if (
 				entries[idx].compileData
 					.relayManifestBindingComplete)
 			{
 				// The executable/link artifact is already trusted under this
-				// module ID. Refresh only the trace binding so a recompile of
+				// module ID. Refresh only the manifest binding so a recompile of
 				// that same module cannot leave the module-addressed manifest
 				// and the module database with different expected hashes.
 				itor->second.compileData
@@ -2094,7 +2093,7 @@ std::string CContractDatabase::ConvertEntryToJson(const ContractDatabaseEntry *p
 		::rvm::RvmTypeJsonify(pEntry->compileData.intermediateHash, res);
 		json += "\t\"inter_hash\": " + std::string(res.GetInternalString()) + ",\n";
 	}
-#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+#ifdef RPREDA_ENABLE_BOUND_RELAY_MANIFEST
 	if (pEntry->compileData.relayManifestBindingComplete)
 	{
 		json += "\t\"relay_manifest_transpiler_version\": \"" +

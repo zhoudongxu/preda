@@ -1,6 +1,6 @@
 #pragma once
 
-#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+#ifdef RPREDA_ENABLE_BOUND_RELAY_MANIFEST
 
 #include <string>
 
@@ -26,4 +26,4 @@ bool FinalizeAndPublishRelayManifest(
 
 } // namespace rpreda
 
-#endif // RPREDA_ENABLE_RUNTIME_TRACE
+#endif // RPREDA_ENABLE_BOUND_RELAY_MANIFEST

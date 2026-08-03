@@ -3,6 +3,16 @@
 #include "simu_global.h"
 #include "chain_simu.h"
 
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+#include "relay_optimization/RelayReservePlanner.h"
+
+#include <array>
+#include <chrono>
+#include <limits>
+#include <optional>
+#include <vector>
+#endif
+
 #ifdef RPREDA_ENABLE_RUNTIME_TRACE
 #include "relay_trace/RelayManifestLoader.h"
 
@@ -18,6 +28,99 @@
 
 namespace oxd
 {
+
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+namespace
+{
+
+uint64_t RelayOptimizationNowNs() noexcept
+{
+	return static_cast<uint64_t>(
+		std::chrono::duration_cast<std::chrono::nanoseconds>(
+			std::chrono::steady_clock::now().time_since_epoch()).count());
+}
+
+void AppendBigEndian(
+	uint8_t* output,
+	size_t& offset,
+	uint64_t value,
+	size_t width) noexcept
+{
+	for(size_t index = 0; index < width; ++index)
+	{
+		const size_t shift = (width - index - 1) * 8;
+		output[offset++] =
+			static_cast<uint8_t>((value >> shift) & 0xff);
+	}
+}
+
+uint64_t RelayAuditRootIdentity(
+	relay_optimization::RelayOptimizationAudit& audit,
+	const SimuTxn& transaction) noexcept
+{
+	const rvm::ConstData arguments = transaction.GetArguments();
+	std::array<uint8_t,
+		1 + sizeof(transaction.Contract) +
+		sizeof(transaction.Op) +
+		sizeof(transaction.Target.target_size)> prefix{};
+	size_t prefixSize = 0;
+	AppendBigEndian(
+		prefix.data(),
+		prefixSize,
+		static_cast<uint64_t>(transaction.Type),
+		1);
+	AppendBigEndian(
+		prefix.data(),
+		prefixSize,
+		static_cast<uint64_t>(transaction.Contract),
+		sizeof(transaction.Contract));
+	AppendBigEndian(
+		prefix.data(),
+		prefixSize,
+		static_cast<uint64_t>(transaction.Op),
+		sizeof(transaction.Op));
+	AppendBigEndian(
+		prefix.data(),
+		prefixSize,
+		transaction.Target.target_size,
+		sizeof(transaction.Target.target_size));
+	const uint8_t* target = reinterpret_cast<const uint8_t*>(
+		&transaction.Target.u512);
+	std::array<uint8_t, sizeof(arguments.DataSize)> argumentSize{};
+	size_t argumentSizeBytes = 0;
+	AppendBigEndian(
+		argumentSize.data(),
+		argumentSizeBytes,
+		arguments.DataSize,
+		sizeof(arguments.DataSize));
+	const uint8_t* argumentBytes =
+		static_cast<const uint8_t*>(arguments.DataPtr);
+	// Normal invocations do not carry a separate actor field. Their effective
+	// target is already represented by target_size plus the exact target
+	// bytes above. Do not hash the full Target.addr union for non-address
+	// scopes: bytes outside target_size have no source-level meaning.
+	const uint8_t* relayInitiator = transaction.IsRelay()
+		? reinterpret_cast<const uint8_t*>(
+			&transaction.Initiator)
+		: nullptr;
+	const relay_optimization::AuditIdentityPart parts[] = {
+		{prefix.data(), prefixSize},
+		{target, transaction.Target.target_size},
+		{argumentSize.data(), argumentSizeBytes},
+		{argumentBytes,
+			argumentBytes
+				? static_cast<size_t>(arguments.DataSize)
+				: 0},
+		{relayInitiator,
+			relayInitiator
+				? sizeof(transaction.Initiator)
+				: 0},
+	};
+	return audit.StableRootIdentity(parts, std::size(parts));
+}
+
+} // namespace
+#endif
 
 #ifdef RPREDA_ENABLE_RUNTIME_TRACE
 namespace
@@ -353,6 +456,11 @@ SimuTxn* SimuShard::_CreateRelayTxn(rvm::ContractInvokeId ciid, rvm::OpCode opco
 	});
 #endif
 
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+	if(auto* audit = _pSimulator->GetRelayOptimizationAudit())
+		audit->InheritTransaction(_pTxn, txn);
+#endif
+
 	return txn;
 }
 
@@ -482,8 +590,36 @@ void SimuShard::PopRelayTraceSite(
 }
 #endif
 
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+void SimuShard::_AppendRelayEmission(
+	SimuTxn* txn,
+	uint64_t generationBeginNs)
+{
+	auto* metrics = _pSimulator->GetRelayOptimizationMetrics();
+	const size_t capacityBefore = _RelayEmitted.reserve_size();
+	_RelayEmitted.push_back(txn);
+	const size_t capacityAfter = _RelayEmitted.reserve_size();
+	metrics->logicalRelayEmissions.fetch_add(
+		1,
+		std::memory_order_relaxed);
+	if(capacityAfter > capacityBefore)
+	{
+		metrics->relayBufferCapacityGrowthEvents.fetch_add(
+			1,
+			std::memory_order_relaxed);
+	}
+	metrics->relayGenerationTimeNs.fetch_add(
+		RelayOptimizationNowNs() - generationBeginNs,
+		std::memory_order_relaxed);
+}
+#endif
+
 bool SimuShard::EmitRelayToScope(rvm::ContractInvokeId ciid, const rvm::ScopeKey* key, rvm::OpCode opcode, const rvm::ConstData* args_serialized, uint32_t gas_redistribution_weight)
 {
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+	const uint64_t relayGenerationBeginNs =
+		RelayOptimizationNowNs();
+#endif
 	auto* txn = _CreateRelayTxn(ciid, opcode, args_serialized, gas_redistribution_weight);
 	ASSERT(txn->Contract == ciid);
 	rvm::ScopeKeySized kst = rvm::SCOPE_KEYSIZETYPE(rvm::CONTRACT_SCOPE(ciid));
@@ -537,12 +673,20 @@ bool SimuShard::EmitRelayToScope(rvm::ContractInvokeId ciid, const rvm::ScopeKey
 		relay_trace::RelayKind::CustomScope,
 		GetRelayTraceScopeKind(rvm::CONTRACT_SCOPE(ciid)));
 #endif
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+	_AppendRelayEmission(txn, relayGenerationBeginNs);
+#else
 	_RelayEmitted.push_back(txn);
+#endif
 	return true;
 }
 
 bool SimuShard::EmitRelayToGlobal(rvm::ContractInvokeId cid, rvm::OpCode opcode, const rvm::ConstData* args_serialized, uint32_t gas_redistribution_weight)
 {
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+	const uint64_t relayGenerationBeginNs =
+		RelayOptimizationNowNs();
+#endif
 	auto* txn = _CreateRelayTxn(cid, opcode, args_serialized, gas_redistribution_weight);
 
 	rt::Zero(txn->Target);
@@ -554,12 +698,20 @@ bool SimuShard::EmitRelayToGlobal(rvm::ContractInvokeId cid, rvm::OpCode opcode,
 		relay_trace::RelayKind::Global,
 		relay_trace::ScopeKind::Global);
 #endif
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+	_AppendRelayEmission(txn, relayGenerationBeginNs);
+#else
 	_RelayEmitted.push_back(txn);
+#endif
 	return true;
 }
 
 bool SimuShard::EmitRelayDeferred(rvm::ContractInvokeId cid, rvm::OpCode opcode, const rvm::ConstData* args_serialized, uint32_t gas_redistribution_weight)
 {
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+	const uint64_t relayGenerationBeginNs =
+		RelayOptimizationNowNs();
+#endif
 	ASSERT(_pTxn->GetScope() != rvm::Scope::Shard);
 
 	auto* txn = _CreateRelayTxn(cid, opcode, args_serialized, gas_redistribution_weight);
@@ -573,12 +725,20 @@ bool SimuShard::EmitRelayDeferred(rvm::ContractInvokeId cid, rvm::OpCode opcode,
 		relay_trace::RelayKind::DeferredNext,
 		GetRelayTraceScopeKind(rvm::CONTRACT_SCOPE(cid)));
 #endif
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+	_AppendRelayEmission(txn, relayGenerationBeginNs);
+#else
 	_RelayEmitted.push_back(txn);
+#endif
 	return true;
 }
 
 bool SimuShard::EmitBroadcastToShards(rvm::ContractInvokeId cid, rvm::OpCode opcode, const rvm::ConstData* args_serialized, uint32_t gas_redistribution_weight)
 {
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+	const uint64_t relayGenerationBeginNs =
+		RelayOptimizationNowNs();
+#endif
 	auto* txn = _CreateRelayTxn(cid, opcode, args_serialized, gas_redistribution_weight);
 
 	txn->Flag = (SimuTxnFlag)(txn->Flag|TXN_BROADCAST);
@@ -595,7 +755,11 @@ bool SimuShard::EmitBroadcastToShards(rvm::ContractInvokeId cid, rvm::OpCode opc
 		relay_trace::RelayKind::AllShards,
 		relay_trace::ScopeKind::Shard);
 #endif
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+	_AppendRelayEmission(txn, relayGenerationBeginNs);
+#else
 	_RelayEmitted.push_back(txn);
+#endif
 	return true;
 }
 
@@ -719,11 +883,79 @@ void SimuShard::PushNormalTxn(SimuTxn* t)
 {
 	ASSERT(!t->IsRelay());
 
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+	auto* metrics = _pSimulator->GetRelayOptimizationMetrics();
+	const uint64_t queueBeginNs = RelayOptimizationNowNs();
+#endif
 	bool first_item = _PendingTxns.Push(t);
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+	metrics->queueSinglePushCalls.fetch_add(
+		1,
+		std::memory_order_relaxed);
+	metrics->queueLockAcquisitions.fetch_add(
+		1,
+		std::memory_order_relaxed);
+	metrics->queuePushTimeNs.fetch_add(
+		RelayOptimizationNowNs() - queueBeginNs,
+		std::memory_order_relaxed);
+#endif
 	_pSimulator->OnTxnPushed();
 
 	if(first_item && _pSimulator->IsShardingAsync() && !_pSimulator->IsChainPaused() && !_pSimulator->IsChainStepping())
+	{
 		_GoNextBlock.Set();
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+		metrics->queueNotifications.fetch_add(
+			1,
+			std::memory_order_relaxed);
+#endif
+	}
+}
+
+void SimuShard::PushIntraRelay(SimuTxn* t)
+{
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+	auto* metrics = _pSimulator->GetRelayOptimizationMetrics();
+	const uint64_t queueBeginNs = RelayOptimizationNowNs();
+	auto* audit = _pSimulator->GetRelayOptimizationAudit();
+	const auto auditRoot = audit
+		? audit->RootForTransaction(t)
+		: std::optional<uint64_t>{};
+	const size_t auditSizeBefore = auditRoot
+		? _IntraRelayTxns.GetSize()
+		: 0;
+#endif
+	_IntraRelayTxns.Push(t);
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+	if(auditRoot)
+	{
+		const size_t auditSizeAfter =
+			_IntraRelayTxns.GetSize();
+		const uint64_t observed =
+			auditSizeAfter >= auditSizeBefore
+				? static_cast<uint64_t>(
+					auditSizeAfter - auditSizeBefore)
+				: std::numeric_limits<uint64_t>::max();
+		audit->CheckClassifiedExactlyOnce(
+			*auditRoot,
+			observed);
+		audit->CheckDestinationShard(
+			*auditRoot,
+			_pSimulator->GetShardIndex(t->Target),
+			observed == 1
+				? _ShardIndex
+				: std::numeric_limits<uint32_t>::max());
+	}
+	metrics->queueSinglePushCalls.fetch_add(
+		1,
+		std::memory_order_relaxed);
+	metrics->queueLockAcquisitions.fetch_add(
+		1,
+		std::memory_order_relaxed);
+	metrics->queuePushTimeNs.fetch_add(
+		RelayOptimizationNowNs() - queueBeginNs,
+		std::memory_order_relaxed);
+#endif
 }
 
 void SimuShard::PushRelayTxn(SimuTxn** txns, uint32_t count)
@@ -732,12 +964,135 @@ void SimuShard::PushRelayTxn(SimuTxn** txns, uint32_t count)
 	{
 		ASSERT(txns[0]->IsRelay());
 
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+		auto* metrics = _pSimulator->GetRelayOptimizationMetrics();
+		auto* audit =
+			_pSimulator->GetRelayOptimizationAudit();
+		PendingBatchAuditObservation auditObservation;
+		std::vector<uint64_t> auditBatchRoots;
+		const bool usesBatchFastPath =
+			_pSimulator->GetRelayOptimizationConfig().
+				UsesBatchFastPath();
+		if(audit && usesBatchFastPath)
+		{
+			audit->SnapshotUniqueTransactionRoots(
+				txns,
+				count,
+				auditBatchRoots);
+		}
+		bool auditBatchCommitted = false;
+		const uint64_t queueBeginNs = RelayOptimizationNowNs();
+		bool first_item = false;
+		if(usesBatchFastPath)
+		{
+			metrics->queueBatchPushCalls.fetch_add(
+				1,
+				std::memory_order_relaxed);
+			metrics->queueLockAcquisitions.fetch_add(
+				1,
+				std::memory_order_relaxed);
+			const PendingPushResult pushed =
+				_PendingRelayTxns.PushBatch(
+					txns,
+					count,
+					audit ? &auditObservation : nullptr);
+			if(pushed.committed)
+			{
+				first_item = pushed.wasEmpty;
+				metrics->queueBatchElements.fetch_add(
+					pushed.inserted,
+					std::memory_order_relaxed);
+				metrics->ObserveBatchSize(pushed.inserted);
+				auditBatchCommitted = audit != nullptr;
+			}
+			else
+			{
+				// The transactional fast path leaves the target queue and
+				// caller ownership unchanged. Fall back to the exact legacy
+				// bulk path without dropping or duplicating a pointer.
+				metrics->queueBatchFallbacks.fetch_add(
+					1,
+					std::memory_order_relaxed);
+				metrics->queueLegacyBulkPushCalls.fetch_add(
+					1,
+					std::memory_order_relaxed);
+				metrics->queueLockAcquisitions.fetch_add(
+					1,
+					std::memory_order_relaxed);
+				first_item =
+					_PendingRelayTxns.Push(txns, count);
+			}
+		}
+		else
+		{
+			metrics->queueLegacyBulkPushCalls.fetch_add(
+				1,
+				std::memory_order_relaxed);
+			metrics->queueLockAcquisitions.fetch_add(
+				1,
+				std::memory_order_relaxed);
+			first_item = _PendingRelayTxns.Push(txns, count);
+		}
+		metrics->queuePushTimeNs.fetch_add(
+			RelayOptimizationNowNs() - queueBeginNs,
+			std::memory_order_relaxed);
+#else
 		bool first_item = _PendingRelayTxns.Push(txns, count);
+#endif
 		//_pSimulator->OnTxnPushed(count);
 		_pSimulator->OnTxnPushed(count);
 
 		if(first_item && _pSimulator->IsShardingAsync() && !_pSimulator->IsChainPaused() && !_pSimulator->IsChainStepping())
+		{
 			_GoNextBlock.Set();
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+			metrics->queueNotifications.fetch_add(
+				1,
+				std::memory_order_relaxed);
+#endif
+		}
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+		// Observe a committed optimized batch only after pending-work
+		// accounting and wakeup are complete. Audit diagnostics are
+		// allocation-free/noexcept here, so they cannot split queue ownership
+		// from simulator accounting.
+		if(auditBatchCommitted)
+		{
+			const uint64_t queueSizeDelta =
+				auditObservation.sizeAfter >=
+					auditObservation.sizeBefore
+					? static_cast<uint64_t>(
+						auditObservation.sizeAfter -
+						auditObservation.sizeBefore)
+					: std::numeric_limits<uint64_t>::max();
+			const uint64_t observedTailCount =
+				static_cast<uint64_t>(
+					auditObservation.inserted.size());
+			bool identityAndOrderPreserved =
+				auditObservation.inserted.size() == count;
+			if(identityAndOrderPreserved)
+			{
+				for(uint32_t index = 0; index < count; ++index)
+				{
+					if(auditObservation.inserted[index] !=
+						txns[index])
+					{
+						identityAndOrderPreserved = false;
+						break;
+					}
+				}
+			}
+			for(uint64_t root : auditBatchRoots)
+			{
+				audit->CheckBatchObservation(
+					root,
+					count,
+					queueSizeDelta,
+					observedTailCount,
+					identityAndOrderPreserved);
+			}
+		}
+#endif
 	}
 }
 
@@ -761,9 +1116,82 @@ RelayEmission::~RelayEmission()
 	_ToShards.SetSize(0);
 }
 
-void RelayEmission::Collect(SimuTxn* origin, rt::BufferEx<SimuTxn*>& txns, uint64_t remained_gas)
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+void RelayEmission::ReserveForPlan(
+	const relay_plan::FunctionRelayPlan& plan,
+	uint64_t logicalRelayBound,
+	uint64_t maximumReserve)
+{
+	if(logicalRelayBound == 0)
+		return;
+
+	auto* metrics = _pSimulator->GetRelayOptimizationMetrics();
+
+	if(plan.mayGlobal)
+	{
+		size_t required = 0;
+		if(relay_optimization::CheckedRequiredCapacity(
+			_ToGlobal.GetSize(),
+			logicalRelayBound,
+			maximumReserve,
+			required))
+		{
+			if(!_ToGlobal.reserve(required))
+			{
+				metrics->relayBufferReserveFailures.fetch_add(
+					1,
+					std::memory_order_relaxed);
+			}
+		}
+	}
+
+	if(plan.mayBroadcast)
+	{
+		uint64_t aggregate = 0;
+		if(relay_optimization::CheckedAggregateBroadcastReserve(
+			logicalRelayBound,
+			static_cast<uint32_t>(_ToShards.GetSize()),
+			maximumReserve,
+			aggregate))
+		{
+			bool allReserved = true;
+			for(auto& shardBuffer : _ToShards)
+			{
+				size_t required = 0;
+				if(!relay_optimization::CheckedRequiredCapacity(
+					shardBuffer.GetSize(),
+					logicalRelayBound,
+					maximumReserve,
+					required) ||
+					!shardBuffer.reserve(required))
+				{
+					allReserved = false;
+					break;
+				}
+			}
+			if(allReserved)
+			{
+				metrics->broadcastCloneReserveCalls.fetch_add(
+					1,
+					std::memory_order_relaxed);
+			}
+			else
+			{
+				metrics->relayBufferReserveFailures.fetch_add(
+					1,
+					std::memory_order_relaxed);
+			}
+		}
+	}
+
+}
+#endif
+
+uint32_t RelayEmission::Collect(SimuTxn* origin, rt::BufferEx<SimuTxn*>& txns, uint64_t remained_gas)
 {
 #define APPEND_TRACE(t)		_pShard->AppendToTxnTrace(origin, t)
+	const uint32_t logicalRelayCount =
+		static_cast<uint32_t>(txns.GetSize());
 	// calculate total gas redistribution weight
 	uint32_t total_weight = 0;
 	for(SimuTxn* t : txns)
@@ -782,11 +1210,50 @@ void RelayEmission::Collect(SimuTxn* origin, rt::BufferEx<SimuTxn*>& txns, uint6
 
 	for(SimuTxn* t : txns)
 	{
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+		auto* metrics = _pSimulator->GetRelayOptimizationMetrics();
+		auto* audit = _pSimulator->GetRelayOptimizationAudit();
+		const auto auditRoot = audit
+			? audit->RootForTransaction(t)
+			: std::optional<uint64_t>{};
+#endif
 		t->Gas += t->GasRedistributionWeight * relay_gas_unit;
 		if(t->IsDeferred())
 		{
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+			const size_t routeSizeBefore = auditRoot
+				? _ToNextBlock.GetSize()
+				: 0;
+#endif
 			_ToNextBlock.push_back(t);
 			APPEND_TRACE(t);
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+			metrics->physicalRelayRoutes.fetch_add(
+				1,
+				std::memory_order_relaxed);
+			if(auditRoot)
+			{
+				uint64_t occurrences = 0;
+				for(SimuTxn* routed : _ToNextBlock)
+				{
+					if(routed == t)
+						++occurrences;
+				}
+				const size_t routeSizeAfter =
+					_ToNextBlock.GetSize();
+				if(routeSizeAfter < routeSizeBefore ||
+					routeSizeAfter - routeSizeBefore != 1)
+				{
+					occurrences = routeSizeAfter >=
+						routeSizeBefore
+						? routeSizeAfter - routeSizeBefore
+						: std::numeric_limits<uint64_t>::max();
+				}
+				audit->CheckClassifiedExactlyOnce(
+					*auditRoot,
+					occurrences);
+			}
+#endif
 #ifdef RPREDA_ENABLE_RUNTIME_TRACE
 			{
 				auto* relayTraceCollector =
@@ -814,8 +1281,47 @@ void RelayEmission::Collect(SimuTxn* origin, rt::BufferEx<SimuTxn*>& txns, uint6
 		switch(t->GetScope())
 		{
 		case rvm::Scope::Global:
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+			{
+			const size_t routeSizeBefore = auditRoot
+				? _ToGlobal.GetSize()
+				: 0;
+#endif
 			_ToGlobal.push_back(t);
 			APPEND_TRACE(t);
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+			metrics->physicalRelayRoutes.fetch_add(
+				1,
+				std::memory_order_relaxed);
+			if(auditRoot)
+			{
+				uint64_t occurrences = 0;
+				for(SimuTxn* routed : _ToGlobal)
+				{
+					if(routed == t)
+						++occurrences;
+				}
+				const size_t routeSizeAfter =
+					_ToGlobal.GetSize();
+				if(routeSizeAfter < routeSizeBefore ||
+					routeSizeAfter - routeSizeBefore != 1)
+				{
+					occurrences = routeSizeAfter >=
+						routeSizeBefore
+						? routeSizeAfter - routeSizeBefore
+						: std::numeric_limits<uint64_t>::max();
+				}
+				audit->CheckClassifiedExactlyOnce(
+					*auditRoot,
+					occurrences);
+				audit->CheckDestinationShard(
+					*auditRoot,
+					rvm::GlobalShard,
+					occurrences == 1
+						? rvm::GlobalShard
+						: std::numeric_limits<uint32_t>::max());
+			}
+#endif
 #ifdef RPREDA_ENABLE_RUNTIME_TRACE
 			{
 				auto* relayTraceCollector =
@@ -835,12 +1341,58 @@ void RelayEmission::Collect(SimuTxn* origin, rt::BufferEx<SimuTxn*>& txns, uint6
 				});
 			}
 #endif
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+			}
+#endif
 			break;
 		case rvm::Scope::Shard:
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+			{
+			uint64_t observedPhysicalCount = 0;
+			bool exactlyOnePerDestination = true;
+#endif
 			for(uint32_t i = 1; i < _ToShards.GetSize(); i++)
 			{
 				SimuTxn* _clone = t->Clone();
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+				if(audit)
+					audit->InheritTransaction(t, _clone);
+				const size_t routeSizeBefore = auditRoot
+					? _ToShards[i].GetSize()
+					: 0;
+#endif
 				_ToShards[i].push_back(_clone);
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+				if(auditRoot)
+				{
+					const size_t routeSizeAfter =
+						_ToShards[i].GetSize();
+					const uint64_t delta =
+						routeSizeAfter >= routeSizeBefore
+							? static_cast<uint64_t>(
+								routeSizeAfter -
+									routeSizeBefore)
+							: std::numeric_limits<
+								uint64_t>::max();
+					if(observedPhysicalCount <=
+						std::numeric_limits<uint64_t>::max() -
+							delta)
+					{
+						observedPhysicalCount += delta;
+					}
+					else
+					{
+						observedPhysicalCount =
+							std::numeric_limits<uint64_t>::max();
+					}
+					exactlyOnePerDestination =
+						exactlyOnePerDestination &&
+						delta == 1 &&
+						routeSizeAfter != 0 &&
+						_ToShards[i][routeSizeAfter - 1] ==
+							_clone;
+				}
+#endif
 				APPEND_TRACE(_clone);
 #ifdef RPREDA_ENABLE_RUNTIME_TRACE
 				{
@@ -867,8 +1419,74 @@ void RelayEmission::Collect(SimuTxn* origin, rt::BufferEx<SimuTxn*>& txns, uint6
 				}
 #endif
 			}
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+			const size_t shardZeroSizeBefore = auditRoot
+				? _ToShards[0].GetSize()
+				: 0;
+#endif
 			_ToShards[0].push_back(t);
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+			if(auditRoot)
+			{
+				const size_t shardZeroSizeAfter =
+					_ToShards[0].GetSize();
+				const uint64_t delta =
+					shardZeroSizeAfter >= shardZeroSizeBefore
+						? static_cast<uint64_t>(
+							shardZeroSizeAfter -
+								shardZeroSizeBefore)
+						: std::numeric_limits<
+							uint64_t>::max();
+				if(observedPhysicalCount <=
+					std::numeric_limits<uint64_t>::max() -
+						delta)
+				{
+					observedPhysicalCount += delta;
+				}
+				else
+				{
+					observedPhysicalCount =
+						std::numeric_limits<uint64_t>::max();
+				}
+				exactlyOnePerDestination =
+					exactlyOnePerDestination &&
+					delta == 1 &&
+					shardZeroSizeAfter != 0 &&
+					_ToShards[0][shardZeroSizeAfter - 1] ==
+						t;
+			}
+#endif
 			APPEND_TRACE(t);
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+			metrics->physicalRelayRoutes.fetch_add(
+				_ToShards.GetSize(),
+				std::memory_order_relaxed);
+			metrics->broadcastPhysicalClones.fetch_add(
+				_ToShards.GetSize() > 0
+					? _ToShards.GetSize() - 1
+					: 0,
+				std::memory_order_relaxed);
+			if(auditRoot)
+			{
+				uint64_t logicalOccurrences = 0;
+				for(auto& shardBuffer : _ToShards)
+				{
+					for(SimuTxn* routed : shardBuffer)
+					{
+						if(routed == t)
+							++logicalOccurrences;
+					}
+				}
+				audit->CheckClassifiedExactlyOnce(
+					*auditRoot,
+					logicalOccurrences);
+				audit->CheckBroadcastClones(
+					*auditRoot,
+					static_cast<uint32_t>(_ToShards.GetSize()),
+					observedPhysicalCount,
+					exactlyOnePerDestination);
+			}
+#endif
 #ifdef RPREDA_ENABLE_RUNTIME_TRACE
 			{
 				auto* relayTraceCollector =
@@ -889,11 +1507,21 @@ void RelayEmission::Collect(SimuTxn* origin, rt::BufferEx<SimuTxn*>& txns, uint6
 				});
 			}
 #endif
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+			}
+#endif
 			break;
 		default:
 			{
-				uint32_t si = _pSimulator->GetShardIndex(t->Target);
+				const uint32_t expectedDestination =
+					_pSimulator->GetShardIndex(t->Target);
+				const uint32_t si = expectedDestination;
 				APPEND_TRACE(t);
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+				metrics->physicalRelayRoutes.fetch_add(
+					1,
+					std::memory_order_relaxed);
+#endif
 				if (t->OriginateShardIndex == si)
 				{
 					_pShard->PushIntraRelay(t);
@@ -920,7 +1548,56 @@ void RelayEmission::Collect(SimuTxn* origin, rt::BufferEx<SimuTxn*>& txns, uint6
 #endif
 					continue;
 				}
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+				const size_t routeSizeBefore = auditRoot
+					? _ToShards[si].GetSize()
+					: 0;
+#endif
 				_ToShards[si].push_back(t);
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+				if(auditRoot)
+				{
+					const size_t routeSizeAfter =
+						_ToShards[si].GetSize();
+					uint64_t occurrences = 0;
+					uint32_t actualDestination =
+						std::numeric_limits<uint32_t>::max();
+					for(uint32_t destination = 0;
+						destination < _ToShards.GetSize();
+						++destination)
+					{
+						for(SimuTxn* routed :
+							_ToShards[destination])
+						{
+							if(routed == t)
+							{
+								++occurrences;
+								actualDestination = destination;
+							}
+						}
+					}
+					if(routeSizeAfter < routeSizeBefore ||
+						routeSizeAfter - routeSizeBefore != 1)
+					{
+						occurrences = routeSizeAfter >=
+							routeSizeBefore
+							? routeSizeAfter -
+								routeSizeBefore
+							: std::numeric_limits<
+								uint64_t>::max();
+						actualDestination =
+							std::numeric_limits<
+								uint32_t>::max();
+					}
+					audit->CheckClassifiedExactlyOnce(
+						*auditRoot,
+						occurrences);
+					audit->CheckDestinationShard(
+						*auditRoot,
+						expectedDestination,
+						actualDestination);
+				}
+#endif
 #ifdef RPREDA_ENABLE_RUNTIME_TRACE
 				{
 					auto* relayTraceCollector =
@@ -947,10 +1624,14 @@ void RelayEmission::Collect(SimuTxn* origin, rt::BufferEx<SimuTxn*>& txns, uint6
 
 	txns.ShrinkSize(0);
 #undef APPEND_TRACE
+	return logicalRelayCount;
 }
 
 void RelayEmission::Dispatch()
 {
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+	const uint64_t dispatchBeginNs = RelayOptimizationNowNs();
+#endif
 	if(_ToGlobal.GetSize())
 	{
 		_pSimulator->GetGlobalShard()->PushRelayTxn(_ToGlobal, (uint32_t)_ToGlobal.GetSize());
@@ -966,6 +1647,12 @@ void RelayEmission::Dispatch()
 			txns.ShrinkSize(0);
 		}
 	}
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+	_pSimulator->GetRelayOptimizationMetrics()->
+		dispatchTimeNs.fetch_add(
+			RelayOptimizationNowNs() - dispatchBeginNs,
+			std::memory_order_relaxed);
+#endif
 }
 
 void SimuShard::AppendToTxnTrace(SimuTxn* origin, SimuTxn* relay)
@@ -1015,6 +1702,164 @@ rvm::ConstNativeToken SimuShard::Get(uint32_t idx) const
 void SimuShard::_Execute(SimuTxn* t)
 {
 	_pTxn = t;
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+	auto* relayOptimizationMetrics =
+		_pSimulator->GetRelayOptimizationMetrics();
+	auto* relayOptimizationAudit =
+		_pSimulator->GetRelayOptimizationAudit();
+	std::optional<uint64_t> relayOptimizationAuditRoot;
+	relay_plan::RelayPlanLookupResult relayOptimizationPlan;
+	relay_optimization::ReserveDecision relayReserveDecision;
+
+	ASSERT(_RelayEmitted.GetSize() == 0);
+	if(_pTxn->IsRelay())
+	{
+		relayOptimizationMetrics->relayExecutions.fetch_add(
+			1,
+			std::memory_order_relaxed);
+	}
+	if(relayOptimizationAudit &&
+		_pTxn->Type != rvm::InvokeContextType::System &&
+		_pTxn->GetEngineId() == rvm::EngineId::PREDA_NATIVE)
+	{
+		if(_pTxn->IsRelay())
+		{
+			relayOptimizationAuditRoot =
+				relayOptimizationAudit->RootForTransaction(_pTxn);
+		}
+		else
+		{
+			const auto issuanceOrdinal =
+				relayOptimizationAudit->
+					ConsumeSourceIssuance(_pTxn);
+			if(issuanceOrdinal)
+			{
+				const uint64_t canonicalRootIdentity =
+					RelayAuditRootIdentity(
+						*relayOptimizationAudit,
+						*_pTxn);
+				const uint64_t rootIdentity =
+					relayOptimizationAudit->
+						RootIdentityForIssuance(
+							canonicalRootIdentity,
+							*issuanceOrdinal);
+				if(relayOptimizationAudit->ShouldSample(
+					rootIdentity))
+				{
+					relayOptimizationAudit->
+						RegisterSampledTransaction(
+							_pTxn,
+							rootIdentity,
+							true);
+					relayOptimizationAuditRoot =
+						rootIdentity;
+				}
+			}
+		}
+	}
+
+	const auto& relayOptimizationConfig =
+		_pSimulator->GetRelayOptimizationConfig();
+	if(relayOptimizationConfig.UsesRelayPlan() &&
+		_pTxn->Type != rvm::InvokeContextType::System &&
+		_pTxn->GetEngineId() == rvm::EngineId::PREDA_NATIVE)
+	{
+		const auto* deployed = GetContractDeployed(
+			rvm::CONTRACT_UNSET_SCOPE(_pTxn->Contract));
+		if(deployed)
+		{
+			const uint64_t lookupBeginNs =
+				RelayOptimizationNowNs();
+			relayOptimizationPlan =
+				_pSimulator->LookupRelayPlan(
+					deployed->Module,
+					static_cast<uint32_t>(_pTxn->Op));
+			relayOptimizationMetrics->planLookupTimeNs.fetch_add(
+				RelayOptimizationNowNs() - lookupBeginNs,
+				std::memory_order_relaxed);
+		}
+
+		const relay_plan::FunctionRelayPlan* functionPlan =
+			relayOptimizationPlan.function;
+		relayReserveDecision =
+			relay_optimization::SelectDirectRelayReserve(
+				functionPlan,
+				_RelayEmitted.GetSize(),
+				relayOptimizationConfig.maxRelayReserve);
+		if(relayReserveDecision.ShouldReserve())
+		{
+			relayOptimizationMetrics->
+				optimizationEligibleInvocations.fetch_add(
+					1,
+					std::memory_order_relaxed);
+			const uint64_t reserveBeginNs =
+				RelayOptimizationNowNs();
+			relayOptimizationMetrics->
+				relayBufferReserveCalls.fetch_add(
+					1,
+					std::memory_order_relaxed);
+			relayOptimizationMetrics->
+				relayBufferReservedElements.fetch_add(
+					relayReserveDecision.addition,
+					std::memory_order_relaxed);
+			if(!_RelayEmitted.reserve(
+				relayReserveDecision.requiredCapacity))
+			{
+				relayOptimizationMetrics->
+					relayBufferReserveFailures.fetch_add(
+						1,
+						std::memory_order_relaxed);
+			}
+			if(functionPlan)
+			{
+				_TxnEmitted.ReserveForPlan(
+					*functionPlan,
+					relayReserveDecision.addition,
+					relayOptimizationConfig.maxRelayReserve);
+			}
+			relayOptimizationMetrics->reserveTimeNs.fetch_add(
+				RelayOptimizationNowNs() - reserveBeginNs,
+				std::memory_order_relaxed);
+		}
+		else if(relayReserveDecision.HasTrustedCount() &&
+			relayReserveDecision.addition == 0)
+		{
+			// A trusted zero count is eligible, but the required fast path is
+			// deliberately a no-op: no allocation and no reserve metric.
+			relayOptimizationMetrics->
+				optimizationEligibleInvocations.fetch_add(
+					1,
+					std::memory_order_relaxed);
+		}
+		else
+		{
+			relayOptimizationMetrics->
+				optimizationFallbackInvocations.fetch_add(
+					1,
+					std::memory_order_relaxed);
+			switch(relayReserveDecision.kind)
+			{
+			case relay_optimization::ReserveDecisionKind::SkippedLimit:
+			case relay_optimization::ReserveDecisionKind::SkippedOverflow:
+				relayOptimizationMetrics->
+					relayBufferReserveSkippedLimit.fetch_add(
+						1,
+						std::memory_order_relaxed);
+				break;
+			case relay_optimization::ReserveDecisionKind::SkippedUnknown:
+			case relay_optimization::ReserveDecisionKind::SkippedNoPlan:
+			case relay_optimization::ReserveDecisionKind::SkippedIneligible:
+				relayOptimizationMetrics->
+					relayBufferReserveSkippedUnknown.fetch_add(
+						1,
+						std::memory_order_relaxed);
+				break;
+			default:
+				break;
+			}
+			}
+		}
+#endif
 #ifdef RPREDA_ENABLE_RUNTIME_TRACE
 	std::optional<relay_trace::RuntimeTxnTraceContext>
 		relayTraceExecution;
@@ -1171,8 +2016,68 @@ POST_INVOKE:
 	_pTxn->ShardOrder = _ShardOrder;
 
 	uint64_t remainingGas = _pTxn->Gas - ret.GasBurnt;
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+	const uint32_t actualDirectRelayCount =
+		static_cast<uint32_t>(_RelayEmitted.GetSize());
+	if(relayReserveDecision.ShouldReserve() &&
+		actualDirectRelayCount > relayReserveDecision.addition)
+	{
+		relayOptimizationMetrics->
+			relayBufferCapacityMisses.fetch_add(
+				1,
+				std::memory_order_relaxed);
+	}
+	if(relayOptimizationAuditRoot &&
+		ret.Code == rvm::InvokeErrorCode::Success &&
+		relayReserveDecision.HasTrustedCount())
+	{
+		std::optional<uint64_t> exact;
+		std::optional<uint64_t> upperBound;
+		if(relayReserveDecision.sourceKind ==
+			relay_plan::CountPlanKind::ExactConstant)
+		{
+			exact = relayReserveDecision.addition;
+		}
+		else
+		{
+			upperBound = relayReserveDecision.addition;
+		}
+		relayOptimizationAudit->CheckDirectRelayCount(
+			*relayOptimizationAuditRoot,
+			exact,
+			upperBound,
+			actualDirectRelayCount);
+	}
+	uint32_t routedLogicalRelayCount = 0;
+	if(actualDirectRelayCount)
+	{
+		const uint64_t routingBeginNs =
+			RelayOptimizationNowNs();
+		routedLogicalRelayCount =
+			_TxnEmitted.Collect(
+				t,
+				_RelayEmitted,
+				remainingGas);
+		relayOptimizationMetrics->routingTimeNs.fetch_add(
+			RelayOptimizationNowNs() - routingBeginNs,
+			std::memory_order_relaxed);
+	}
+	if(relayOptimizationAuditRoot &&
+		routedLogicalRelayCount != actualDirectRelayCount)
+	{
+		relayOptimizationAudit->FailSample(
+			relay_optimization::AuditCheckKind::
+				LogicalClassification,
+			*relayOptimizationAuditRoot,
+			actualDirectRelayCount,
+			routedLogicalRelayCount,
+			"logical relay transfer to routing lost or "
+			"duplicated an emission");
+	}
+#else
 	if(_RelayEmitted.GetSize())
 		_TxnEmitted.Collect(t, _RelayEmitted, remainingGas);
+#endif
 	_TotalGasBurnt += _pTxn->Gas - remainingGas;
 
 #ifdef RPREDA_ENABLE_RUNTIME_TRACE
@@ -1205,6 +2110,11 @@ POST_INVOKE:
 		});
 		_RelayTraceMarkerStack.clear();
 	}
+#endif
+
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+	if(relayOptimizationAudit)
+		relayOptimizationAudit->ForgetTransaction(_pTxn);
 #endif
 
 	//_LOG("Gas Burnt: " << _pTxn->Gas - remainingGas);

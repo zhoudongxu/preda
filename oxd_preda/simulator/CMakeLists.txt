@@ -43,6 +43,31 @@ file(GLOB SIMULATOR
 	simu_shard.h
 	simu_shard.cpp
 )
+
+set(RELAY_PLAN)
+set(RELAY_PLAN_TEST)
+if(RPREDA_ENABLE_BOUND_RELAY_MANIFEST)
+  file(GLOB RELAY_PLAN
+    ../runtime/relay_plan/*.h
+    ../runtime/relay_plan/*.cpp
+  )
+  set(
+    RELAY_PLAN_TEST
+    ${CMAKE_CURRENT_SOURCE_DIR}/../runtime/relay_plan/RelayPlanTests.cpp
+  )
+  list(REMOVE_ITEM RELAY_PLAN ${RELAY_PLAN_TEST})
+  find_package(Threads REQUIRED)
+endif()
+
+set(RELAY_RUNTIME_TRACE)
+set(RELAY_RUNTIME_TRACE_TEST)
+set(RELAY_TRACE_FAULT_INJECTOR
+  ${CMAKE_CURRENT_SOURCE_DIR}/relay_trace/RelayTraceFaultInjector.h
+  ${CMAKE_CURRENT_SOURCE_DIR}/relay_trace/RelayTraceFaultInjector.cpp
+)
+set(RELAY_TRACE_FAULT_INJECTOR_TEST
+  ${CMAKE_CURRENT_SOURCE_DIR}/relay_trace/RelayTraceFaultInjectorTests.cpp
+)
 if(RPREDA_ENABLE_RUNTIME_TRACE)
   file(GLOB RELAY_RUNTIME_TRACE
     relay_trace/*.h
@@ -52,7 +77,39 @@ if(RPREDA_ENABLE_RUNTIME_TRACE)
     RELAY_RUNTIME_TRACE_TEST
     ${CMAKE_CURRENT_SOURCE_DIR}/relay_trace/RelayRuntimeTraceTests.cpp
   )
-  list(REMOVE_ITEM RELAY_RUNTIME_TRACE ${RELAY_RUNTIME_TRACE_TEST})
+  list(REMOVE_ITEM RELAY_RUNTIME_TRACE
+    ${RELAY_RUNTIME_TRACE_TEST}
+    ${RELAY_TRACE_FAULT_INJECTOR}
+    ${RELAY_TRACE_FAULT_INJECTOR_TEST}
+  )
+  if(RPREDA_ENABLE_TRACE_FAULT_INJECTION)
+    list(APPEND RELAY_RUNTIME_TRACE ${RELAY_TRACE_FAULT_INJECTOR})
+    list(APPEND RELAY_RUNTIME_TRACE_TEST ${RELAY_TRACE_FAULT_INJECTOR_TEST})
+  endif()
+endif()
+
+set(RELAY_OPTIMIZATION)
+set(RELAY_OPTIMIZATION_TEST)
+set(PENDING_TXNS_BATCH_TEST)
+if(RPREDA_ENABLE_RUNTIME_OPTIMIZATION)
+  file(GLOB RELAY_OPTIMIZATION
+    relay_optimization/*.h
+    relay_optimization/*.cpp
+  )
+  set(
+    RELAY_OPTIMIZATION_TEST
+    ${CMAKE_CURRENT_SOURCE_DIR}/relay_optimization/RelayOptimizationTests.cpp
+  )
+  set(
+    PENDING_TXNS_BATCH_TEST
+    ${CMAKE_CURRENT_SOURCE_DIR}/relay_optimization/PendingTxnsBatchTests.cpp
+  )
+  list(
+    REMOVE_ITEM
+    RELAY_OPTIMIZATION
+    ${RELAY_OPTIMIZATION_TEST}
+    ${PENDING_TXNS_BATCH_TEST}
+  )
 endif()
 file(GLOB ANTLR_GENERATED
   antlr_generated/*.cpp
@@ -67,6 +124,9 @@ file(GLOB RVM ../native/abi/*.h ../native/abi/*.cpp)
 file(GLOB RVM_TYPE ../native/types/*.h ../native/types/*.cpp)
 source_group("test" FILES ${TEST})
 source_group("simulator" FILES ${SIMULATOR})
+source_group("runtime/relay_plan" FILES ${RELAY_PLAN})
+source_group("simulator/relay_trace" FILES ${RELAY_RUNTIME_TRACE})
+source_group("simulator/relay_optimization" FILES ${RELAY_OPTIMIZATION})
 source_group("simulator/antlr_generated" FILES ${ANTLR_GENERATED})
 source_group("Source Files" FILES ${proj_win})
 
@@ -74,20 +134,41 @@ source_group("Source Files" FILES ${proj_win})
 source_group("rvm" FILES ${RVM})
 source_group("rvm/types" FILES ${RVM_TYPE})
 source_group("main" FILES ${CHAIN_SIMULATOR_FILE})
-add_executable(chain_simulator ${CHAIN_SIMULATOR_FILE} ${TEST} ${SIMULATOR} ${RELAY_RUNTIME_TRACE} ${ANTLR_GENERATED} ${RVM} ${RVM_TYPE} ${proj_win})
+add_executable(
+  chain_simulator
+  ${CHAIN_SIMULATOR_FILE}
+  ${TEST}
+  ${SIMULATOR}
+  ${RELAY_PLAN}
+  ${RELAY_RUNTIME_TRACE}
+  ${RELAY_OPTIMIZATION}
+  ${ANTLR_GENERATED}
+  ${RVM}
+  ${RVM_TYPE}
+  ${proj_win}
+)
 
-if(RPREDA_ENABLE_RUNTIME_TRACE)
+if(RPREDA_ENABLE_RUNTIME_TRACE AND BUILD_TESTING)
   add_executable(
     relay_runtime_trace_tests
     ${RELAY_RUNTIME_TRACE}
+    ${RELAY_PLAN}
     ${RELAY_RUNTIME_TRACE_TEST}
   )
   target_compile_definitions(
     relay_runtime_trace_tests
     PRIVATE
+    RPREDA_ENABLE_BOUND_RELAY_MANIFEST=1
     RPREDA_ENABLE_RUNTIME_TRACE=1
     RPREDA_RUNTIME_TRACE_STANDALONE_TEST_MAIN=1
   )
+  if(RPREDA_ENABLE_TRACE_FAULT_INJECTION)
+    target_compile_definitions(
+      relay_runtime_trace_tests
+      PRIVATE
+      RPREDA_ENABLE_TRACE_FAULT_INJECTION=1
+    )
+  endif()
   target_link_directories(
     relay_runtime_trace_tests
     PRIVATE
@@ -107,6 +188,137 @@ if(RPREDA_ENABLE_RUNTIME_TRACE)
   )
 endif()
 
+if(RPREDA_ENABLE_BOUND_RELAY_MANIFEST AND BUILD_TESTING)
+  add_executable(
+    relay_plan_tests
+    ${RELAY_PLAN}
+    ${RELAY_PLAN_TEST}
+  )
+  target_compile_definitions(
+    relay_plan_tests
+    PRIVATE
+    RPREDA_ENABLE_BOUND_RELAY_MANIFEST=1
+    RPREDA_RELAY_PLAN_TEST_MAIN=1
+  )
+  target_link_directories(
+    relay_plan_tests
+    PRIVATE
+    ../../oxd_libsec/lib
+  )
+  target_link_libraries(
+    relay_plan_tests
+    PRIVATE
+    Threads::Threads
+  )
+  set_property(
+    TARGET relay_plan_tests
+    PROPERTY CXX_STANDARD 17
+  )
+  add_dependencies(
+    relay_plan_tests
+    oxd_libsec
+  )
+  add_test(
+    NAME relay_plan_tests
+    COMMAND relay_plan_tests
+  )
+endif()
+
+if(RPREDA_ENABLE_RUNTIME_OPTIMIZATION AND BUILD_TESTING)
+  add_executable(
+    relay_optimization_tests
+    ${RELAY_OPTIMIZATION}
+    ${RELAY_OPTIMIZATION_TEST}
+  )
+  target_compile_definitions(
+    relay_optimization_tests
+    PRIVATE
+    RPREDA_ENABLE_BOUND_RELAY_MANIFEST=1
+    RPREDA_ENABLE_RUNTIME_OPTIMIZATION=1
+    RPREDA_RUNTIME_OPTIMIZATION_TESTING=1
+  )
+  target_link_libraries(
+    relay_optimization_tests
+    PRIVATE
+    Threads::Threads
+  )
+  set_property(
+    TARGET relay_optimization_tests
+    PROPERTY CXX_STANDARD 17
+  )
+  add_test(
+    NAME relay_optimization_tests
+    COMMAND relay_optimization_tests
+  )
+
+  add_executable(
+    pending_txns_batch_tests
+    ${PENDING_TXNS_BATCH_TEST}
+    shard_data.cpp
+    ../../SFC/core/rt/mem_alloc.cpp
+  )
+  target_compile_definitions(
+    pending_txns_batch_tests
+    PRIVATE
+    RPREDA_PENDING_TXNS_BATCH_TESTING=1
+    RPREDA_PENDING_TXNS_BATCH_STANDALONE_TEST_MAIN=1
+  )
+  target_link_libraries(
+    pending_txns_batch_tests
+    PRIVATE
+    Threads::Threads
+  )
+  target_include_directories(
+    pending_txns_batch_tests
+    PRIVATE
+    ../3rdParty/antlr4/runtime/Cpp/runtime/src
+  )
+  set_property(
+    TARGET pending_txns_batch_tests
+    PROPERTY CXX_STANDARD 17
+  )
+  if(MSVC)
+    target_compile_options(
+      pending_txns_batch_tests
+      PRIVATE
+      /Gy
+    )
+    target_link_options(
+      pending_txns_batch_tests
+      PRIVATE
+      /OPT:REF
+    )
+  elseif(APPLE)
+    target_compile_options(
+      pending_txns_batch_tests
+      PRIVATE
+      -ffunction-sections
+      -fdata-sections
+    )
+    target_link_options(
+      pending_txns_batch_tests
+      PRIVATE
+      -Wl,-dead_strip
+    )
+  elseif(UNIX)
+    target_compile_options(
+      pending_txns_batch_tests
+      PRIVATE
+      -ffunction-sections
+      -fdata-sections
+    )
+    target_link_options(
+      pending_txns_batch_tests
+      PRIVATE
+      -Wl,--gc-sections
+    )
+  endif()
+  add_test(
+    NAME pending_txns_batch_tests
+    COMMAND pending_txns_batch_tests
+  )
+endif()
+
 # Add macro definitions based on options
 if(ENABLE_VERIFY_SIG)
     target_compile_definitions(chain_simulator PRIVATE VERIFY_SIG=1)
@@ -121,6 +333,30 @@ if(RPREDA_ENABLE_RUNTIME_TRACE)
       chain_simulator
       PRIVATE
       RPREDA_ENABLE_RUNTIME_TRACE=1
+    )
+endif()
+
+if(RPREDA_ENABLE_TRACE_FAULT_INJECTION)
+    target_compile_definitions(
+      chain_simulator
+      PRIVATE
+      RPREDA_ENABLE_TRACE_FAULT_INJECTION=1
+    )
+endif()
+
+if(RPREDA_ENABLE_BOUND_RELAY_MANIFEST)
+    target_compile_definitions(
+      chain_simulator
+      PRIVATE
+      RPREDA_ENABLE_BOUND_RELAY_MANIFEST=1
+    )
+endif()
+
+if(RPREDA_ENABLE_RUNTIME_OPTIMIZATION)
+    target_compile_definitions(
+      chain_simulator
+      PRIVATE
+      RPREDA_ENABLE_RUNTIME_OPTIMIZATION=1
     )
 endif()
 
@@ -171,7 +407,7 @@ elseif(APPLE)
   endif()
 endif()
 
-if(RPREDA_ENABLE_RUNTIME_TRACE)
+if(RPREDA_ENABLE_RUNTIME_TRACE AND BUILD_TESTING)
   if(WIN32)
     target_link_options(
       relay_runtime_trace_tests
@@ -224,6 +460,62 @@ if(RPREDA_ENABLE_RUNTIME_TRACE)
       ${IPP_LIB}
     )
     mac_link_rule(relay_runtime_trace_tests)
+  endif()
+endif()
+
+if(RPREDA_ENABLE_BOUND_RELAY_MANIFEST AND BUILD_TESTING)
+  if(WIN32)
+    target_link_options(
+      relay_plan_tests
+      PRIVATE
+      "/DEFAULTLIB:$<IF:$<CONFIG:Debug>,oxd_libsec_d.lib,oxd_libsec.lib>"
+    )
+    target_link_directories(
+      relay_plan_tests
+      PRIVATE
+      ../../SFC/libs/win
+    )
+    target_link_libraries(
+      relay_plan_tests
+      PRIVATE
+      ${IPP_LIB}
+    )
+    win_sdk_rule(relay_plan_tests)
+  elseif(UNIX AND NOT APPLE)
+    target_link_libraries(
+      relay_plan_tests
+      PRIVATE
+      "-l:liboxd_libsec.a"
+    )
+    target_link_directories(
+      relay_plan_tests
+      PRIVATE
+      ../../SFC/libs/linux
+    )
+    linux_link_ipp_rule(relay_plan_tests)
+    target_compile_options(
+      relay_plan_tests
+      PRIVATE
+      -fPIC
+      -pthread
+    )
+  elseif(APPLE)
+    target_link_libraries(
+      relay_plan_tests
+      PRIVATE
+      "-loxd_libsec"
+    )
+    target_link_directories(
+      relay_plan_tests
+      PRIVATE
+      ../../SFC/libs/mac
+    )
+    target_link_libraries(
+      relay_plan_tests
+      PRIVATE
+      ${IPP_LIB}
+    )
+    mac_link_rule(relay_plan_tests)
   endif()
 endif()
 

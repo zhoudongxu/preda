@@ -1,0 +1,17 @@
+// Deterministic Token timing fixture. Keep workload visualization queries out.
+random.reseed $~seed$
+allocate.address $~addresses$
+chain.gaslimit 256
+
+chain.deploy @1 ../../../contracts/Token.prd
+state.set Token.address @all { balance:"10000000000000" }
+
+txn_bench[] = Token.transfer*$~count$ @random {
+    to:"$@random$",
+    amount:"$random(1000, 2000)*100$"
+}
+
+stopwatch.restart
+chain.run
+stopwatch.report
+chain.info

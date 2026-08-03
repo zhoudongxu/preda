@@ -1,0 +1,69 @@
+// Deterministic one-to-many Token.transfer_n fixture for R-PREDA A/B.
+random.reseed $~seed$
+allocate.address $~addresses$
+chain.gaslimit 256
+
+chain.deploy @1 ../../../contracts/Token.prd
+state.set Token.address @all { balance:"10000000000000" }
+
+txn_bench[] = Token.transfer_n*$~count$ @random { recipients:[ \
+    { to:"$@random$", amount:"100" }, { to:"$@random$", amount:"200" }, \
+    { to:"$@random$", amount:"150" }, { to:"$@random$", amount:"50" }, \
+    { to:"$@random$", amount:"100" }, { to:"$@random$", amount:"200" }, \
+    { to:"$@random$", amount:"150" }, { to:"$@random$", amount:"50" }, \
+    { to:"$@random$", amount:"100" }, { to:"$@random$", amount:"200" }, \
+    { to:"$@random$", amount:"150" }, { to:"$@random$", amount:"50" }, \
+    { to:"$@random$", amount:"100" }, { to:"$@random$", amount:"200" }, \
+    { to:"$@random$", amount:"150" }, { to:"$@random$", amount:"50" }, \
+    { to:"$@random$", amount:"100" }, { to:"$@random$", amount:"200" }, \
+    { to:"$@random$", amount:"150" }, { to:"$@random$", amount:"50" }, \
+    { to:"$@random$", amount:"100" }, { to:"$@random$", amount:"200" }, \
+    { to:"$@random$", amount:"150" }, { to:"$@random$", amount:"50" }, \
+    { to:"$@random$", amount:"100" }, { to:"$@random$", amount:"200" }, \
+    { to:"$@random$", amount:"150" }, { to:"$@random$", amount:"50" }, \
+    { to:"$@random$", amount:"100" }, { to:"$@random$", amount:"200" }, \
+    { to:"$@random$", amount:"150" }, { to:"$@random$", amount:"50" }, \
+    { to:"$@random$", amount:"100" }, { to:"$@random$", amount:"200" }, \
+    { to:"$@random$", amount:"150" }, { to:"$@random$", amount:"50" }, \
+    { to:"$@random$", amount:"100" }, { to:"$@random$", amount:"200" }, \
+    { to:"$@random$", amount:"150" }, { to:"$@random$", amount:"50" }, \
+    { to:"$@random$", amount:"100" }, { to:"$@random$", amount:"200" }, \
+    { to:"$@random$", amount:"150" }, { to:"$@random$", amount:"50" }, \
+    { to:"$@random$", amount:"100" }, { to:"$@random$", amount:"200" }, \
+    { to:"$@random$", amount:"150" }, { to:"$@random$", amount:"50" }, \
+    { to:"$@random$", amount:"100" }, { to:"$@random$", amount:"200" }, \
+    { to:"$@random$", amount:"150" }, { to:"$@random$", amount:"50" }, \
+    { to:"$@random$", amount:"100" }, { to:"$@random$", amount:"200" }, \
+    { to:"$@random$", amount:"150" }, { to:"$@random$", amount:"50" }, \
+    { to:"$@random$", amount:"100" }, { to:"$@random$", amount:"200" }, \
+    { to:"$@random$", amount:"150" }, { to:"$@random$", amount:"50" }, \
+    { to:"$@random$", amount:"100" }, { to:"$@random$", amount:"200" }, \
+    { to:"$@random$", amount:"150" }, { to:"$@random$", amount:"50" }, \
+    { to:"$@random$", amount:"100" }, { to:"$@random$", amount:"200" }, \
+    { to:"$@random$", amount:"150" }, { to:"$@random$", amount:"50" }, \
+    { to:"$@random$", amount:"100" }, { to:"$@random$", amount:"200" }, \
+    { to:"$@random$", amount:"150" }, { to:"$@random$", amount:"50" }, \
+    { to:"$@random$", amount:"100" }, { to:"$@random$", amount:"200" }, \
+    { to:"$@random$", amount:"150" }, { to:"$@random$", amount:"50" }, \
+    { to:"$@random$", amount:"100" }, { to:"$@random$", amount:"200" }, \
+    { to:"$@random$", amount:"150" }, { to:"$@random$", amount:"50" }, \
+    { to:"$@random$", amount:"100" }, { to:"$@random$", amount:"200" }, \
+    { to:"$@random$", amount:"150" }, { to:"$@random$", amount:"50" }, \
+    { to:"$@random$", amount:"100" }, { to:"$@random$", amount:"200" }, \
+    { to:"$@random$", amount:"150" }, { to:"$@random$", amount:"50" }, \
+    { to:"$@random$", amount:"100" }, { to:"$@random$", amount:"200" }, \
+    { to:"$@random$", amount:"150" }, { to:"$@random$", amount:"50" }, \
+    { to:"$@random$", amount:"100" }, { to:"$@random$", amount:"200" }, \
+    { to:"$@random$", amount:"150" }, { to:"$@random$", amount:"50" }, \
+    { to:"$@random$", amount:"100" }, { to:"$@random$", amount:"200" }, \
+    { to:"$@random$", amount:"150" }, { to:"$@random$", amount:"50" } \
+]}
+
+stopwatch.restart
+chain.run
+stopwatch.report
+chain.info
+
+viz.addr @all Token
+viz.block #g
+viz.block #all

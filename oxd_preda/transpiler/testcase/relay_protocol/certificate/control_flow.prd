@@ -1,0 +1,74 @@
+contract ProtocolCertificateControlFlow {
+    @uint32 uint32 observed;
+
+    @uint32 function receive(uint32 value) {
+        observed = value;
+    }
+
+    @address function optional_first(
+        bool emit_first,
+        uint32 first,
+        uint32 second,
+        uint32 value
+    ) export {
+        if (emit_first) {
+            relay@first receive(value);
+        }
+        relay@second receive(value);
+    }
+
+    @address function early_return(
+        bool stop,
+        uint32 first,
+        uint32 second,
+        uint32 value
+    ) export {
+        relay@first receive(value);
+        if (stop) {
+            return;
+        }
+        relay@second receive(value);
+    }
+
+    @address function return_before_only_relay(
+        bool stop,
+        uint32 target,
+        uint32 value
+    ) export {
+        if (stop) {
+            return;
+        }
+        relay@target receive(value);
+    }
+
+    @address function bounded_occurrences(
+        uint32 base,
+        uint32 value
+    ) export {
+        for (uint32 i = 0u32; i < 3u32; i++) {
+            relay@(base + i) receive(value);
+        }
+    }
+
+    @address function unknown_occurrences(
+        uint32 count,
+        uint32 base,
+        uint32 value
+    ) export {
+        for (uint32 i = 0u32; i < count; i++) {
+            relay@(base + i) receive(value);
+        }
+    }
+
+    @address function loop_pair(
+        uint32 count,
+        uint32 base,
+        uint32 after,
+        uint32 value
+    ) export {
+        for (uint32 i = 0u32; i < count; i++) {
+            relay@(base + i) receive(value);
+        }
+        relay@after receive(value);
+    }
+}

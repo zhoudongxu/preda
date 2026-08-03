@@ -1,0 +1,40 @@
+{
+  "contract": "MutationStudy",
+  "description": "replace a single-target relay with relay@shards",
+  "edits": [
+    {
+      "byte_end_offset": 1467,
+      "byte_start_offset": 1464,
+      "expected_original": "next",
+      "replacement": "shards"
+    },
+    {
+      "byte_end_offset": 1482,
+      "byte_start_offset": 1469,
+      "expected_original": "global_handler",
+      "replacement": "shard_handler"
+    }
+  ],
+  "generation_status": "Generated",
+  "location": {
+    "byte_end_offset": 1467,
+    "byte_start_offset": 1464,
+    "column": 14,
+    "end_column": 18,
+    "end_line": 52,
+    "end_offset": 1467,
+    "line": 52,
+    "start_offset": 1464
+  },
+  "mutated_code_path": "generation/mutants/mut_SingleToBroadcast_2d1953c8b83f0475d8c2c524da8fc854/MutationStudy.prd",
+  "mutated_fragment": "shardsshard_handler",
+  "mutation_id": "mut_SingleToBroadcast_2d1953c8b83f0475d8c2c524da8fc854",
+  "mutation_type": "SingleToBroadcast",
+  "original_code_path": "generation/mutants/mut_SingleToBroadcast_2d1953c8b83f0475d8c2c524da8fc854/original.prd",
+  "original_fragment": "nextglobal_handler",
+  "reason": "",
+  "relay_site_ids": [
+    "relay_site_1"
+  ],
+  "source_function_id": "chsimu.MutationStudy::broadcast(uint32)"
+}

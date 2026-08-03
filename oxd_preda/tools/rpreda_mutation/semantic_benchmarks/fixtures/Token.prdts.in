@@ -1,0 +1,30 @@
+// Deterministic Token.transfer semantic-mutation fixture.
+// The equality case distinguishes balance >= amount from balance > amount.
+random.reseed $~seed$
+allocate.address $~addresses$
+chain.gaslimit 256
+
+chain.deploy @1 {{SOURCE}}
+state.set Token.address @all { balance:"1000" }
+
+txn_equal = Token.transfer @0 {
+    to:"$@1$",
+    amount:"1000"
+}
+// Keeps relay-site coverage after the >= -> > boundary mutant while the
+// equality transaction above still exercises the semantic difference.
+txn_strict = Token.transfer @4 {
+    to:"$@5$",
+    amount:"999"
+}
+txn_reject = Token.transfer @2 {
+    to:"$@3$",
+    amount:"1001"
+}
+
+chain.run
+chain.info
+
+viz.addr @all Token
+viz.block #g
+viz.block #all

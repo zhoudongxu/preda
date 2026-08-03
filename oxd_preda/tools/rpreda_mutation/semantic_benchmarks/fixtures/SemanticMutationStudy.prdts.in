@@ -1,0 +1,38 @@
+// Deterministic strict-runtime fixture for semantic mutation validation.
+random.reseed $~seed$
+allocate.address $~addresses$
+chain.gaslimit 512
+
+chain.deploy @0 {{SOURCE}}
+
+// Distinct coordinates exercise target arithmetic and variable swap.
+txn_arithmetic = SemanticMutationStudy.target_arithmetic @random {
+    x:2, y:7, value:5
+}
+
+// Equality is the boundary at which >= and > differ.
+txn_guard = SemanticMutationStudy.guarded_argument @random {
+    balance:9, amount:9, target:21, value:4
+}
+// Retain site coverage for the >= -> > mutant independently of the equality
+// boundary transaction above.
+txn_guard_strict = SemanticMutationStudy.guarded_argument @random {
+    balance:10, amount:9, target:22, value:4
+}
+
+txn_loop = SemanticMutationStudy.bounded_loop @random {
+    target:30, value:3
+}
+
+txn_pairs = SemanticMutationStudy.ordered_independent @random {
+    first:41, second:43, value:2
+}
+
+txn_nested = SemanticMutationStudy.nested_driver @random {
+    target:51, value:6
+}
+
+txn_broadcast = SemanticMutationStudy.broadcast #g { value:1 }
+
+chain.run
+chain.info

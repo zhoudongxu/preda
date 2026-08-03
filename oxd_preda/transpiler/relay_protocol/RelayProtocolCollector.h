@@ -5,6 +5,8 @@
 #include "refinement/RelayConstraintGenerator.h"
 #include "refinement/RelayFormulaBuilder.h"
 #include "refinement/RelayRefinementSymbolTable.h"
+#include "cfg/PredaCFGBuilder.h"
+#include "certificate/ParallelRelayCertificateBuilder.h"
 #include "../antlr_generated/PredaParser.h"
 
 #include <cstdint>
@@ -101,6 +103,8 @@ public:
 		PredaParser::ExpressionContext *update);
 	void RecordExpressionEffects(
 		PredaParser::ExpressionContext *expression);
+	void RecordCFGCondition(
+		PredaParser::ExpressionContext *expression);
 	void WidenLoopDependencies(
 		antlr4::ParserRuleContext *loopContext);
 	std::string CollectRelay(
@@ -122,6 +126,8 @@ public:
 	void Finalize();
 	void BuildSummaries();
 	void BuildRefinement();
+	void BuildParallelCertificate();
+	void BuildControlFlow(cfg::PredaCFGBuilderInput input);
 
 	RelayExprIR BuildExpression(
 		PredaParser::ExpressionContext *context,
@@ -145,6 +151,7 @@ private:
 	std::map<std::string, refinement::FormulaExpr>
 		m_expressionFormulaSnapshots;
 	std::map<std::string, bool> m_refinementTypeSymbols;
+	std::vector<cfg::PredaCFGConditionInput> m_cfgConditions;
 	std::string m_currentRefinementFunctionId;
 	std::map<std::string, size_t> m_namedHandlers;
 	std::map<std::string, int64_t> m_exportedFunctionOpcodes;

@@ -6,8 +6,8 @@
 #include "../../../SFC/core/ext/rocksdb/rocksdb.h"
 #include "../../transpiler/transpiler.h"
 #include "../../native/abi/vm_interfaces.h"
-#ifdef RPREDA_ENABLE_RUNTIME_TRACE
-#include "../../native/abi/relay_trace_abi.h"
+#ifdef RPREDA_ENABLE_BOUND_RELAY_MANIFEST
+#include "../../native/abi/relay_manifest_abi.h"
 #endif
 #include "RuntimeInterfaceImpl.h"
 #include "ContractDatabaseEntry.h"
@@ -32,8 +32,8 @@ enum class RuntimeMode : uint32_t {
 };
 
 class CContractDatabase : public rvm::RvmEngine
-#ifdef RPREDA_ENABLE_RUNTIME_TRACE
-	, public rvm::IRelayTraceModuleMetadataProvider
+#ifdef RPREDA_ENABLE_BOUND_RELAY_MANIFEST
+	, public rvm::IRelayManifestModuleMetadataProvider
 #endif
 {
 	friend class CRuntimeInterface;
@@ -127,10 +127,10 @@ public:
 
 	const ContractDatabaseEntry* FindContractEntry(const rvm::ContractModuleID &moduleId) const;
 	const ContractDatabaseEntry* FindContractEntry(const rvm::ContractModuleID *moduleId) const;
-#ifdef RPREDA_ENABLE_RUNTIME_TRACE
-	bool GetRelayTraceArtifactBinding(
+#ifdef RPREDA_ENABLE_BOUND_RELAY_MANIFEST
+	bool GetRelayManifestArtifactBinding(
 		const rvm::ContractModuleID &moduleId,
-		rvm::RelayTraceArtifactBinding &out) const noexcept override;
+		rvm::RelayManifestArtifactBinding &out) const noexcept override;
 #endif
 	ContractModule* GetContractModule(const rvm::ContractModuleID &deployId);
 	bool Deploy(const rvm::GlobalStates* chain_state, rvm::CompiledModules* linked, const rvm::ContractVersionId* target_cvids, rvm::DataBuffer** out_stub, rvm::LogMessageOutput* log_msg_output);

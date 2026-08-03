@@ -1,6 +1,6 @@
 #pragma once
 
-#include "vm_types.h"
+#include "relay_manifest_abi.h"
 
 #include <cstdint>
 
@@ -14,25 +14,11 @@ namespace rvm
 
 constexpr uint32_t RPredaRuntimeTraceAbiVersion = 1;
 
-struct RelayTraceArtifactBinding
-{
-	ContractModuleID moduleId{};
-	HashValue intermediateHash{};
-	HashValue manifestHash{};
-	ConstString dapp{};
-	ConstString contract{};
-	ConstString transpilerVersion{};
-	bool bindingComplete = false;
-};
-
-struct IRelayTraceModuleMetadataProvider
-{
-	virtual ~IRelayTraceModuleMetadataProvider() = default;
-
-	virtual bool GetRelayTraceArtifactBinding(
-		const ContractModuleID &moduleId,
-		RelayTraceArtifactBinding &out) const noexcept = 0;
-};
+// Compatibility names retained for the existing trace loader. Artifact
+// binding is now a common bound-manifest ABI and is not trace-specific.
+using RelayTraceArtifactBinding = RelayManifestArtifactBinding;
+using IRelayTraceModuleMetadataProvider =
+	IRelayManifestModuleMetadataProvider;
 
 struct IRelayTraceExecutionContext
 {

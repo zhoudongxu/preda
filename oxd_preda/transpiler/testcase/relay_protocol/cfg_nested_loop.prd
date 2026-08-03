@@ -1,0 +1,13 @@
+contract ProtocolCFGNestedLoop {
+    @address uint32 observed;
+
+    @address function run() export {
+        for (uint32 outer = 0u32; outer < 2u32; outer++) {
+            for (uint32 inner = 0u32; inner < 2u32; inner++) {
+                observed += 1u32;
+                break;
+            }
+            continue;
+        }
+    }
+}

@@ -1,0 +1,35 @@
+{
+  "contract": "MutationStudy",
+  "description": "force relay_site_10 to alias target of relay_site_9",
+  "edits": [
+    {
+      "byte_end_offset": 1326,
+      "byte_start_offset": 1314,
+      "expected_original": "(base + 1u32)",
+      "replacement": "base"
+    }
+  ],
+  "generation_status": "Generated",
+  "location": {
+    "byte_end_offset": 1326,
+    "byte_start_offset": 1314,
+    "column": 14,
+    "end_column": 27,
+    "end_line": 47,
+    "end_offset": 1326,
+    "line": 47,
+    "start_offset": 1314
+  },
+  "mutated_code_path": "generation/mutants/mut_IntroduceAlias_139607b61a15a02b2347217829ef6202/MutationStudy.prd",
+  "mutated_fragment": "base",
+  "mutation_id": "mut_IntroduceAlias_139607b61a15a02b2347217829ef6202",
+  "mutation_type": "IntroduceAlias",
+  "original_code_path": "generation/mutants/mut_IntroduceAlias_139607b61a15a02b2347217829ef6202/original.prd",
+  "original_fragment": "(base + 1u32)",
+  "reason": "",
+  "relay_site_ids": [
+    "relay_site_10",
+    "relay_site_9"
+  ],
+  "source_function_id": "chsimu.MutationStudy::alias_safe(uint32,uint32)"
+}

@@ -1,0 +1,2504 @@
+{
+  "by_benchmark": {
+    "Ballot": {
+      "counts": {
+        "CoEmissionIndependent": {
+          "Proved": 0,
+          "Unknown": 0,
+          "Unsupported": 0
+        },
+        "DepthBound": {
+          "Proved": 4,
+          "Unknown": 0,
+          "Unsupported": 0
+        },
+        "MustPrecede": {
+          "Proved": 0,
+          "Unknown": 0,
+          "Unsupported": 0
+        },
+        "MutualExclusive": {
+          "Proved": 0,
+          "Unknown": 0,
+          "Unsupported": 0
+        },
+        "WorkBound": {
+          "Proved": 10,
+          "Unknown": 2,
+          "Unsupported": 0
+        }
+      },
+      "detailed_outcomes": {
+        "CoEmissionIndependent": {},
+        "DepthBound": {
+          "Proved": 4
+        },
+        "MustPrecede": {},
+        "MutualExclusive": {},
+        "WorkBound": {
+          "Proved": 10,
+          "Unknown": 2
+        }
+      },
+      "unknown_reason_breakdown": {
+        "ambiguous_call_context": 0,
+        "loop": 0,
+        "other_conservative": 0,
+        "recursion": 0,
+        "solver_timeout": 0,
+        "unknown_effect": 0,
+        "unresolved_call": 0,
+        "unsupported_formula": 0,
+        "unsupported_scope_relation": 2
+      }
+    },
+    "FCA": {
+      "counts": {
+        "CoEmissionIndependent": {
+          "Proved": 0,
+          "Unknown": 0,
+          "Unsupported": 0
+        },
+        "DepthBound": {
+          "Proved": 1,
+          "Unknown": 0,
+          "Unsupported": 0
+        },
+        "MustPrecede": {
+          "Proved": 0,
+          "Unknown": 0,
+          "Unsupported": 0
+        },
+        "MutualExclusive": {
+          "Proved": 0,
+          "Unknown": 0,
+          "Unsupported": 0
+        },
+        "WorkBound": {
+          "Proved": 3,
+          "Unknown": 0,
+          "Unsupported": 0
+        }
+      },
+      "detailed_outcomes": {
+        "CoEmissionIndependent": {},
+        "DepthBound": {
+          "Proved": 1
+        },
+        "MustPrecede": {},
+        "MutualExclusive": {},
+        "WorkBound": {
+          "Proved": 3
+        }
+      },
+      "unknown_reason_breakdown": {
+        "ambiguous_call_context": 0,
+        "loop": 0,
+        "other_conservative": 0,
+        "recursion": 0,
+        "solver_timeout": 0,
+        "unknown_effect": 0,
+        "unresolved_call": 0,
+        "unsupported_formula": 0,
+        "unsupported_scope_relation": 0
+      }
+    },
+    "Kitty": {
+      "counts": {
+        "CoEmissionIndependent": {
+          "Proved": 0,
+          "Unknown": 0,
+          "Unsupported": 0
+        },
+        "DepthBound": {
+          "Proved": 6,
+          "Unknown": 0,
+          "Unsupported": 0
+        },
+        "MustPrecede": {
+          "Proved": 0,
+          "Unknown": 0,
+          "Unsupported": 0
+        },
+        "MutualExclusive": {
+          "Proved": 0,
+          "Unknown": 0,
+          "Unsupported": 0
+        },
+        "WorkBound": {
+          "Proved": 13,
+          "Unknown": 5,
+          "Unsupported": 0
+        }
+      },
+      "detailed_outcomes": {
+        "CoEmissionIndependent": {},
+        "DepthBound": {
+          "Proved": 6
+        },
+        "MustPrecede": {},
+        "MutualExclusive": {},
+        "WorkBound": {
+          "Proved": 13,
+          "Unknown": 5
+        }
+      },
+      "unknown_reason_breakdown": {
+        "ambiguous_call_context": 0,
+        "loop": 5,
+        "other_conservative": 0,
+        "recursion": 0,
+        "solver_timeout": 0,
+        "unknown_effect": 0,
+        "unresolved_call": 0,
+        "unsupported_formula": 0,
+        "unsupported_scope_relation": 0
+      }
+    },
+    "MillionPixel": {
+      "counts": {
+        "CoEmissionIndependent": {
+          "Proved": 0,
+          "Unknown": 0,
+          "Unsupported": 0
+        },
+        "DepthBound": {
+          "Proved": 1,
+          "Unknown": 0,
+          "Unsupported": 0
+        },
+        "MustPrecede": {
+          "Proved": 0,
+          "Unknown": 0,
+          "Unsupported": 0
+        },
+        "MutualExclusive": {
+          "Proved": 0,
+          "Unknown": 0,
+          "Unsupported": 0
+        },
+        "WorkBound": {
+          "Proved": 3,
+          "Unknown": 0,
+          "Unsupported": 0
+        }
+      },
+      "detailed_outcomes": {
+        "CoEmissionIndependent": {},
+        "DepthBound": {
+          "Proved": 1
+        },
+        "MustPrecede": {},
+        "MutualExclusive": {},
+        "WorkBound": {
+          "Proved": 3
+        }
+      },
+      "unknown_reason_breakdown": {
+        "ambiguous_call_context": 0,
+        "loop": 0,
+        "other_conservative": 0,
+        "recursion": 0,
+        "solver_timeout": 0,
+        "unknown_effect": 0,
+        "unresolved_call": 0,
+        "unsupported_formula": 0,
+        "unsupported_scope_relation": 0
+      }
+    },
+    "Token": {
+      "counts": {
+        "CoEmissionIndependent": {
+          "Proved": 0,
+          "Unknown": 0,
+          "Unsupported": 0
+        },
+        "DepthBound": {
+          "Proved": 2,
+          "Unknown": 0,
+          "Unsupported": 0
+        },
+        "MustPrecede": {
+          "Proved": 0,
+          "Unknown": 0,
+          "Unsupported": 0
+        },
+        "MutualExclusive": {
+          "Proved": 0,
+          "Unknown": 0,
+          "Unsupported": 0
+        },
+        "WorkBound": {
+          "Proved": 3,
+          "Unknown": 3,
+          "Unsupported": 0
+        }
+      },
+      "detailed_outcomes": {
+        "CoEmissionIndependent": {},
+        "DepthBound": {
+          "Proved": 2
+        },
+        "MustPrecede": {},
+        "MutualExclusive": {},
+        "WorkBound": {
+          "Proved": 3,
+          "Unknown": 3
+        }
+      },
+      "unknown_reason_breakdown": {
+        "ambiguous_call_context": 0,
+        "loop": 3,
+        "other_conservative": 0,
+        "recursion": 0,
+        "solver_timeout": 0,
+        "unknown_effect": 0,
+        "unresolved_call": 0,
+        "unsupported_formula": 0,
+        "unsupported_scope_relation": 0
+      }
+    }
+  },
+  "diagnostics": [],
+  "metadata": {
+    "chsimu": "bin/bin_release/chsimu",
+    "chsimu_sha256": "05c8cc1d8a0d21b63e308ab586fd675595d1f9b65dbac61b718cbce820cc1fa1",
+    "config": "external/benchmarks.json",
+    "config_sha256": "78d4a2ec08eb344473b3b35b2c11e668970ba39fc81347127a298689608963f4",
+    "execution_mode": "Fresh",
+    "generated_at": "2026-08-01T23:01:40.026880+00:00",
+    "host": {
+      "logical_cpus": 12,
+      "machine": "x86_64",
+      "system": "Linux"
+    },
+    "manifest_schema_required": 5,
+    "runtime_pair_denominators": [
+      "all_pair_instances",
+      "distinct_site_pair_instances"
+    ],
+    "static_dedup_key": "artifact_binding.module_id"
+  },
+  "records": [
+    {
+      "benchmark": "Token",
+      "benchmark_function_id": "chsimu.Token::transfer(address,bigint)",
+      "certificate_id": "parallel.bound.chsimu.Token::transfer(address,bigint).direct_logical_work",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.Token::transfer(address,bigint)"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "WorkBound",
+      "raw_reasons": [
+        "CFG contains an early-exit, failure, or unknown path that may bypass a relay"
+      ],
+      "raw_status": "Conservative",
+      "reason": "CFG contains an early-exit, failure, or unknown path that may bypass a relay",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "DirectLogicalWork",
+      "unknown_reason": "",
+      "upper_bound": {
+        "kind": "constant",
+        "value": 1
+      }
+    },
+    {
+      "benchmark": "Token",
+      "benchmark_function_id": "chsimu.Token::transfer(address,bigint)",
+      "certificate_id": "parallel.bound.chsimu.Token::transfer(address,bigint).transitive_logical_work",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.Token::__relaylambda_2_transfer(bigint)",
+          "chsimu.Token::transfer(address,bigint)"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "WorkBound",
+      "raw_reasons": [
+        "finite async relay-tree logical work upper bound",
+        "transitive exact work is not inferred without occurrence-indexed paths"
+      ],
+      "raw_status": "Conservative",
+      "reason": "finite async relay-tree logical work upper bound; transitive exact work is not inferred without occurrence-indexed paths",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "TransitiveLogicalWork",
+      "unknown_reason": "",
+      "upper_bound": {
+        "kind": "constant",
+        "value": 1
+      }
+    },
+    {
+      "benchmark": "Token",
+      "benchmark_function_id": "chsimu.Token::transfer(address,bigint)",
+      "certificate_id": "parallel.bound.chsimu.Token::transfer(address,bigint).physical_route_work",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.Token::__relaylambda_2_transfer(bigint)",
+          "chsimu.Token::transfer(address,bigint)"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "WorkBound",
+      "raw_reasons": [
+        "whole relay-tree physical route upper bound"
+      ],
+      "raw_status": "Conservative",
+      "reason": "whole relay-tree physical route upper bound",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "PhysicalRouteWork",
+      "unknown_reason": "",
+      "upper_bound": {
+        "active_shard_count_coefficient": 0,
+        "constant_term": 1,
+        "expression": "1",
+        "kind": "Constant",
+        "reason": "whole relay-tree physical route upper bound"
+      }
+    },
+    {
+      "benchmark": "Token",
+      "benchmark_function_id": "chsimu.Token::transfer(address,bigint)",
+      "certificate_id": "parallel.bound.chsimu.Token::transfer(address,bigint).relay_tree_depth",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.Token::transfer(address,bigint)"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "DepthBound",
+      "raw_reasons": [
+        "finite relay-tree depth upper bound over composed handlers",
+        "conditional relay occurrence prevents an exact depth value"
+      ],
+      "raw_status": "Conservative",
+      "reason": "finite relay-tree depth upper bound over composed handlers; conditional relay occurrence prevents an exact depth value",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "",
+      "unknown_reason": "",
+      "upper_bound": {
+        "kind": "constant",
+        "value": 1
+      }
+    },
+    {
+      "benchmark": "Token",
+      "benchmark_function_id": "chsimu.Token::transfer_n(array chsimu.Token.payment)",
+      "certificate_id": "parallel.bound.chsimu.Token::transfer_n(array chsimu.Token.payment).direct_logical_work",
+      "evidence": {
+        "cfg_fact_ids": [],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": false,
+      "proof_strength": "",
+      "property": "WorkBound",
+      "raw_reasons": [
+        "local direct relay count has no finite upper bound",
+        "loop condition is not a strict induction-variable comparison against a literal"
+      ],
+      "raw_status": "Unknown",
+      "reason": "local direct relay count has no finite upper bound; loop condition is not a strict induction-variable comparison against a literal",
+      "reason_categories": [
+        "loop",
+        "other_conservative"
+      ],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Unknown",
+      "subproperty": "DirectLogicalWork",
+      "unknown_reason": "loop",
+      "upper_bound": {
+        "kind": "unknown",
+        "reason": "loop condition is not a strict induction-variable comparison against a literal"
+      }
+    },
+    {
+      "benchmark": "Token",
+      "benchmark_function_id": "chsimu.Token::transfer_n(array chsimu.Token.payment)",
+      "certificate_id": "parallel.bound.chsimu.Token::transfer_n(array chsimu.Token.payment).transitive_logical_work",
+      "evidence": {
+        "cfg_fact_ids": [],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": false,
+      "proof_strength": "",
+      "property": "WorkBound",
+      "raw_reasons": [
+        "relay site has no finite occurrence upper bound: relay_site_1"
+      ],
+      "raw_status": "Unknown",
+      "reason": "relay site has no finite occurrence upper bound: relay_site_1",
+      "reason_categories": [
+        "loop"
+      ],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Unknown",
+      "subproperty": "TransitiveLogicalWork",
+      "unknown_reason": "loop",
+      "upper_bound": {
+        "kind": "unknown",
+        "reason": "relay site has no finite occurrence upper bound: relay_site_1"
+      }
+    },
+    {
+      "benchmark": "Token",
+      "benchmark_function_id": "chsimu.Token::transfer_n(array chsimu.Token.payment)",
+      "certificate_id": "parallel.bound.chsimu.Token::transfer_n(array chsimu.Token.payment).physical_route_work",
+      "evidence": {
+        "cfg_fact_ids": [],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": false,
+      "proof_strength": "",
+      "property": "WorkBound",
+      "raw_reasons": [
+        "relay site has no finite occurrence upper bound: relay_site_1"
+      ],
+      "raw_status": "Unknown",
+      "reason": "relay site has no finite occurrence upper bound: relay_site_1",
+      "reason_categories": [
+        "loop"
+      ],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Unknown",
+      "subproperty": "PhysicalRouteWork",
+      "unknown_reason": "loop",
+      "upper_bound": {
+        "active_shard_count_coefficient": 0,
+        "constant_term": 0,
+        "expression": "",
+        "kind": "Unknown",
+        "reason": "relay site has no finite occurrence upper bound: relay_site_1"
+      }
+    },
+    {
+      "benchmark": "Token",
+      "benchmark_function_id": "chsimu.Token::transfer_n(array chsimu.Token.payment)",
+      "certificate_id": "parallel.bound.chsimu.Token::transfer_n(array chsimu.Token.payment).relay_tree_depth",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.Token::transfer_n(array chsimu.Token.payment)"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "DepthBound",
+      "raw_reasons": [
+        "finite relay-tree depth upper bound over composed handlers",
+        "conditional relay occurrence prevents an exact depth value"
+      ],
+      "raw_status": "Conservative",
+      "reason": "finite relay-tree depth upper bound over composed handlers; conditional relay occurrence prevents an exact depth value",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "",
+      "unknown_reason": "",
+      "upper_bound": {
+        "kind": "constant",
+        "value": 1
+      }
+    },
+    {
+      "benchmark": "Ballot",
+      "benchmark_function_id": "chsimu.Ballot::__relaylambda_4_finalize()",
+      "certificate_id": "parallel.bound.chsimu.Ballot::__relaylambda_4_finalize().direct_logical_work",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.Ballot::__relaylambda_4_finalize()",
+          "chsimu.Ballot::shardGather_reset()",
+          "icfg_edge_4"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "WorkBound",
+      "raw_reasons": [
+        "conditional synchronous call requires composed path cardinality"
+      ],
+      "raw_status": "Conservative",
+      "reason": "conditional synchronous call requires composed path cardinality",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "DirectLogicalWork",
+      "unknown_reason": "",
+      "upper_bound": {
+        "kind": "constant",
+        "value": 1
+      }
+    },
+    {
+      "benchmark": "Ballot",
+      "benchmark_function_id": "chsimu.Ballot::__relaylambda_4_finalize()",
+      "certificate_id": "parallel.bound.chsimu.Ballot::__relaylambda_4_finalize().transitive_logical_work",
+      "evidence": {
+        "cfg_fact_ids": [],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": false,
+      "proof_strength": "",
+      "property": "WorkBound",
+      "raw_reasons": [
+        "all-shards handler emits relays, but broadcast-clone logical subtree collapse is not modeled"
+      ],
+      "raw_status": "Unknown",
+      "reason": "all-shards handler emits relays, but broadcast-clone logical subtree collapse is not modeled",
+      "reason_categories": [
+        "unsupported_scope_relation"
+      ],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Unknown",
+      "subproperty": "TransitiveLogicalWork",
+      "unknown_reason": "unsupported_scope_relation",
+      "upper_bound": {
+        "kind": "unknown",
+        "reason": "all-shards handler emits relays, but broadcast-clone logical subtree collapse is not modeled"
+      }
+    },
+    {
+      "benchmark": "Ballot",
+      "benchmark_function_id": "chsimu.Ballot::__relaylambda_4_finalize()",
+      "certificate_id": "parallel.bound.chsimu.Ballot::__relaylambda_4_finalize().physical_route_work",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.Ballot::__relaylambda_4_finalize()",
+          "chsimu.Ballot::__relaylambda_5_finalize()",
+          "chsimu.Ballot::__relaylambda_6_finalize(array uint64)",
+          "chsimu.Ballot::shardGather_gather()",
+          "chsimu.Ballot::shardGather_reset()",
+          "icfg_edge_4",
+          "icfg_edge_6"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "WorkBound",
+      "raw_reasons": [
+        "whole relay-tree physical route upper bound"
+      ],
+      "raw_status": "Conservative",
+      "reason": "whole relay-tree physical route upper bound",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "PhysicalRouteWork",
+      "unknown_reason": "",
+      "upper_bound": {
+        "active_shard_count_coefficient": 2,
+        "constant_term": 0,
+        "expression": "0 + 2 * active_shard_count",
+        "kind": "ParameterizedUpperBound",
+        "reason": "whole relay-tree physical route upper bound"
+      }
+    },
+    {
+      "benchmark": "Ballot",
+      "benchmark_function_id": "chsimu.Ballot::__relaylambda_4_finalize()",
+      "certificate_id": "parallel.bound.chsimu.Ballot::__relaylambda_4_finalize().relay_tree_depth",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.Ballot::__relaylambda_4_finalize()",
+          "chsimu.Ballot::__relaylambda_5_finalize()",
+          "chsimu.Ballot::shardGather_reset()"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "DepthBound",
+      "raw_reasons": [
+        "finite relay-tree depth upper bound over composed handlers",
+        "conditional relay occurrence prevents an exact depth value"
+      ],
+      "raw_status": "Conservative",
+      "reason": "finite relay-tree depth upper bound over composed handlers; conditional relay occurrence prevents an exact depth value",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "",
+      "unknown_reason": "",
+      "upper_bound": {
+        "kind": "constant",
+        "value": 2
+      }
+    },
+    {
+      "benchmark": "Ballot",
+      "benchmark_function_id": "chsimu.Ballot::__relaylambda_5_finalize()",
+      "certificate_id": "parallel.bound.chsimu.Ballot::__relaylambda_5_finalize().direct_logical_work",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.Ballot::__relaylambda_5_finalize()"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "WorkBound",
+      "raw_reasons": [
+        "CFG contains an early-exit, failure, or unknown path that may bypass a relay"
+      ],
+      "raw_status": "Conservative",
+      "reason": "CFG contains an early-exit, failure, or unknown path that may bypass a relay",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "DirectLogicalWork",
+      "unknown_reason": "",
+      "upper_bound": {
+        "kind": "constant",
+        "value": 1
+      }
+    },
+    {
+      "benchmark": "Ballot",
+      "benchmark_function_id": "chsimu.Ballot::__relaylambda_5_finalize()",
+      "certificate_id": "parallel.bound.chsimu.Ballot::__relaylambda_5_finalize().transitive_logical_work",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.Ballot::__relaylambda_5_finalize()",
+          "chsimu.Ballot::__relaylambda_6_finalize(array uint64)",
+          "chsimu.Ballot::shardGather_gather()",
+          "icfg_edge_6"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "WorkBound",
+      "raw_reasons": [
+        "finite async relay-tree logical work upper bound",
+        "transitive exact work is not inferred without occurrence-indexed paths"
+      ],
+      "raw_status": "Conservative",
+      "reason": "finite async relay-tree logical work upper bound; transitive exact work is not inferred without occurrence-indexed paths",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "TransitiveLogicalWork",
+      "unknown_reason": "",
+      "upper_bound": {
+        "kind": "constant",
+        "value": 1
+      }
+    },
+    {
+      "benchmark": "Ballot",
+      "benchmark_function_id": "chsimu.Ballot::__relaylambda_5_finalize()",
+      "certificate_id": "parallel.bound.chsimu.Ballot::__relaylambda_5_finalize().physical_route_work",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.Ballot::__relaylambda_5_finalize()",
+          "chsimu.Ballot::__relaylambda_6_finalize(array uint64)",
+          "chsimu.Ballot::shardGather_gather()",
+          "icfg_edge_6"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "WorkBound",
+      "raw_reasons": [
+        "whole relay-tree physical route upper bound"
+      ],
+      "raw_status": "Conservative",
+      "reason": "whole relay-tree physical route upper bound",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "PhysicalRouteWork",
+      "unknown_reason": "",
+      "upper_bound": {
+        "active_shard_count_coefficient": 0,
+        "constant_term": 1,
+        "expression": "1",
+        "kind": "Constant",
+        "reason": "whole relay-tree physical route upper bound"
+      }
+    },
+    {
+      "benchmark": "Ballot",
+      "benchmark_function_id": "chsimu.Ballot::__relaylambda_5_finalize()",
+      "certificate_id": "parallel.bound.chsimu.Ballot::__relaylambda_5_finalize().relay_tree_depth",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.Ballot::__relaylambda_5_finalize()"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "DepthBound",
+      "raw_reasons": [
+        "finite relay-tree depth upper bound over composed handlers",
+        "conditional relay occurrence prevents an exact depth value"
+      ],
+      "raw_status": "Conservative",
+      "reason": "finite relay-tree depth upper bound over composed handlers; conditional relay occurrence prevents an exact depth value",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "",
+      "unknown_reason": "",
+      "upper_bound": {
+        "kind": "constant",
+        "value": 1
+      }
+    },
+    {
+      "benchmark": "Ballot",
+      "benchmark_function_id": "chsimu.Ballot::finalize()",
+      "certificate_id": "parallel.bound.chsimu.Ballot::finalize().direct_logical_work",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.Ballot::finalize()",
+          "chsimu.Ballot::is_voting()",
+          "icfg_edge_2"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "WorkBound",
+      "raw_reasons": [
+        "conditional synchronous call requires composed path cardinality"
+      ],
+      "raw_status": "Conservative",
+      "reason": "conditional synchronous call requires composed path cardinality",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "DirectLogicalWork",
+      "unknown_reason": "",
+      "upper_bound": {
+        "kind": "constant",
+        "value": 1
+      }
+    },
+    {
+      "benchmark": "Ballot",
+      "benchmark_function_id": "chsimu.Ballot::finalize()",
+      "certificate_id": "parallel.bound.chsimu.Ballot::finalize().transitive_logical_work",
+      "evidence": {
+        "cfg_fact_ids": [],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": false,
+      "proof_strength": "",
+      "property": "WorkBound",
+      "raw_reasons": [
+        "all-shards handler emits relays, but broadcast-clone logical subtree collapse is not modeled"
+      ],
+      "raw_status": "Unknown",
+      "reason": "all-shards handler emits relays, but broadcast-clone logical subtree collapse is not modeled",
+      "reason_categories": [
+        "unsupported_scope_relation"
+      ],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Unknown",
+      "subproperty": "TransitiveLogicalWork",
+      "unknown_reason": "unsupported_scope_relation",
+      "upper_bound": {
+        "kind": "unknown",
+        "reason": "all-shards handler emits relays, but broadcast-clone logical subtree collapse is not modeled"
+      }
+    },
+    {
+      "benchmark": "Ballot",
+      "benchmark_function_id": "chsimu.Ballot::finalize()",
+      "certificate_id": "parallel.bound.chsimu.Ballot::finalize().physical_route_work",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.Ballot::__relaylambda_4_finalize()",
+          "chsimu.Ballot::__relaylambda_5_finalize()",
+          "chsimu.Ballot::__relaylambda_6_finalize(array uint64)",
+          "chsimu.Ballot::finalize()",
+          "chsimu.Ballot::is_voting()",
+          "chsimu.Ballot::shardGather_gather()",
+          "chsimu.Ballot::shardGather_reset()",
+          "icfg_edge_2",
+          "icfg_edge_4",
+          "icfg_edge_6"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "WorkBound",
+      "raw_reasons": [
+        "whole relay-tree physical route upper bound"
+      ],
+      "raw_status": "Conservative",
+      "reason": "whole relay-tree physical route upper bound",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "PhysicalRouteWork",
+      "unknown_reason": "",
+      "upper_bound": {
+        "active_shard_count_coefficient": 2,
+        "constant_term": 1,
+        "expression": "1 + 2 * active_shard_count",
+        "kind": "ParameterizedUpperBound",
+        "reason": "whole relay-tree physical route upper bound"
+      }
+    },
+    {
+      "benchmark": "Ballot",
+      "benchmark_function_id": "chsimu.Ballot::finalize()",
+      "certificate_id": "parallel.bound.chsimu.Ballot::finalize().relay_tree_depth",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.Ballot::__relaylambda_4_finalize()",
+          "chsimu.Ballot::__relaylambda_5_finalize()",
+          "chsimu.Ballot::finalize()",
+          "chsimu.Ballot::is_voting()",
+          "chsimu.Ballot::shardGather_reset()"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "DepthBound",
+      "raw_reasons": [
+        "finite relay-tree depth upper bound over composed handlers",
+        "conditional relay occurrence prevents an exact depth value"
+      ],
+      "raw_status": "Conservative",
+      "reason": "finite relay-tree depth upper bound over composed handlers; conditional relay occurrence prevents an exact depth value",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "",
+      "unknown_reason": "",
+      "upper_bound": {
+        "kind": "constant",
+        "value": 3
+      }
+    },
+    {
+      "benchmark": "Ballot",
+      "benchmark_function_id": "chsimu.Ballot::init(array string)",
+      "certificate_id": "parallel.bound.chsimu.Ballot::init(array string).direct_logical_work",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.Ballot::init(array string)",
+          "chsimu.Ballot::is_voting()",
+          "icfg_edge_0"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "WorkBound",
+      "raw_reasons": [
+        "conditional synchronous call requires composed path cardinality"
+      ],
+      "raw_status": "Conservative",
+      "reason": "conditional synchronous call requires composed path cardinality",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "DirectLogicalWork",
+      "unknown_reason": "",
+      "upper_bound": {
+        "kind": "constant",
+        "value": 1
+      }
+    },
+    {
+      "benchmark": "Ballot",
+      "benchmark_function_id": "chsimu.Ballot::init(array string)",
+      "certificate_id": "parallel.bound.chsimu.Ballot::init(array string).transitive_logical_work",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.Ballot::__relaylambda_3_init(array string)",
+          "chsimu.Ballot::init(array string)",
+          "chsimu.Ballot::is_voting()",
+          "icfg_edge_0"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "WorkBound",
+      "raw_reasons": [
+        "finite async relay-tree logical work upper bound",
+        "transitive exact work is not inferred without occurrence-indexed paths"
+      ],
+      "raw_status": "Conservative",
+      "reason": "finite async relay-tree logical work upper bound; transitive exact work is not inferred without occurrence-indexed paths",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "TransitiveLogicalWork",
+      "unknown_reason": "",
+      "upper_bound": {
+        "kind": "constant",
+        "value": 1
+      }
+    },
+    {
+      "benchmark": "Ballot",
+      "benchmark_function_id": "chsimu.Ballot::init(array string)",
+      "certificate_id": "parallel.bound.chsimu.Ballot::init(array string).physical_route_work",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.Ballot::__relaylambda_3_init(array string)",
+          "chsimu.Ballot::init(array string)",
+          "chsimu.Ballot::is_voting()",
+          "icfg_edge_0"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "WorkBound",
+      "raw_reasons": [
+        "whole relay-tree physical route upper bound"
+      ],
+      "raw_status": "Conservative",
+      "reason": "whole relay-tree physical route upper bound",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "PhysicalRouteWork",
+      "unknown_reason": "",
+      "upper_bound": {
+        "active_shard_count_coefficient": 0,
+        "constant_term": 1,
+        "expression": "1",
+        "kind": "Constant",
+        "reason": "whole relay-tree physical route upper bound"
+      }
+    },
+    {
+      "benchmark": "Ballot",
+      "benchmark_function_id": "chsimu.Ballot::init(array string)",
+      "certificate_id": "parallel.bound.chsimu.Ballot::init(array string).relay_tree_depth",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.Ballot::init(array string)",
+          "chsimu.Ballot::is_voting()"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "DepthBound",
+      "raw_reasons": [
+        "finite relay-tree depth upper bound over composed handlers",
+        "conditional relay occurrence prevents an exact depth value"
+      ],
+      "raw_status": "Conservative",
+      "reason": "finite relay-tree depth upper bound over composed handlers; conditional relay occurrence prevents an exact depth value",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "",
+      "unknown_reason": "",
+      "upper_bound": {
+        "kind": "constant",
+        "value": 1
+      }
+    },
+    {
+      "benchmark": "MillionPixel",
+      "benchmark_function_id": "chsimu.MillionPixel::occupy(uint16,uint16)",
+      "certificate_id": "parallel.bound.chsimu.MillionPixel::occupy(uint16,uint16).direct_logical_work",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.MillionPixel::occupy(uint16,uint16)"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "WorkBound",
+      "raw_reasons": [
+        "local relay count requires a complete CFG and reachability analysis"
+      ],
+      "raw_status": "Conservative",
+      "reason": "local relay count requires a complete CFG and reachability analysis",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "DirectLogicalWork",
+      "unknown_reason": "",
+      "upper_bound": {
+        "kind": "constant",
+        "value": 1
+      }
+    },
+    {
+      "benchmark": "MillionPixel",
+      "benchmark_function_id": "chsimu.MillionPixel::occupy(uint16,uint16)",
+      "certificate_id": "parallel.bound.chsimu.MillionPixel::occupy(uint16,uint16).transitive_logical_work",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.MillionPixel::__relaylambda_1_occupy(address)",
+          "chsimu.MillionPixel::occupy(uint16,uint16)"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "WorkBound",
+      "raw_reasons": [
+        "finite async relay-tree logical work upper bound",
+        "transitive exact work is not inferred without occurrence-indexed paths"
+      ],
+      "raw_status": "Conservative",
+      "reason": "finite async relay-tree logical work upper bound; transitive exact work is not inferred without occurrence-indexed paths",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "TransitiveLogicalWork",
+      "unknown_reason": "",
+      "upper_bound": {
+        "kind": "constant",
+        "value": 1
+      }
+    },
+    {
+      "benchmark": "MillionPixel",
+      "benchmark_function_id": "chsimu.MillionPixel::occupy(uint16,uint16)",
+      "certificate_id": "parallel.bound.chsimu.MillionPixel::occupy(uint16,uint16).physical_route_work",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.MillionPixel::__relaylambda_1_occupy(address)",
+          "chsimu.MillionPixel::occupy(uint16,uint16)"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "WorkBound",
+      "raw_reasons": [
+        "whole relay-tree physical route upper bound"
+      ],
+      "raw_status": "Conservative",
+      "reason": "whole relay-tree physical route upper bound",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "PhysicalRouteWork",
+      "unknown_reason": "",
+      "upper_bound": {
+        "active_shard_count_coefficient": 0,
+        "constant_term": 1,
+        "expression": "1",
+        "kind": "Constant",
+        "reason": "whole relay-tree physical route upper bound"
+      }
+    },
+    {
+      "benchmark": "MillionPixel",
+      "benchmark_function_id": "chsimu.MillionPixel::occupy(uint16,uint16)",
+      "certificate_id": "parallel.bound.chsimu.MillionPixel::occupy(uint16,uint16).relay_tree_depth",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.MillionPixel::occupy(uint16,uint16)"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "DepthBound",
+      "raw_reasons": [
+        "finite relay-tree depth upper bound over composed handlers",
+        "conditional relay occurrence prevents an exact depth value"
+      ],
+      "raw_status": "Conservative",
+      "reason": "finite relay-tree depth upper bound over composed handlers; conditional relay occurrence prevents an exact depth value",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "",
+      "unknown_reason": "",
+      "upper_bound": {
+        "kind": "constant",
+        "value": 1
+      }
+    },
+    {
+      "benchmark": "Kitty",
+      "benchmark_function_id": "chsimu.KittyBreeding::__relaylambda_4_breed(uint32,uint32,bool)",
+      "certificate_id": "parallel.bound.chsimu.KittyBreeding::__relaylambda_4_breed(uint32,uint32,bool).direct_logical_work",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.KittyBreeding::__relaylambda_4_breed(uint32,uint32,bool)"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "WorkBound",
+      "raw_reasons": [
+        "CFG contains an early-exit, failure, or unknown path that may bypass a relay"
+      ],
+      "raw_status": "Conservative",
+      "reason": "CFG contains an early-exit, failure, or unknown path that may bypass a relay",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "DirectLogicalWork",
+      "unknown_reason": "",
+      "upper_bound": {
+        "kind": "constant",
+        "value": 1
+      }
+    },
+    {
+      "benchmark": "Kitty",
+      "benchmark_function_id": "chsimu.KittyBreeding::__relaylambda_4_breed(uint32,uint32,bool)",
+      "certificate_id": "parallel.bound.chsimu.KittyBreeding::__relaylambda_4_breed(uint32,uint32,bool).transitive_logical_work",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.KittyBreeding::__relaylambda_4_breed(uint32,uint32,bool)",
+          "chsimu.KittyBreeding::__relaylambda_6_breed(bigint,uint32,uint32,bool)",
+          "chsimu.KittyBreeding::__relaylambda_8_breed(uint32,uint32,bool,bigint,uint64)",
+          "chsimu.KittyBreeding::sqrt(bigint)",
+          "icfg_edge_11",
+          "icfg_edge_14",
+          "icfg_edge_17",
+          "icfg_edge_2",
+          "icfg_edge_20",
+          "icfg_edge_23",
+          "icfg_edge_26",
+          "icfg_edge_29",
+          "icfg_edge_32",
+          "icfg_edge_35",
+          "icfg_edge_5",
+          "icfg_edge_8"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "WorkBound",
+      "raw_reasons": [
+        "finite async relay-tree logical work upper bound",
+        "transitive exact work is not inferred without occurrence-indexed paths"
+      ],
+      "raw_status": "Conservative",
+      "reason": "finite async relay-tree logical work upper bound; transitive exact work is not inferred without occurrence-indexed paths",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "TransitiveLogicalWork",
+      "unknown_reason": "",
+      "upper_bound": {
+        "kind": "constant",
+        "value": 2
+      }
+    },
+    {
+      "benchmark": "Kitty",
+      "benchmark_function_id": "chsimu.KittyBreeding::__relaylambda_4_breed(uint32,uint32,bool)",
+      "certificate_id": "parallel.bound.chsimu.KittyBreeding::__relaylambda_4_breed(uint32,uint32,bool).physical_route_work",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.KittyBreeding::__relaylambda_4_breed(uint32,uint32,bool)",
+          "chsimu.KittyBreeding::__relaylambda_6_breed(bigint,uint32,uint32,bool)",
+          "chsimu.KittyBreeding::__relaylambda_8_breed(uint32,uint32,bool,bigint,uint64)",
+          "chsimu.KittyBreeding::sqrt(bigint)",
+          "icfg_edge_11",
+          "icfg_edge_14",
+          "icfg_edge_17",
+          "icfg_edge_2",
+          "icfg_edge_20",
+          "icfg_edge_23",
+          "icfg_edge_26",
+          "icfg_edge_29",
+          "icfg_edge_32",
+          "icfg_edge_35",
+          "icfg_edge_5",
+          "icfg_edge_8"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "WorkBound",
+      "raw_reasons": [
+        "whole relay-tree physical route upper bound"
+      ],
+      "raw_status": "Conservative",
+      "reason": "whole relay-tree physical route upper bound",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "PhysicalRouteWork",
+      "unknown_reason": "",
+      "upper_bound": {
+        "active_shard_count_coefficient": 0,
+        "constant_term": 2,
+        "expression": "2",
+        "kind": "Constant",
+        "reason": "whole relay-tree physical route upper bound"
+      }
+    },
+    {
+      "benchmark": "Kitty",
+      "benchmark_function_id": "chsimu.KittyBreeding::__relaylambda_4_breed(uint32,uint32,bool)",
+      "certificate_id": "parallel.bound.chsimu.KittyBreeding::__relaylambda_4_breed(uint32,uint32,bool).relay_tree_depth",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.KittyBreeding::__relaylambda_4_breed(uint32,uint32,bool)",
+          "chsimu.KittyBreeding::__relaylambda_6_breed(bigint,uint32,uint32,bool)",
+          "chsimu.KittyBreeding::sqrt(bigint)"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "DepthBound",
+      "raw_reasons": [
+        "finite relay-tree depth upper bound over composed handlers",
+        "conditional relay occurrence prevents an exact depth value"
+      ],
+      "raw_status": "Conservative",
+      "reason": "finite relay-tree depth upper bound over composed handlers; conditional relay occurrence prevents an exact depth value",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "",
+      "unknown_reason": "",
+      "upper_bound": {
+        "kind": "constant",
+        "value": 2
+      }
+    },
+    {
+      "benchmark": "Kitty",
+      "benchmark_function_id": "chsimu.KittyBreeding::__relaylambda_5_registerNewBorns(array chsimu.KittyBreeding.KittyInfo)",
+      "certificate_id": "parallel.bound.chsimu.KittyBreeding::__relaylambda_5_registerNewBorns(array chsimu.KittyBreeding.KittyInfo).direct_logical_work",
+      "evidence": {
+        "cfg_fact_ids": [],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": false,
+      "proof_strength": "",
+      "property": "WorkBound",
+      "raw_reasons": [
+        "local direct relay count has no finite upper bound",
+        "loop condition is not a strict induction-variable comparison against a literal"
+      ],
+      "raw_status": "Unknown",
+      "reason": "local direct relay count has no finite upper bound; loop condition is not a strict induction-variable comparison against a literal",
+      "reason_categories": [
+        "loop",
+        "other_conservative"
+      ],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Unknown",
+      "subproperty": "DirectLogicalWork",
+      "unknown_reason": "loop",
+      "upper_bound": {
+        "kind": "unknown",
+        "reason": "loop condition is not a strict induction-variable comparison against a literal"
+      }
+    },
+    {
+      "benchmark": "Kitty",
+      "benchmark_function_id": "chsimu.KittyBreeding::__relaylambda_5_registerNewBorns(array chsimu.KittyBreeding.KittyInfo)",
+      "certificate_id": "parallel.bound.chsimu.KittyBreeding::__relaylambda_5_registerNewBorns(array chsimu.KittyBreeding.KittyInfo).transitive_logical_work",
+      "evidence": {
+        "cfg_fact_ids": [],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": false,
+      "proof_strength": "",
+      "property": "WorkBound",
+      "raw_reasons": [
+        "relay site has no finite occurrence upper bound: relay_site_4"
+      ],
+      "raw_status": "Unknown",
+      "reason": "relay site has no finite occurrence upper bound: relay_site_4",
+      "reason_categories": [
+        "loop"
+      ],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Unknown",
+      "subproperty": "TransitiveLogicalWork",
+      "unknown_reason": "loop",
+      "upper_bound": {
+        "kind": "unknown",
+        "reason": "relay site has no finite occurrence upper bound: relay_site_4"
+      }
+    },
+    {
+      "benchmark": "Kitty",
+      "benchmark_function_id": "chsimu.KittyBreeding::__relaylambda_5_registerNewBorns(array chsimu.KittyBreeding.KittyInfo)",
+      "certificate_id": "parallel.bound.chsimu.KittyBreeding::__relaylambda_5_registerNewBorns(array chsimu.KittyBreeding.KittyInfo).physical_route_work",
+      "evidence": {
+        "cfg_fact_ids": [],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": false,
+      "proof_strength": "",
+      "property": "WorkBound",
+      "raw_reasons": [
+        "relay site has no finite occurrence upper bound: relay_site_4"
+      ],
+      "raw_status": "Unknown",
+      "reason": "relay site has no finite occurrence upper bound: relay_site_4",
+      "reason_categories": [
+        "loop"
+      ],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Unknown",
+      "subproperty": "PhysicalRouteWork",
+      "unknown_reason": "loop",
+      "upper_bound": {
+        "active_shard_count_coefficient": 0,
+        "constant_term": 0,
+        "expression": "",
+        "kind": "Unknown",
+        "reason": "relay site has no finite occurrence upper bound: relay_site_4"
+      }
+    },
+    {
+      "benchmark": "Kitty",
+      "benchmark_function_id": "chsimu.KittyBreeding::__relaylambda_5_registerNewBorns(array chsimu.KittyBreeding.KittyInfo)",
+      "certificate_id": "parallel.bound.chsimu.KittyBreeding::__relaylambda_5_registerNewBorns(array chsimu.KittyBreeding.KittyInfo).relay_tree_depth",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.KittyBreeding::__relaylambda_5_registerNewBorns(array chsimu.KittyBreeding.KittyInfo)"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "DepthBound",
+      "raw_reasons": [
+        "finite relay-tree depth upper bound over composed handlers",
+        "conditional relay occurrence prevents an exact depth value"
+      ],
+      "raw_status": "Conservative",
+      "reason": "finite relay-tree depth upper bound over composed handlers; conditional relay occurrence prevents an exact depth value",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "",
+      "unknown_reason": "",
+      "upper_bound": {
+        "kind": "constant",
+        "value": 1
+      }
+    },
+    {
+      "benchmark": "Kitty",
+      "benchmark_function_id": "chsimu.KittyBreeding::__relaylambda_6_breed(bigint,uint32,uint32,bool)",
+      "certificate_id": "parallel.bound.chsimu.KittyBreeding::__relaylambda_6_breed(bigint,uint32,uint32,bool).direct_logical_work",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.KittyBreeding::__relaylambda_6_breed(bigint,uint32,uint32,bool)",
+          "chsimu.KittyBreeding::sqrt(bigint)",
+          "icfg_edge_11",
+          "icfg_edge_14",
+          "icfg_edge_17",
+          "icfg_edge_2",
+          "icfg_edge_20",
+          "icfg_edge_23",
+          "icfg_edge_26",
+          "icfg_edge_29",
+          "icfg_edge_32",
+          "icfg_edge_35",
+          "icfg_edge_5",
+          "icfg_edge_8"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "WorkBound",
+      "raw_reasons": [
+        "conditional synchronous call requires composed path cardinality"
+      ],
+      "raw_status": "Conservative",
+      "reason": "conditional synchronous call requires composed path cardinality",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "DirectLogicalWork",
+      "unknown_reason": "",
+      "upper_bound": {
+        "kind": "constant",
+        "value": 1
+      }
+    },
+    {
+      "benchmark": "Kitty",
+      "benchmark_function_id": "chsimu.KittyBreeding::__relaylambda_6_breed(bigint,uint32,uint32,bool)",
+      "certificate_id": "parallel.bound.chsimu.KittyBreeding::__relaylambda_6_breed(bigint,uint32,uint32,bool).transitive_logical_work",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.KittyBreeding::__relaylambda_6_breed(bigint,uint32,uint32,bool)",
+          "chsimu.KittyBreeding::__relaylambda_8_breed(uint32,uint32,bool,bigint,uint64)",
+          "chsimu.KittyBreeding::sqrt(bigint)",
+          "icfg_edge_11",
+          "icfg_edge_14",
+          "icfg_edge_17",
+          "icfg_edge_2",
+          "icfg_edge_20",
+          "icfg_edge_23",
+          "icfg_edge_26",
+          "icfg_edge_29",
+          "icfg_edge_32",
+          "icfg_edge_35",
+          "icfg_edge_5",
+          "icfg_edge_8"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "WorkBound",
+      "raw_reasons": [
+        "finite async relay-tree logical work upper bound",
+        "transitive exact work is not inferred without occurrence-indexed paths"
+      ],
+      "raw_status": "Conservative",
+      "reason": "finite async relay-tree logical work upper bound; transitive exact work is not inferred without occurrence-indexed paths",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "TransitiveLogicalWork",
+      "unknown_reason": "",
+      "upper_bound": {
+        "kind": "constant",
+        "value": 1
+      }
+    },
+    {
+      "benchmark": "Kitty",
+      "benchmark_function_id": "chsimu.KittyBreeding::__relaylambda_6_breed(bigint,uint32,uint32,bool)",
+      "certificate_id": "parallel.bound.chsimu.KittyBreeding::__relaylambda_6_breed(bigint,uint32,uint32,bool).physical_route_work",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.KittyBreeding::__relaylambda_6_breed(bigint,uint32,uint32,bool)",
+          "chsimu.KittyBreeding::__relaylambda_8_breed(uint32,uint32,bool,bigint,uint64)",
+          "chsimu.KittyBreeding::sqrt(bigint)",
+          "icfg_edge_11",
+          "icfg_edge_14",
+          "icfg_edge_17",
+          "icfg_edge_2",
+          "icfg_edge_20",
+          "icfg_edge_23",
+          "icfg_edge_26",
+          "icfg_edge_29",
+          "icfg_edge_32",
+          "icfg_edge_35",
+          "icfg_edge_5",
+          "icfg_edge_8"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "WorkBound",
+      "raw_reasons": [
+        "whole relay-tree physical route upper bound"
+      ],
+      "raw_status": "Conservative",
+      "reason": "whole relay-tree physical route upper bound",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "PhysicalRouteWork",
+      "unknown_reason": "",
+      "upper_bound": {
+        "active_shard_count_coefficient": 0,
+        "constant_term": 1,
+        "expression": "1",
+        "kind": "Constant",
+        "reason": "whole relay-tree physical route upper bound"
+      }
+    },
+    {
+      "benchmark": "Kitty",
+      "benchmark_function_id": "chsimu.KittyBreeding::__relaylambda_6_breed(bigint,uint32,uint32,bool)",
+      "certificate_id": "parallel.bound.chsimu.KittyBreeding::__relaylambda_6_breed(bigint,uint32,uint32,bool).relay_tree_depth",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.KittyBreeding::__relaylambda_6_breed(bigint,uint32,uint32,bool)",
+          "chsimu.KittyBreeding::sqrt(bigint)"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "DepthBound",
+      "raw_reasons": [
+        "finite relay-tree depth upper bound over composed handlers",
+        "conditional relay occurrence prevents an exact depth value"
+      ],
+      "raw_status": "Conservative",
+      "reason": "finite relay-tree depth upper bound over composed handlers; conditional relay occurrence prevents an exact depth value",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "",
+      "unknown_reason": "",
+      "upper_bound": {
+        "kind": "constant",
+        "value": 1
+      }
+    },
+    {
+      "benchmark": "Kitty",
+      "benchmark_function_id": "chsimu.KittyBreeding::breed(uint32,uint32,bool)",
+      "certificate_id": "parallel.bound.chsimu.KittyBreeding::breed(uint32,uint32,bool).direct_logical_work",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.KittyBreeding::breed(uint32,uint32,bool)"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "WorkBound",
+      "raw_reasons": [
+        "CFG contains an early-exit, failure, or unknown path that may bypass a relay"
+      ],
+      "raw_status": "Conservative",
+      "reason": "CFG contains an early-exit, failure, or unknown path that may bypass a relay",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "DirectLogicalWork",
+      "unknown_reason": "",
+      "upper_bound": {
+        "kind": "constant",
+        "value": 1
+      }
+    },
+    {
+      "benchmark": "Kitty",
+      "benchmark_function_id": "chsimu.KittyBreeding::breed(uint32,uint32,bool)",
+      "certificate_id": "parallel.bound.chsimu.KittyBreeding::breed(uint32,uint32,bool).transitive_logical_work",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.KittyBreeding::__relaylambda_4_breed(uint32,uint32,bool)",
+          "chsimu.KittyBreeding::__relaylambda_6_breed(bigint,uint32,uint32,bool)",
+          "chsimu.KittyBreeding::__relaylambda_8_breed(uint32,uint32,bool,bigint,uint64)",
+          "chsimu.KittyBreeding::breed(uint32,uint32,bool)",
+          "chsimu.KittyBreeding::sqrt(bigint)",
+          "icfg_edge_11",
+          "icfg_edge_14",
+          "icfg_edge_17",
+          "icfg_edge_2",
+          "icfg_edge_20",
+          "icfg_edge_23",
+          "icfg_edge_26",
+          "icfg_edge_29",
+          "icfg_edge_32",
+          "icfg_edge_35",
+          "icfg_edge_5",
+          "icfg_edge_8"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "WorkBound",
+      "raw_reasons": [
+        "finite async relay-tree logical work upper bound",
+        "transitive exact work is not inferred without occurrence-indexed paths"
+      ],
+      "raw_status": "Conservative",
+      "reason": "finite async relay-tree logical work upper bound; transitive exact work is not inferred without occurrence-indexed paths",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "TransitiveLogicalWork",
+      "unknown_reason": "",
+      "upper_bound": {
+        "kind": "constant",
+        "value": 3
+      }
+    },
+    {
+      "benchmark": "Kitty",
+      "benchmark_function_id": "chsimu.KittyBreeding::breed(uint32,uint32,bool)",
+      "certificate_id": "parallel.bound.chsimu.KittyBreeding::breed(uint32,uint32,bool).physical_route_work",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.KittyBreeding::__relaylambda_4_breed(uint32,uint32,bool)",
+          "chsimu.KittyBreeding::__relaylambda_6_breed(bigint,uint32,uint32,bool)",
+          "chsimu.KittyBreeding::__relaylambda_8_breed(uint32,uint32,bool,bigint,uint64)",
+          "chsimu.KittyBreeding::breed(uint32,uint32,bool)",
+          "chsimu.KittyBreeding::sqrt(bigint)",
+          "icfg_edge_11",
+          "icfg_edge_14",
+          "icfg_edge_17",
+          "icfg_edge_2",
+          "icfg_edge_20",
+          "icfg_edge_23",
+          "icfg_edge_26",
+          "icfg_edge_29",
+          "icfg_edge_32",
+          "icfg_edge_35",
+          "icfg_edge_5",
+          "icfg_edge_8"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "WorkBound",
+      "raw_reasons": [
+        "whole relay-tree physical route upper bound"
+      ],
+      "raw_status": "Conservative",
+      "reason": "whole relay-tree physical route upper bound",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "PhysicalRouteWork",
+      "unknown_reason": "",
+      "upper_bound": {
+        "active_shard_count_coefficient": 0,
+        "constant_term": 3,
+        "expression": "3",
+        "kind": "Constant",
+        "reason": "whole relay-tree physical route upper bound"
+      }
+    },
+    {
+      "benchmark": "Kitty",
+      "benchmark_function_id": "chsimu.KittyBreeding::breed(uint32,uint32,bool)",
+      "certificate_id": "parallel.bound.chsimu.KittyBreeding::breed(uint32,uint32,bool).relay_tree_depth",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.KittyBreeding::__relaylambda_4_breed(uint32,uint32,bool)",
+          "chsimu.KittyBreeding::__relaylambda_6_breed(bigint,uint32,uint32,bool)",
+          "chsimu.KittyBreeding::breed(uint32,uint32,bool)",
+          "chsimu.KittyBreeding::sqrt(bigint)"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "DepthBound",
+      "raw_reasons": [
+        "finite relay-tree depth upper bound over composed handlers",
+        "conditional relay occurrence prevents an exact depth value"
+      ],
+      "raw_status": "Conservative",
+      "reason": "finite relay-tree depth upper bound over composed handlers; conditional relay occurrence prevents an exact depth value",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "",
+      "unknown_reason": "",
+      "upper_bound": {
+        "kind": "constant",
+        "value": 3
+      }
+    },
+    {
+      "benchmark": "Kitty",
+      "benchmark_function_id": "chsimu.KittyBreeding::mint(bigint,bool,address)",
+      "certificate_id": "parallel.bound.chsimu.KittyBreeding::mint(bigint,bool,address).direct_logical_work",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.KittyBreeding::create(bool,address)",
+          "chsimu.KittyBreeding::mint(bigint,bool,address)",
+          "icfg_edge_0"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "WorkBound",
+      "raw_reasons": [
+        "conditional synchronous call requires composed path cardinality"
+      ],
+      "raw_status": "Conservative",
+      "reason": "conditional synchronous call requires composed path cardinality",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "DirectLogicalWork",
+      "unknown_reason": "",
+      "upper_bound": {
+        "kind": "constant",
+        "value": 1
+      }
+    },
+    {
+      "benchmark": "Kitty",
+      "benchmark_function_id": "chsimu.KittyBreeding::mint(bigint,bool,address)",
+      "certificate_id": "parallel.bound.chsimu.KittyBreeding::mint(bigint,bool,address).transitive_logical_work",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.KittyBreeding::__relaylambda_3_mint(bigint,bool,uint32)",
+          "chsimu.KittyBreeding::create(bool,address)",
+          "chsimu.KittyBreeding::mint(bigint,bool,address)",
+          "icfg_edge_0"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "WorkBound",
+      "raw_reasons": [
+        "finite async relay-tree logical work upper bound",
+        "transitive exact work is not inferred without occurrence-indexed paths"
+      ],
+      "raw_status": "Conservative",
+      "reason": "finite async relay-tree logical work upper bound; transitive exact work is not inferred without occurrence-indexed paths",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "TransitiveLogicalWork",
+      "unknown_reason": "",
+      "upper_bound": {
+        "kind": "constant",
+        "value": 1
+      }
+    },
+    {
+      "benchmark": "Kitty",
+      "benchmark_function_id": "chsimu.KittyBreeding::mint(bigint,bool,address)",
+      "certificate_id": "parallel.bound.chsimu.KittyBreeding::mint(bigint,bool,address).physical_route_work",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.KittyBreeding::__relaylambda_3_mint(bigint,bool,uint32)",
+          "chsimu.KittyBreeding::create(bool,address)",
+          "chsimu.KittyBreeding::mint(bigint,bool,address)",
+          "icfg_edge_0"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "WorkBound",
+      "raw_reasons": [
+        "whole relay-tree physical route upper bound"
+      ],
+      "raw_status": "Conservative",
+      "reason": "whole relay-tree physical route upper bound",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "PhysicalRouteWork",
+      "unknown_reason": "",
+      "upper_bound": {
+        "active_shard_count_coefficient": 0,
+        "constant_term": 1,
+        "expression": "1",
+        "kind": "Constant",
+        "reason": "whole relay-tree physical route upper bound"
+      }
+    },
+    {
+      "benchmark": "Kitty",
+      "benchmark_function_id": "chsimu.KittyBreeding::mint(bigint,bool,address)",
+      "certificate_id": "parallel.bound.chsimu.KittyBreeding::mint(bigint,bool,address).relay_tree_depth",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.KittyBreeding::create(bool,address)",
+          "chsimu.KittyBreeding::mint(bigint,bool,address)"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "DepthBound",
+      "raw_reasons": [
+        "finite relay-tree depth upper bound over composed handlers",
+        "conditional relay occurrence prevents an exact depth value"
+      ],
+      "raw_status": "Conservative",
+      "reason": "finite relay-tree depth upper bound over composed handlers; conditional relay occurrence prevents an exact depth value",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "",
+      "unknown_reason": "",
+      "upper_bound": {
+        "kind": "constant",
+        "value": 1
+      }
+    },
+    {
+      "benchmark": "Kitty",
+      "benchmark_function_id": "chsimu.KittyBreeding::registerNewBorns()",
+      "certificate_id": "parallel.bound.chsimu.KittyBreeding::registerNewBorns().direct_logical_work",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.KittyBreeding::registerNewBorns()"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "WorkBound",
+      "raw_reasons": [
+        "CFG contains an early-exit, failure, or unknown path that may bypass a relay"
+      ],
+      "raw_status": "Conservative",
+      "reason": "CFG contains an early-exit, failure, or unknown path that may bypass a relay",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "DirectLogicalWork",
+      "unknown_reason": "",
+      "upper_bound": {
+        "kind": "constant",
+        "value": 1
+      }
+    },
+    {
+      "benchmark": "Kitty",
+      "benchmark_function_id": "chsimu.KittyBreeding::registerNewBorns()",
+      "certificate_id": "parallel.bound.chsimu.KittyBreeding::registerNewBorns().transitive_logical_work",
+      "evidence": {
+        "cfg_fact_ids": [],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": false,
+      "proof_strength": "",
+      "property": "WorkBound",
+      "raw_reasons": [
+        "relay site has no finite occurrence upper bound: relay_site_4"
+      ],
+      "raw_status": "Unknown",
+      "reason": "relay site has no finite occurrence upper bound: relay_site_4",
+      "reason_categories": [
+        "loop"
+      ],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Unknown",
+      "subproperty": "TransitiveLogicalWork",
+      "unknown_reason": "loop",
+      "upper_bound": {
+        "kind": "unknown",
+        "reason": "relay site has no finite occurrence upper bound: relay_site_4"
+      }
+    },
+    {
+      "benchmark": "Kitty",
+      "benchmark_function_id": "chsimu.KittyBreeding::registerNewBorns()",
+      "certificate_id": "parallel.bound.chsimu.KittyBreeding::registerNewBorns().physical_route_work",
+      "evidence": {
+        "cfg_fact_ids": [],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": false,
+      "proof_strength": "",
+      "property": "WorkBound",
+      "raw_reasons": [
+        "relay site has no finite occurrence upper bound: relay_site_4"
+      ],
+      "raw_status": "Unknown",
+      "reason": "relay site has no finite occurrence upper bound: relay_site_4",
+      "reason_categories": [
+        "loop"
+      ],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Unknown",
+      "subproperty": "PhysicalRouteWork",
+      "unknown_reason": "loop",
+      "upper_bound": {
+        "active_shard_count_coefficient": 0,
+        "constant_term": 0,
+        "expression": "",
+        "kind": "Unknown",
+        "reason": "relay site has no finite occurrence upper bound: relay_site_4"
+      }
+    },
+    {
+      "benchmark": "Kitty",
+      "benchmark_function_id": "chsimu.KittyBreeding::registerNewBorns()",
+      "certificate_id": "parallel.bound.chsimu.KittyBreeding::registerNewBorns().relay_tree_depth",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.KittyBreeding::__relaylambda_5_registerNewBorns(array chsimu.KittyBreeding.KittyInfo)",
+          "chsimu.KittyBreeding::registerNewBorns()"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "DepthBound",
+      "raw_reasons": [
+        "finite relay-tree depth upper bound over composed handlers",
+        "conditional relay occurrence prevents an exact depth value"
+      ],
+      "raw_status": "Conservative",
+      "reason": "finite relay-tree depth upper bound over composed handlers; conditional relay occurrence prevents an exact depth value",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "",
+      "unknown_reason": "",
+      "upper_bound": {
+        "kind": "constant",
+        "value": 2
+      }
+    },
+    {
+      "benchmark": "FCA",
+      "benchmark_function_id": "chsimu.FCA::transfer(address)",
+      "certificate_id": "parallel.bound.chsimu.FCA::transfer(address).direct_logical_work",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.FCA::transfer(address)"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "WorkBound",
+      "raw_reasons": [
+        "CFG contains an early-exit, failure, or unknown path that may bypass a relay"
+      ],
+      "raw_status": "Conservative",
+      "reason": "CFG contains an early-exit, failure, or unknown path that may bypass a relay",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "DirectLogicalWork",
+      "unknown_reason": "",
+      "upper_bound": {
+        "kind": "constant",
+        "value": 1
+      }
+    },
+    {
+      "benchmark": "FCA",
+      "benchmark_function_id": "chsimu.FCA::transfer(address)",
+      "certificate_id": "parallel.bound.chsimu.FCA::transfer(address).transitive_logical_work",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.FCA::__relaylambda_3_transfer(token)",
+          "chsimu.FCA::transfer(address)"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "WorkBound",
+      "raw_reasons": [
+        "finite async relay-tree logical work upper bound",
+        "transitive exact work is not inferred without occurrence-indexed paths"
+      ],
+      "raw_status": "Conservative",
+      "reason": "finite async relay-tree logical work upper bound; transitive exact work is not inferred without occurrence-indexed paths",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "TransitiveLogicalWork",
+      "unknown_reason": "",
+      "upper_bound": {
+        "kind": "constant",
+        "value": 1
+      }
+    },
+    {
+      "benchmark": "FCA",
+      "benchmark_function_id": "chsimu.FCA::transfer(address)",
+      "certificate_id": "parallel.bound.chsimu.FCA::transfer(address).physical_route_work",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.FCA::__relaylambda_3_transfer(token)",
+          "chsimu.FCA::transfer(address)"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "WorkBound",
+      "raw_reasons": [
+        "whole relay-tree physical route upper bound"
+      ],
+      "raw_status": "Conservative",
+      "reason": "whole relay-tree physical route upper bound",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "PhysicalRouteWork",
+      "unknown_reason": "",
+      "upper_bound": {
+        "active_shard_count_coefficient": 0,
+        "constant_term": 1,
+        "expression": "1",
+        "kind": "Constant",
+        "reason": "whole relay-tree physical route upper bound"
+      }
+    },
+    {
+      "benchmark": "FCA",
+      "benchmark_function_id": "chsimu.FCA::transfer(address)",
+      "certificate_id": "parallel.bound.chsimu.FCA::transfer(address).relay_tree_depth",
+      "evidence": {
+        "cfg_fact_ids": [
+          "chsimu.FCA::transfer(address)"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_valid": true,
+      "evidence_validation_reason": "",
+      "exact_known": false,
+      "finite_upper_bound": true,
+      "proof_strength": "FiniteUpperBound",
+      "property": "DepthBound",
+      "raw_reasons": [
+        "finite relay-tree depth upper bound over composed handlers",
+        "conditional relay occurrence prevents an exact depth value"
+      ],
+      "raw_status": "Conservative",
+      "reason": "finite relay-tree depth upper bound over composed handlers; conditional relay occurrence prevents an exact depth value",
+      "reason_categories": [],
+      "relation": "",
+      "site_a": "",
+      "site_b": "",
+      "status": "Proved",
+      "subproperty": "",
+      "unknown_reason": "",
+      "upper_bound": {
+        "kind": "constant",
+        "value": 1
+      }
+    }
+  ],
+  "schema_version": 1,
+  "status_projection": {
+    "Disproved": "reported separately",
+    "InvalidEvidence": "Unknown",
+    "NotApplicable": "reported separately",
+    "NotEstablished": "Unknown",
+    "paper_columns": [
+      "Proved",
+      "Unknown",
+      "Unsupported"
+    ]
+  },
+  "summary": {
+    "by_property": {
+      "CoEmissionIndependent": {
+        "Proved": 0,
+        "Unknown": 0,
+        "Unsupported": 0
+      },
+      "DepthBound": {
+        "Proved": 14,
+        "Unknown": 0,
+        "Unsupported": 0
+      },
+      "MustPrecede": {
+        "Proved": 0,
+        "Unknown": 0,
+        "Unsupported": 0
+      },
+      "MutualExclusive": {
+        "Proved": 0,
+        "Unknown": 0,
+        "Unsupported": 0
+      },
+      "WorkBound": {
+        "Proved": 32,
+        "Unknown": 10,
+        "Unsupported": 0
+      }
+    },
+    "candidate_denominators": {
+      "CoEmissionIndependent": 0,
+      "DepthBound": 14,
+      "MustPrecede": 0,
+      "MutualExclusive": 0,
+      "WorkBound": 42
+    },
+    "detailed_outcomes": {
+      "CoEmissionIndependent": {},
+      "DepthBound": {
+        "Proved": 14
+      },
+      "MustPrecede": {},
+      "MutualExclusive": {},
+      "WorkBound": {
+        "Proved": 32,
+        "Unknown": 10
+      }
+    },
+    "unknown_reason_breakdown": {
+      "ambiguous_call_context": 0,
+      "loop": 8,
+      "other_conservative": 0,
+      "recursion": 0,
+      "solver_timeout": 0,
+      "unknown_effect": 0,
+      "unresolved_call": 0,
+      "unsupported_formula": 0,
+      "unsupported_scope_relation": 2
+    },
+    "unknown_reason_multilabel": {
+      "ambiguous_call_context": 0,
+      "loop": 8,
+      "other_conservative": 2,
+      "recursion": 0,
+      "solver_timeout": 0,
+      "unknown_effect": 0,
+      "unresolved_call": 0,
+      "unsupported_formula": 0,
+      "unsupported_scope_relation": 2
+    }
+  }
+}

@@ -1,0 +1,48 @@
+contract ProtocolCertificateWorkDepth {
+    @uint32 uint32 observed;
+    @shard uint32 shard_observed;
+
+    @uint32 function leaf(uint32 value) {
+        observed += value;
+    }
+
+    @uint32 function level_two(uint32 target, uint32 value) {
+        relay@target leaf(value);
+    }
+
+    @uint32 function level_one(uint32 target, uint32 value) {
+        relay@target level_two(target, value);
+    }
+
+    @address function root(uint32 target, uint32 value) export {
+        relay@target level_one(target, value);
+    }
+
+    @uint32 function recursive_handler(uint32 target, uint32 value) {
+        relay@target recursive_handler(target, value);
+    }
+
+    @address function recursive_root(uint32 target, uint32 value) export {
+        relay@target recursive_handler(target, value);
+    }
+
+    @shard function shard_receive(uint32 value) {
+        shard_observed += value;
+    }
+
+    @global function broadcast(uint32 value) export {
+        relay@shards shard_receive(value);
+    }
+
+    @global function global_broadcast_again(uint32 value) {
+        relay@shards shard_receive(value);
+    }
+
+    @shard function shard_to_global(uint32 value) {
+        relay@global global_broadcast_again(value);
+    }
+
+    @global function nested_broadcast(uint32 value) export {
+        relay@shards shard_to_global(value);
+    }
+}

@@ -14,6 +14,8 @@
 
 #include "../transpiler.h"
 #include "../relay_protocol/analysis/RelaySummaryBuilder.h"
+#include "../relay_protocol/cfg/PredaCallGraphAnalysis.h"
+#include "../relay_protocol/cfg/PredaEffectAnalysis.h"
 #include "../../3rdParty/nlohmann/json.hpp"
 
 #ifdef RPREDA_ENABLE_RUNTIME_TRACE
@@ -122,11 +124,14 @@ CompileResult CompileFixture(const std::string& fixtureDirectory, const std::str
 
 	TranspilerPtr compiler(CreateTranspilerInstance(nullptr));
 	CHECK_DETAIL(compiler != nullptr, "CreateTranspilerInstance returned null");
-	CHECK_DETAIL(compiler->BuildParseTree(source.c_str()), path + CompileDiagnostics(*compiler));
-	CHECK_DETAIL(compiler->PreCompile("RelayProtocolTests"), path + CompileDiagnostics(*compiler));
+	const bool parsed = compiler->BuildParseTree(source.c_str());
+	CHECK_DETAIL(parsed, path + CompileDiagnostics(*compiler));
+	const bool precompiled = compiler->PreCompile("RelayProtocolTests");
+	CHECK_DETAIL(precompiled, path + CompileDiagnostics(*compiler));
 
 	EmptyContractSymbolDatabase symbols;
-	CHECK_DETAIL(compiler->Compile("RelayProtocolTests", &symbols), path + CompileDiagnostics(*compiler));
+	const bool compiled = compiler->Compile("RelayProtocolTests", &symbols);
+	CHECK_DETAIL(compiled, path + CompileDiagnostics(*compiler));
 
 	const char* manifestText = compiler->GetRelayProtocolJson();
 	CHECK_DETAIL(manifestText != nullptr, path + ": GetRelayProtocolJson returned null");
@@ -345,6 +350,105 @@ const Json* FindFunctionByName(const Json& manifest, const std::string& function
 	return nullptr;
 }
 
+const Json& RequireControlFlow(const Json& manifest)
+{
+	const Json& controlFlow = RequireField(manifest, "control_flow");
+	CHECK(controlFlow.is_object());
+	CHECK(RequireField(controlFlow, "extension_schema_version") == 1);
+	return controlFlow;
+}
+
+const Json& RequireParallelFunction(
+	const Json& manifest,
+	const std::string& functionName)
+{
+	std::string functionId;
+	for (const Json& site : RequireArray(manifest, "relay_sites"))
+		if (RequireString(site, "source_function") == functionName)
+			functionId = RequireString(site, "source_function_id");
+	CHECK_DETAIL(!functionId.empty(), "missing relay function " + functionName);
+	const Json& certificate = RequireField(manifest, "parallel_certificate");
+	CHECK(RequireField(certificate, "extension_schema_version") == 1);
+	for (const Json& function : RequireArray(certificate, "functions"))
+		if (RequireString(function, "source_function_id") == functionId)
+			return function;
+	throw TestFailure("missing parallel certificate for " + functionName);
+}
+
+void CheckConstant(
+	const Json& expression,
+	uint64_t expected,
+	const std::string& detail)
+{
+	CHECK_DETAIL(RequireString(expression, "kind") == "constant", detail);
+	CHECK_DETAIL(RequireField(expression, "value") == expected, detail);
+}
+
+void CheckUniqueEvidence(const Json& bound, const std::string& detail)
+{
+	std::set<std::string> seen;
+	for (const Json& value : RequireArray(bound, "supporting_cfg_fact_ids"))
+	{
+		CHECK_DETAIL(value.is_string(), detail + " evidence is not a string");
+		CHECK_DETAIL(
+			seen.insert(value.get<std::string>()).second,
+			detail + " has duplicate evidence");
+	}
+}
+
+const Json* FindCFGFunctionByName(
+	const Json& controlFlow,
+	const std::string& functionName,
+	bool generatedRelayLambda = false)
+{
+	for (const Json& function : RequireArray(controlFlow, "functions"))
+	{
+		if (RequireString(function, "function") == functionName &&
+			RequireField(function, "generated_relay_lambda") ==
+				generatedRelayLambda)
+		{
+			return &function;
+		}
+	}
+	return nullptr;
+}
+
+const Json* FindFunctionGraphAnalysis(
+	const Json& controlFlow,
+	const std::string& functionId)
+{
+	const Json& icfg = RequireField(controlFlow, "relay_icfg");
+	for (const Json& analysis : RequireArray(icfg, "function_analyses"))
+		if (RequireString(analysis, "function_id") == functionId)
+			return &analysis;
+	return nullptr;
+}
+
+bool CFGHasNodeKind(const Json& function, const std::string& kind)
+{
+	for (const Json& node : RequireArray(function, "nodes"))
+		if (RequireString(node, "kind") == kind)
+			return true;
+	return false;
+}
+
+bool CFGHasEdgeKind(const Json& function, const std::string& kind)
+{
+	for (const Json& edge : RequireArray(function, "edges"))
+		if (RequireString(edge, "kind") == kind)
+			return true;
+	return false;
+}
+
+bool JsonArrayContains(const Json& values, const std::string& expected)
+{
+	CHECK(values.is_array());
+	for (const Json& value : values)
+		if (value.is_string() && value.get<std::string>() == expected)
+			return true;
+	return false;
+}
+
 const Json& RequireFunctionSummary(
 	const Json& manifest,
 	const std::string& functionName)
@@ -467,7 +571,8 @@ const Json* FindProofObligation(
 		argumentIndex);
 }
 
-#ifdef RPREDA_ENABLE_Z3
+#if defined(RPREDA_ENABLE_Z3) || \
+	defined(RPREDA_ENABLE_BOUND_RELAY_MANIFEST)
 const Json& RequireSolverResult(const Json& obligation)
 {
 	const Json& result = RequireField(obligation, "solver_result");
@@ -656,6 +761,8 @@ void CheckRefinementIntegrity(const Json& manifest)
 		"RelayCountEquality",
 		"RelayCountUpperBound",
 		"TargetNonAliasCandidate",
+		"RelayMutualExclusion",
+		"RelayTargetIndependence",
 		"BooleanRefinement",
 		"Unknown",
 	};
@@ -673,7 +780,8 @@ void CheckRefinementIntegrity(const Json& manifest)
 			allowedConstraintKinds.count(kind) == 1,
 			"unknown refinement constraint kind: " + kind);
 		CHECK(kind.find("Order") == std::string::npos);
-#ifdef RPREDA_ENABLE_Z3
+#if defined(RPREDA_ENABLE_Z3) || \
+	defined(RPREDA_ENABLE_BOUND_RELAY_MANIFEST)
 		const std::string role =
 			RequireString(constraint, "role");
 		CHECK(
@@ -710,13 +818,34 @@ void CheckRefinementIntegrity(const Json& manifest)
 			RequireString(obligation, "status");
 		CHECK(status == "Generated" || status == "Unsupported");
 		CHECK(status != "Proved");
-#ifdef RPREDA_ENABLE_Z3
+#if defined(RPREDA_ENABLE_Z3) || \
+	defined(RPREDA_ENABLE_BOUND_RELAY_MANIFEST)
 		const std::string proofRole =
 			RequireString(obligation, "proof_role");
 		CHECK(
 			proofRole == "EstablishedByConstruction"
 			|| proofRole == "SolverGoal");
-		RequireSolverResult(obligation);
+		const Json& solverResult =
+			RequireSolverResult(obligation);
+#if defined(RPREDA_ENABLE_BOUND_RELAY_MANIFEST) && \
+	!defined(RPREDA_ENABLE_Z3)
+		const std::string solverStatus =
+			RequireString(solverResult, "status");
+		if (status == "Unsupported")
+		{
+			CHECK(solverStatus == "Unsupported");
+		}
+		else if (proofRole == "EstablishedByConstruction")
+		{
+			CHECK(
+				solverStatus ==
+				"EstablishedByConstruction");
+		}
+		else
+		{
+			CHECK(solverStatus == "NotRun");
+		}
+#endif
 #else
 		// Solver metadata is an optional schema extension. A build with the
 		// feature disabled must retain the schema-v4 formula artifact without
@@ -888,7 +1017,7 @@ void CheckTopLevel(const CompileResult& result, const std::string& contract)
 	const Json& manifest = result.manifest;
 	CHECK(manifest.is_object());
 	CHECK(RequireField(manifest, "schema_version").is_number_unsigned());
-#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+#ifdef RPREDA_ENABLE_BOUND_RELAY_MANIFEST
 	CHECK(RequireField(manifest, "schema_version").get<uint64_t>() == 5);
 #else
 	CHECK(RequireField(manifest, "schema_version").get<uint64_t>() == 4);
@@ -896,7 +1025,7 @@ void CheckTopLevel(const CompileResult& result, const std::string& contract)
 	CHECK(RequireString(manifest, "dapp") == "RelayProtocolTests");
 	CHECK(RequireString(manifest, "contract") == contract);
 	const Json& sites = RequireArray(manifest, "relay_sites");
-#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+#ifdef RPREDA_ENABLE_BOUND_RELAY_MANIFEST
 	for (size_t siteIndex = 0; siteIndex < sites.size(); ++siteIndex)
 	{
 		const Json& ordinal = RequireField(sites[siteIndex], "ordinal");
@@ -905,17 +1034,24 @@ void CheckTopLevel(const CompileResult& result, const std::string& contract)
 			ordinal.is_number_integer());
 		CHECK(ordinal.get<uint64_t>() == siteIndex);
 	}
+#else
+	for (const Json& site : sites)
+		CHECK(site.find("ordinal") == site.end());
 #endif
 	RequireArray(manifest, "handlers");
 	RequireArray(manifest, "edges");
 	const Json& functions = RequireArray(manifest, "functions");
 	for (const Json& function : functions)
 	{
-#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+#ifdef RPREDA_ENABLE_BOUND_RELAY_MANIFEST
 		CHECK(
 			RequireField(
 				function,
 				"exported_opcode").is_number_integer());
+#else
+		CHECK(
+			function.find("exported_opcode") ==
+			function.end());
 #endif
 		const Json& summary = RequireField(function, "summary");
 		CheckSummaryRequiredFields(summary);
@@ -1010,7 +1146,7 @@ void TestNamedAddress(const std::string& fixtureDirectory)
 	const Json* handler = FindHandlerById(result.manifest, RequireField(site, "handler_id"));
 	CHECK(RequireString(*handler, "name") == "receive");
 	CHECK(RequireArray(*handler, "parameter_types") == Json::array({ "int32" }));
-#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+#ifdef RPREDA_ENABLE_BOUND_RELAY_MANIFEST
 	const std::string targetFunctionId =
 		RequireString(*handler, "target_function_id");
 	const Json* targetFunction = nullptr;
@@ -1132,7 +1268,7 @@ void TestLambdaAddress(const std::string& fixtureDirectory)
 	const Json* handler = FindHandlerById(result.manifest, RequireField(site, "handler_id"));
 	CHECK(RequireString(*handler, "name").find("__relaylambda_") == 0);
 	CHECK(RequireArray(*handler, "parameter_types") == Json::array({ "int32" }));
-#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+#ifdef RPREDA_ENABLE_BOUND_RELAY_MANIFEST
 	const std::string targetFunctionId =
 		RequireString(*handler, "target_function_id");
 	const Json* targetFunction = nullptr;
@@ -2542,7 +2678,7 @@ void TestOverloadedSource(const std::string& fixtureDirectory)
 	const Json& functions = RequireArray(result.manifest, "functions");
 	CHECK(sites.size() == 2);
 	CHECK(edges.size() == 2);
-#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+#ifdef RPREDA_ENABLE_BOUND_RELAY_MANIFEST
 	CHECK(functions.size() == 4);
 #else
 	CHECK(functions.size() == 2);
@@ -2587,7 +2723,7 @@ void TestOverloadedSource(const std::string& fixtureDirectory)
 			RequireString(function, "function");
 		if (functionName != "send")
 		{
-#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+#ifdef RPREDA_ENABLE_BOUND_RELAY_MANIFEST
 			CHECK(functionName == "receive");
 			CHECK(RequireArray(function, "relay_site_ids").empty());
 			CHECK(
@@ -2609,7 +2745,7 @@ void TestOverloadedSource(const std::string& fixtureDirectory)
 		CHECK(RequireArray(function, "relay_site_ids").size() == 1);
 	}
 	CHECK(sourceFunctionCount == 2);
-#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+#ifdef RPREDA_ENABLE_BOUND_RELAY_MANIFEST
 	CHECK(zeroRelayHandlerCount == 2);
 #else
 	CHECK(zeroRelayHandlerCount == 0);
@@ -2638,6 +2774,980 @@ void TestOverloadedSource(const std::string& fixtureDirectory)
 			RequireField(edge, "source_function_overload_index") ==
 			RequireField(*sourceSite, "source_function_overload_index"));
 	}
+}
+
+void TestPredaNativeCFGAndICFG(const std::string& fixtureDirectory)
+{
+	const CompileResult result =
+		CompileFixture(fixtureDirectory, "cfg_phase_ad.prd");
+	CheckTopLevel(result, "ProtocolCFGPhaseAD");
+	const Json& controlFlow = RequireControlFlow(result.manifest);
+	const Json& phases = RequireArray(controlFlow, "implemented_phases");
+	CHECK(phases.size() == 4);
+	CHECK(JsonArrayContains(phases, "A"));
+	CHECK(JsonArrayContains(phases, "B"));
+	CHECK(JsonArrayContains(phases, "C"));
+	CHECK(JsonArrayContains(phases, "D"));
+
+	const Json* send = FindCFGFunctionByName(controlFlow, "send");
+	const Json* helper = FindCFGFunctionByName(controlFlow, "helper");
+	const Json* receive = FindCFGFunctionByName(controlFlow, "receive");
+	const Json* touchGlobal =
+		FindCFGFunctionByName(controlFlow, "touch_global");
+	CHECK(send != nullptr);
+	CHECK(helper != nullptr);
+	CHECK(receive != nullptr);
+	CHECK(touchGlobal != nullptr);
+	for (const std::string& kind : {
+		"Entry", "Exit", "Branch", "LoopHeader", "LoopLatch",
+		"Break", "Continue", "Return", "SynchronousCall",
+		"RelayEmit" })
+	{
+		CHECK_DETAIL(CFGHasNodeKind(*send, kind), "missing CFG node kind " + kind);
+	}
+	for (const std::string& kind : {
+		"TrueBranch", "FalseBranch", "LoopBack", "BreakExit",
+		"ContinueBack", "ReturnExit" })
+	{
+		CHECK_DETAIL(CFGHasEdgeKind(*send, kind), "missing CFG edge kind " + kind);
+	}
+	CHECK(RequireString(*send, "status") != "Unsupported");
+	CHECK(!RequireString(*send, "entry_node_id").empty());
+	CHECK(!RequireString(*send, "exit_node_id").empty());
+
+	const Json& receiveEffect = RequireField(*receive, "effect");
+	CHECK(RequireField(receiveEffect, "writes_current_scope_state") == true);
+	CHECK(!RequireArray(receiveEffect, "written_state_variables").empty());
+	const Json& globalEffect = RequireField(*touchGlobal, "effect");
+	CHECK(RequireField(globalEffect, "writes_global_state") == true);
+	const Json& helperEffect = RequireField(*helper, "effect");
+	CHECK(RequireField(helperEffect, "may_emit_relay") == true);
+	const Json& sendEffect = RequireField(*send, "effect");
+	CHECK(RequireField(sendEffect, "may_emit_relay") == true);
+	CHECK(RequireField(sendEffect, "writes_current_scope_state") == true);
+	CHECK(RequireField(sendEffect, "may_break") == true);
+	CHECK(RequireField(sendEffect, "may_continue") == true);
+	CHECK(RequireField(sendEffect, "may_return_early") == true);
+	bool foundReturnInsideLoop = false;
+	for (const Json& node : RequireArray(*send, "nodes"))
+	{
+		if (RequireString(node, "kind") == "Return" &&
+			!RequireArray(node, "enclosing_loop_ids").empty())
+		{
+			foundReturnInsideLoop = true;
+		}
+	}
+	CHECK(foundReturnInsideLoop);
+
+	const Json& callGraph =
+		RequireField(controlFlow, "synchronous_call_graph");
+	bool foundSyncHelper = false;
+	bool foundRelayEdge = false;
+	for (const Json& edge : RequireArray(callGraph, "edges"))
+	{
+		const std::string kind = RequireString(edge, "kind");
+		if (kind == "Synchronous" &&
+			RequireString(edge, "callee").find("::helper(") !=
+				std::string::npos)
+		{
+			foundSyncHelper = true;
+			CHECK(RequireField(edge, "resolved") == true);
+		}
+		foundRelayEdge = foundRelayEdge || kind == "Relay";
+	}
+	CHECK(foundSyncHelper);
+	CHECK(foundRelayEdge);
+	const Json& callAnalysis = RequireField(callGraph, "analysis");
+	const Json& relayReachable = RequireField(callAnalysis, "relay_reachable");
+	CHECK(relayReachable.is_object());
+	CHECK(RequireField(relayReachable, RequireString(*send, "function_id").c_str()) == true);
+
+	bool hasFunctionRegion = false;
+	bool hasBranchRegion = false;
+	bool hasLoopRegion = false;
+	bool hasCallRegion = false;
+	bool hasHandlerRegion = false;
+	bool hasRelayRegion = false;
+	for (const Json& region : RequireArray(controlFlow, "region_effects"))
+	{
+		const std::string kind = RequireString(region, "kind");
+		hasFunctionRegion |= kind == "Function";
+		hasBranchRegion |= kind == "BranchArm";
+		hasLoopRegion |= kind == "LoopBody";
+		hasCallRegion |= kind == "SynchronousCallSite";
+		hasHandlerRegion |= kind == "RelayHandler";
+		hasRelayRegion |= kind == "RelayRegion";
+	}
+	CHECK(hasFunctionRegion);
+	CHECK(hasBranchRegion);
+	CHECK(hasLoopRegion);
+	CHECK(hasCallRegion);
+	CHECK(hasHandlerRegion);
+	CHECK(hasRelayRegion);
+
+	const Json& icfg = RequireField(controlFlow, "relay_icfg");
+	bool hasSyncCall = false;
+	bool hasSyncReturn = false;
+	bool hasAsyncSpawn = false;
+	for (const Json& edge : RequireArray(icfg, "interprocedural_edges"))
+	{
+		const std::string kind = RequireString(edge, "kind");
+		hasSyncCall |= kind == "SyncCall";
+		hasSyncReturn |= kind == "SyncReturn";
+		hasAsyncSpawn |= kind == "AsyncRelaySpawn";
+		if (kind == "AsyncRelaySpawn")
+			CHECK(!RequireString(edge, "relay_site_id").empty());
+	}
+	CHECK(hasSyncCall);
+	CHECK(hasSyncReturn);
+	CHECK(hasAsyncSpawn);
+	CHECK(!RequireArray(icfg, "function_analyses").empty());
+
+	std::vector<std::string> sendSites;
+	for (const Json& site : RequireArray(result.manifest, "relay_sites"))
+		if (RequireString(site, "source_function") == "send")
+			sendSites.push_back(RequireString(site, "id"));
+	CHECK(sendSites.size() == 2);
+	bool foundExclusivePair = false;
+	for (const Json& relation : RequireArray(icfg, "relay_site_relations"))
+	{
+		const std::string first =
+			RequireString(relation, "first_relay_site_id");
+		const std::string second =
+			RequireString(relation, "second_relay_site_id");
+		if (((first == sendSites[0] && second == sendSites[1]) ||
+			 (first == sendSites[1] && second == sendSites[0])) &&
+			RequireString(relation, "status") == "MutuallyExclusive")
+		{
+			foundExclusivePair = true;
+		}
+	}
+	CHECK(foundExclusivePair);
+}
+
+void TestGeneratedLambdaCFG(const std::string& fixtureDirectory)
+{
+	const CompileResult result =
+		CompileFixture(fixtureDirectory, "nested_lambda.prd");
+	const Json& controlFlow = RequireControlFlow(result.manifest);
+	size_t lambdaFunctions = 0;
+	for (const Json& function : RequireArray(controlFlow, "functions"))
+	{
+		if (RequireField(function, "generated_relay_lambda") == true)
+		{
+			++lambdaFunctions;
+			CHECK(CFGHasNodeKind(function, "RelayEmit") ||
+				RequireString(function, "function").find("__relaylambda_") !=
+					std::string::npos);
+		}
+	}
+	CHECK(lambdaFunctions == 2);
+	const Json& icfg = RequireField(controlFlow, "relay_icfg");
+	size_t asyncSpawns = 0;
+	for (const Json& edge : RequireArray(icfg, "interprocedural_edges"))
+	{
+		if (RequireString(edge, "kind") == "AsyncRelaySpawn")
+		{
+			++asyncSpawns;
+			CHECK(RequireField(edge, "resolved") == true);
+		}
+	}
+	CHECK(asyncSpawns == 2);
+}
+
+void TestSynchronousCallGraphRecursion(const std::string& fixtureDirectory)
+{
+	const CompileResult result =
+		CompileFixture(fixtureDirectory, "cfg_recursive_call.prd");
+	const Json& controlFlow = RequireControlFlow(result.manifest);
+	const Json& callGraph =
+		RequireField(controlFlow, "synchronous_call_graph");
+	const Json& analysis = RequireField(callGraph, "analysis");
+	const Json* recurse = FindCFGFunctionByName(controlFlow, "recurse");
+	CHECK(recurse != nullptr);
+	const std::string recurseId = RequireString(*recurse, "function_id");
+	CHECK(JsonArrayContains(
+		RequireArray(analysis, "recursive_functions"), recurseId));
+	bool foundSelfEdge = false;
+	for (const Json& edge : RequireArray(callGraph, "edges"))
+	{
+		if (RequireString(edge, "kind") == "Synchronous" &&
+			RequireString(edge, "caller") == recurseId &&
+			RequireString(edge, "callee") == recurseId)
+		{
+			foundSelfEdge = true;
+		}
+	}
+	CHECK(foundSelfEdge);
+	CHECK(CFGHasNodeKind(*recurse, "SynchronousCall"));
+}
+
+void TestOverloadedSynchronousCalls(const std::string& fixtureDirectory)
+{
+	const CompileResult result =
+		CompileFixture(fixtureDirectory, "cfg_overloaded_calls.prd");
+	const Json& controlFlow = RequireControlFlow(result.manifest);
+	const Json& callGraph =
+		RequireField(controlFlow, "synchronous_call_graph");
+	std::set<std::string> helperCallees;
+	for (const Json& edge : RequireArray(callGraph, "edges"))
+	{
+		if (RequireString(edge, "kind") == "Synchronous" &&
+			RequireString(edge, "callee").find("::helper(") !=
+				std::string::npos)
+		{
+			helperCallees.insert(RequireString(edge, "callee"));
+			CHECK(RequireField(edge, "resolved") == true);
+		}
+	}
+	CHECK(helperCallees.size() == 2);
+	CHECK(helperCallees.count(
+		"RelayProtocolTests.ProtocolCFGOverloadedCalls::helper(int32)") == 1);
+	CHECK(helperCallees.count(
+		"RelayProtocolTests.ProtocolCFGOverloadedCalls::helper(uint32)") == 1);
+}
+
+void TestNestedLoopTargets(const std::string& fixtureDirectory)
+{
+	const CompileResult result =
+		CompileFixture(fixtureDirectory, "cfg_nested_loop.prd");
+	const Json& controlFlow = RequireControlFlow(result.manifest);
+	const Json* run = FindCFGFunctionByName(controlFlow, "run");
+	CHECK(run != nullptr);
+
+	const Json* breakNode = nullptr;
+	const Json* continueNode = nullptr;
+	for (const Json& node : RequireArray(*run, "nodes"))
+	{
+		const std::string kind = RequireString(node, "kind");
+		if (kind == "Break")
+			breakNode = &node;
+		else if (kind == "Continue")
+			continueNode = &node;
+	}
+	CHECK(breakNode != nullptr);
+	CHECK(continueNode != nullptr);
+	CHECK(RequireArray(*breakNode, "enclosing_loop_ids").size() == 2);
+	CHECK(RequireArray(*continueNode, "enclosing_loop_ids").size() == 1);
+
+	auto findNode = [&](const std::string& id) -> const Json*
+	{
+		for (const Json& node : RequireArray(*run, "nodes"))
+			if (RequireString(node, "id") == id)
+				return &node;
+		return nullptr;
+	};
+	const Json* breakTarget = nullptr;
+	const Json* continueTarget = nullptr;
+	for (const Json& edge : RequireArray(*run, "edges"))
+	{
+		if (RequireString(edge, "source") == RequireString(*breakNode, "id") &&
+			RequireString(edge, "kind") == "BreakExit")
+		{
+			breakTarget = findNode(RequireString(edge, "target"));
+		}
+		if (RequireString(edge, "source") == RequireString(*continueNode, "id") &&
+			RequireString(edge, "kind") == "ContinueBack")
+		{
+			continueTarget = findNode(RequireString(edge, "target"));
+		}
+	}
+	CHECK(breakTarget != nullptr);
+	CHECK(RequireArray(*breakTarget, "enclosing_loop_ids").size() == 1);
+	CHECK(continueTarget != nullptr);
+	CHECK(RequireString(*continueTarget, "kind") == "LoopLatch");
+
+	const Json& effect = RequireField(*run, "effect");
+	CHECK(RequireField(effect, "writes_current_scope_state") == true);
+	CHECK(RequireField(effect, "writes_local_state") == true);
+	CHECK(RequireField(effect, "modifies_loop_induction_variable") == true);
+	CHECK(RequireField(effect, "may_break") == true);
+	CHECK(RequireField(effect, "may_continue") == true);
+}
+
+void TestRuntimeFailureHelper(const std::string& fixtureDirectory)
+{
+	const CompileResult result =
+		CompileFixture(fixtureDirectory, "cfg_abort_helper.prd");
+	const Json& controlFlow = RequireControlFlow(result.manifest);
+	const Json* check = FindCFGFunctionByName(controlFlow, "check");
+	CHECK(check != nullptr);
+	CHECK(CFGHasNodeKind(*check, "AbortOrFailure"));
+	CHECK(CFGHasEdgeKind(*check, "ExceptionalOrFailure"));
+	const Json& effect = RequireField(*check, "effect");
+	CHECK(RequireField(effect, "may_abort_or_fail") == true);
+	CHECK(RequireString(effect, "status") != "Complete");
+
+	bool foundRuntimeHelper = false;
+	for (const Json& edge : RequireArray(
+		RequireField(controlFlow, "synchronous_call_graph"), "edges"))
+	{
+		if (RequireString(edge, "kind") == "RuntimeHelper")
+			foundRuntimeHelper = true;
+	}
+	CHECK(foundRuntimeHelper);
+}
+
+void TestUnknownCallAndOpaqueEffects(const std::string&)
+{
+	namespace cfg = transpiler::relay_protocol::cfg;
+	const std::string functionId = "RelayProtocolTests.Synthetic::caller()";
+
+	cfg::PredaFunctionCFG function;
+	function.functionId = functionId;
+	function.function = "caller";
+	function.entryNodeId = "entry";
+	function.exitNodeId = "exit";
+	cfg::PredaCFGNode opaque;
+	opaque.id = "opaque";
+	opaque.kind = cfg::PredaCFGNodeKind::Opaque;
+	opaque.sourceFunctionId = functionId;
+	opaque.supported = false;
+	opaque.unsupportedReason = "synthetic opaque statement";
+	opaque.directEffect.mayCallUnknown = true;
+	opaque.directEffect.mayHaveExternalEffect = true;
+	opaque.directEffect.status = cfg::AnalysisStatus::Unknown;
+	opaque.directEffect.reason = "synthetic opaque statement";
+	function.nodes.push_back(std::move(opaque));
+
+	std::vector<cfg::PredaFunctionCFG> functions{function};
+	cfg::PredaSynchronousCallGraph graph;
+	graph.functions.push_back(functionId);
+	cfg::PredaCallEdge external;
+	external.id = "external-call";
+	external.caller = functionId;
+	external.callee = "External.Contract::unknown()";
+	external.kind = cfg::PredaCallKind::ExternalUnknown;
+	external.resolved = false;
+	external.unresolvedReason = "no local PREDA body";
+	graph.edges.push_back(std::move(external));
+	cfg::PredaCallGraphAnalyzer::Analyze(graph, functions);
+	CHECK(graph.analysis.hasUnresolvedOutgoing.at(functionId));
+
+	transpiler::relay_protocol::RelayProtocolIR protocol;
+	const std::vector<cfg::PredaRegionEffect> regions =
+		cfg::PredaEffectAnalysis::Build(functions, graph, protocol);
+	(void)regions;
+	CHECK(functions.front().effect.mayCallUnknown);
+	CHECK(functions.front().effect.mayHaveExternalEffect);
+	CHECK(functions.front().effect.status == cfg::AnalysisStatus::Unknown);
+}
+
+void TestForUpdateCallCFG(const std::string& fixtureDirectory)
+{
+	const CompileResult result =
+		CompileFixture(fixtureDirectory, "cfg_for_update_call.prd");
+	const Json& controlFlow = RequireControlFlow(result.manifest);
+	const Json* run = FindCFGFunctionByName(controlFlow, "run");
+	CHECK(run != nullptr);
+	const Json* updateCall = nullptr;
+	const Json* continueNode = nullptr;
+	for (const Json& node : RequireArray(*run, "nodes"))
+	{
+		if (RequireString(node, "kind") == "SynchronousCall" &&
+			RequireString(node, "callee_function_id").find("::step(") !=
+				std::string::npos)
+		{
+			updateCall = &node;
+		}
+		if (RequireString(node, "kind") == "Continue")
+			continueNode = &node;
+	}
+	CHECK(updateCall != nullptr);
+	CHECK(continueNode != nullptr);
+	CHECK(RequireArray(*updateCall, "enclosing_loop_ids").size() == 1);
+	bool continueRunsUpdate = false;
+	for (const Json& edge : RequireArray(*run, "edges"))
+	{
+		if (RequireString(edge, "kind") == "ContinueBack" &&
+			RequireString(edge, "source") == RequireString(*continueNode, "id") &&
+			RequireString(edge, "target") == RequireString(*updateCall, "id"))
+		{
+			continueRunsUpdate = true;
+		}
+	}
+	CHECK(continueRunsUpdate);
+	bool foundICFGCall = false;
+	for (const Json& edge : RequireArray(
+		RequireField(controlFlow, "relay_icfg"), "interprocedural_edges"))
+	{
+		if (RequireString(edge, "kind") == "SyncCall" &&
+			RequireString(edge, "source_node_id") ==
+				RequireString(*updateCall, "id"))
+		{
+			foundICFGCall = true;
+		}
+	}
+	CHECK(foundICFGCall);
+	CHECK(RequireField(
+		RequireField(*run, "effect"),
+		"writes_current_scope_state") == true);
+}
+
+void TestRelayOperandStateEffects(const std::string& fixtureDirectory)
+{
+	const CompileResult result =
+		CompileFixture(fixtureDirectory, "cfg_relay_state_effect.prd");
+	const Json& controlFlow = RequireControlFlow(result.manifest);
+	for (const std::string& functionName : {"send_named", "send_lambda"})
+	{
+		const Json* function =
+			FindCFGFunctionByName(controlFlow, functionName);
+		CHECK(function != nullptr);
+		const Json& effect = RequireField(*function, "effect");
+		CHECK(RequireField(effect, "reads_current_scope_state") == true);
+		CHECK(RequireArray(effect, "read_state_variables").size() >= 2);
+		bool relayReadsState = false;
+		for (const Json& node : RequireArray(*function, "nodes"))
+		{
+			if (RequireString(node, "kind") == "RelayEmit" &&
+				RequireField(
+					RequireField(node, "direct_effect"),
+					"reads_current_scope_state") == true)
+			{
+				relayReadsState = true;
+			}
+		}
+		CHECK(relayReadsState);
+	}
+}
+
+void TestCallEvaluationOrderConservatism(const std::string& fixtureDirectory)
+{
+	const CompileResult result =
+		CompileFixture(fixtureDirectory, "cfg_call_order.prd");
+	const Json& controlFlow = RequireControlFlow(result.manifest);
+	const Json* nested = FindCFGFunctionByName(controlFlow, "nested");
+	const Json* siblings = FindCFGFunctionByName(controlFlow, "siblings");
+	CHECK(nested != nullptr);
+	CHECK(siblings != nullptr);
+
+	std::string innerNodeId;
+	std::string consumeNodeId;
+	for (const Json& node : RequireArray(*nested, "nodes"))
+	{
+		if (RequireString(node, "kind") != "SynchronousCall")
+			continue;
+		const std::string callee = RequireString(node, "callee_function_id");
+		if (callee.find("::inner(") != std::string::npos)
+			innerNodeId = RequireString(node, "id");
+		if (callee.find("::consume_one(") != std::string::npos)
+			consumeNodeId = RequireString(node, "id");
+	}
+	CHECK(!innerNodeId.empty());
+	CHECK(!consumeNodeId.empty());
+	bool innerBeforeOuter = false;
+	for (const Json& edge : RequireArray(*nested, "edges"))
+	{
+		if (RequireString(edge, "source") == innerNodeId &&
+			RequireString(edge, "target") == consumeNodeId &&
+			RequireString(edge, "kind") == "Fallthrough" &&
+			RequireField(edge, "supported") == true)
+		{
+			innerBeforeOuter = true;
+		}
+	}
+	CHECK(innerBeforeOuter);
+
+	CHECK(RequireString(*siblings, "status") != "Complete");
+	CHECK(CFGHasEdgeKind(*siblings, "Unknown"));
+	const Json* siblingAnalysis = FindFunctionGraphAnalysis(
+		controlFlow,
+		RequireString(*siblings, "function_id"));
+	CHECK(siblingAnalysis != nullptr);
+	CHECK(RequireField(*siblingAnalysis, "reachability_complete") == false);
+}
+
+void TestNonterminatingPostDominance(const std::string& fixtureDirectory)
+{
+	const CompileResult result =
+		CompileFixture(fixtureDirectory, "cfg_nonterminating_for.prd");
+	const Json& controlFlow = RequireControlFlow(result.manifest);
+	const Json* spin = FindCFGFunctionByName(controlFlow, "spin");
+	CHECK(spin != nullptr);
+	const Json* analysis = FindFunctionGraphAnalysis(
+		controlFlow,
+		RequireString(*spin, "function_id"));
+	CHECK(analysis != nullptr);
+	CHECK(RequireField(*analysis, "post_dominance_complete") == false);
+	CHECK(RequireString(*analysis, "status") != "Complete");
+	CHECK(RequireField(*analysis, "control_dependents").empty());
+
+	const Json* maybeSpin =
+		FindCFGFunctionByName(controlFlow, "maybe_spin");
+	CHECK(maybeSpin != nullptr);
+	const Json* maybeAnalysis = FindFunctionGraphAnalysis(
+		controlFlow,
+		RequireString(*maybeSpin, "function_id"));
+	CHECK(maybeAnalysis != nullptr);
+	CHECK(RequireField(*maybeAnalysis, "reachability_complete") == true);
+	CHECK(RequireField(*maybeAnalysis, "post_dominance_complete") == false);
+	CHECK(RequireField(*maybeAnalysis, "control_dependents").empty());
+}
+
+void TestSynchronousRelayComposition(const std::string& fixtureDirectory)
+{
+	const CompileResult result =
+		CompileFixture(fixtureDirectory, "cfg_sync_composition.prd");
+	const Json& controlFlow = RequireControlFlow(result.manifest);
+	std::vector<std::pair<int64_t, std::string>> sendSites;
+	std::string helperSite;
+	std::string sendMultiSite;
+	std::string helperMultiSite;
+	std::string helperLeftSite;
+	std::string helperRightSite;
+	for (const Json& site : RequireArray(result.manifest, "relay_sites"))
+	{
+		if (RequireString(site, "source_function") == "send")
+		{
+			sendSites.emplace_back(
+				RequireField(
+					RequireField(site, "location"),
+					"start_offset").get<int64_t>(),
+				RequireString(site, "id"));
+		}
+		if (RequireString(site, "source_function") == "helper")
+			helperSite = RequireString(site, "id");
+		if (RequireString(site, "source_function") == "send_multi")
+			sendMultiSite = RequireString(site, "id");
+		if (RequireString(site, "source_function") == "helper_multi")
+			helperMultiSite = RequireString(site, "id");
+		if (RequireString(site, "source_function") == "helper_left")
+			helperLeftSite = RequireString(site, "id");
+		if (RequireString(site, "source_function") == "helper_right")
+			helperRightSite = RequireString(site, "id");
+	}
+	std::sort(sendSites.begin(), sendSites.end());
+	CHECK(sendSites.size() == 2);
+	CHECK(!helperSite.empty());
+	CHECK(!sendMultiSite.empty());
+	CHECK(!helperMultiSite.empty());
+	CHECK(!helperLeftSite.empty());
+	CHECK(!helperRightSite.empty());
+	const std::string& firstSendSite = sendSites.front().second;
+	const std::string& afterCallSite = sendSites.back().second;
+	bool composed = false;
+	for (const Json& relation : RequireArray(
+		RequireField(controlFlow, "relay_icfg"), "relay_site_relations"))
+	{
+		const std::string first =
+			RequireString(relation, "first_relay_site_id");
+		const std::string second =
+			RequireString(relation, "second_relay_site_id");
+		if (((first == firstSendSite && second == helperSite) ||
+			 (first == helperSite && second == firstSendSite)) &&
+			RequireString(relation, "status") == "CoReachable")
+		{
+			composed = true;
+		}
+	}
+	CHECK(composed);
+	bool multipleContextStayedUnknown = false;
+	for (const Json& relation : RequireArray(
+		RequireField(controlFlow, "relay_icfg"), "relay_site_relations"))
+	{
+		const std::string first =
+			RequireString(relation, "first_relay_site_id");
+		const std::string second =
+			RequireString(relation, "second_relay_site_id");
+		if (((first == sendMultiSite && second == helperMultiSite) ||
+			 (first == helperMultiSite && second == sendMultiSite)) &&
+			RequireString(relation, "status") == "Unknown")
+		{
+			multipleContextStayedUnknown = true;
+		}
+	}
+	CHECK(multipleContextStayedUnknown);
+	bool branchHelpersExclusive = false;
+	for (const Json& relation : RequireArray(
+		RequireField(controlFlow, "relay_icfg"), "relay_site_relations"))
+	{
+		const std::string first =
+			RequireString(relation, "first_relay_site_id");
+		const std::string second =
+			RequireString(relation, "second_relay_site_id");
+		if (((first == helperLeftSite && second == helperRightSite) ||
+			 (first == helperRightSite && second == helperLeftSite)) &&
+			RequireString(relation, "status") == "MutuallyExclusive")
+		{
+			branchHelpersExclusive = true;
+		}
+	}
+	CHECK(branchHelpersExclusive);
+
+	const Json* sendFunction = FindCFGFunctionByName(controlFlow, "send");
+	CHECK(sendFunction != nullptr);
+	CHECK(RequireField(
+		RequireField(*sendFunction, "effect"),
+		"may_abort_or_fail") == true);
+	const std::string sendFunctionId =
+		RequireString(*sendFunction, "function_id");
+	const Json& icfg = RequireField(controlFlow, "relay_icfg");
+	const Json& syncReachable =
+		RequireField(icfg, "synchronous_reachable_functions");
+	const Json& sendClosure = RequireField(
+		syncReachable,
+		sendFunctionId.c_str());
+	bool reachesBridge = false;
+	bool reachesHelper = false;
+	for (const Json& functionId : sendClosure)
+	{
+		const std::string id = functionId.get<std::string>();
+		reachesBridge |= id.find("::bridge(") != std::string::npos;
+		reachesHelper |= id.find("::helper(") != std::string::npos;
+	}
+	CHECK(reachesBridge);
+	CHECK(reachesHelper);
+
+	const Json* composition = nullptr;
+	for (const Json& candidate :
+		RequireArray(icfg, "synchronous_composition_analyses"))
+	{
+		if (RequireString(candidate, "root_function_id") == sendFunctionId)
+		{
+			composition = &candidate;
+			break;
+		}
+	}
+	CHECK(composition != nullptr);
+	CHECK(RequireField(*composition, "reachability_complete") == true);
+	CHECK(RequireField(*composition, "dominance_complete") == true);
+	CHECK(!RequireField(*composition, "reachable_nodes").empty());
+	CHECK(!RequireField(*composition, "dominators").empty());
+
+	const Json* helperFunction = FindCFGFunctionByName(controlFlow, "helper");
+	CHECK(helperFunction != nullptr);
+	std::string terminalFailureNode;
+	for (const Json& node : RequireArray(*helperFunction, "nodes"))
+	{
+		if (RequireString(node, "kind") == "AbortOrFailure" &&
+			RequireArray(node, "successors").empty())
+		{
+			terminalFailureNode = RequireString(node, "id");
+		}
+	}
+	CHECK(!terminalFailureNode.empty());
+	std::string afterCallNode;
+	for (const Json& node : RequireArray(*sendFunction, "nodes"))
+	{
+		if (RequireString(node, "kind") == "RelayEmit")
+		{
+			const Json& siteId = RequireField(node, "relay_site_id");
+			if (siteId.is_string() &&
+				siteId.get<std::string>() == afterCallSite)
+			{
+				afterCallNode = RequireString(node, "id");
+			}
+		}
+	}
+	CHECK(!afterCallNode.empty());
+	const Json& failureReachable = RequireField(
+		RequireField(*composition, "reachable_nodes"),
+		terminalFailureNode.c_str());
+	CHECK(!JsonArrayContains(failureReachable, afterCallNode));
+}
+
+void TestLambdaSynchronousEffectComposition(const std::string& fixtureDirectory)
+{
+	const CompileResult result =
+		CompileFixture(fixtureDirectory, "cfg_lambda_sync_effect.prd");
+	const Json& controlFlow = RequireControlFlow(result.manifest);
+	const Json* lambda = nullptr;
+	for (const Json& function : RequireArray(controlFlow, "functions"))
+	{
+		if (RequireField(function, "generated_relay_lambda") == true)
+		{
+			lambda = &function;
+			break;
+		}
+	}
+	CHECK(lambda != nullptr);
+	CHECK(CFGHasNodeKind(*lambda, "SynchronousCall"));
+	CHECK(RequireField(
+		RequireField(*lambda, "effect"),
+		"writes_current_scope_state") == true);
+	bool hasLambdaSyncCall = false;
+	for (const Json& edge : RequireArray(
+		RequireField(controlFlow, "relay_icfg"), "interprocedural_edges"))
+	{
+		if (RequireString(edge, "kind") == "SyncCall" &&
+			RequireString(edge, "source_function_id") ==
+				RequireString(*lambda, "function_id"))
+		{
+			hasLambdaSyncCall = true;
+		}
+	}
+	CHECK(hasLambdaSyncCall);
+}
+
+void TestMutualRecursiveEffectFixedPoint(const std::string& fixtureDirectory)
+{
+	const CompileResult result = CompileFixture(
+		fixtureDirectory,
+		"cfg_mutual_recursion_effect.prd");
+	const Json& controlFlow = RequireControlFlow(result.manifest);
+	const Json* left = FindCFGFunctionByName(controlFlow, "left");
+	const Json* right = FindCFGFunctionByName(controlFlow, "right");
+	const Json* run = FindCFGFunctionByName(controlFlow, "run");
+	CHECK(left != nullptr);
+	CHECK(right != nullptr);
+	CHECK(run != nullptr);
+	for (const Json* function : {left, right, run})
+	{
+		CHECK(RequireField(
+			RequireField(*function, "effect"),
+			"writes_current_scope_state") == true);
+	}
+
+	const Json& analysis = RequireField(
+		RequireField(controlFlow, "synchronous_call_graph"),
+		"analysis");
+	const std::string leftId = RequireString(*left, "function_id");
+	const std::string rightId = RequireString(*right, "function_id");
+	CHECK(JsonArrayContains(RequireArray(analysis, "recursive_functions"), leftId));
+	CHECK(JsonArrayContains(RequireArray(analysis, "recursive_functions"), rightId));
+	bool foundMutualScc = false;
+	for (const Json& component :
+		RequireArray(analysis, "strongly_connected_components"))
+	{
+		if (JsonArrayContains(component, leftId) &&
+			JsonArrayContains(component, rightId))
+		{
+			foundMutualScc = true;
+		}
+	}
+	CHECK(foundMutualScc);
+}
+
+void TestOpaqueCFGIsNotComplete(const std::string& fixtureDirectory)
+{
+	const CompileResult result = CompileFixture(
+		fixtureDirectory,
+		"dependency_opaque_effect.prd");
+	const Json& controlFlow = RequireControlFlow(result.manifest);
+	const Json* send = FindCFGFunctionByName(controlFlow, "send");
+	CHECK(send != nullptr);
+	CHECK(RequireString(*send, "status") != "Complete");
+	CHECK(CFGHasNodeKind(*send, "Opaque"));
+	const Json* analysis = FindFunctionGraphAnalysis(
+		controlFlow,
+		RequireString(*send, "function_id"));
+	CHECK(analysis != nullptr);
+	CHECK(RequireField(*analysis, "reachability_complete") == false);
+	CHECK(RequireField(*analysis, "dominance_complete") == false);
+}
+
+void TestElseIfCFG(const std::string& fixtureDirectory)
+{
+	const CompileResult result =
+		CompileFixture(fixtureDirectory, "else_if_chain.prd");
+	const Json& controlFlow = RequireControlFlow(result.manifest);
+	const Json* send = FindCFGFunctionByName(controlFlow, "send");
+	CHECK(send != nullptr);
+	size_t branches = 0;
+	for (const Json& node : RequireArray(*send, "nodes"))
+		if (RequireString(node, "kind") == "Branch")
+			++branches;
+	CHECK(branches == 3);
+	CHECK(CFGHasEdgeKind(*send, "TrueBranch"));
+	CHECK(CFGHasEdgeKind(*send, "FalseBranch"));
+}
+
+void TestImplicitFailureCFG(const std::string& fixtureDirectory)
+{
+	const CompileResult result =
+		CompileFixture(fixtureDirectory, "cfg_implicit_failure.prd");
+	const Json& controlFlow = RequireControlFlow(result.manifest);
+	const Json* divide = FindCFGFunctionByName(controlFlow, "divide");
+	CHECK(divide != nullptr);
+	CHECK(RequireString(*divide, "status") != "Complete");
+	CHECK(CFGHasNodeKind(*divide, "AbortOrFailure"));
+	CHECK(CFGHasEdgeKind(*divide, "ExceptionalOrFailure"));
+	CHECK(RequireField(
+		RequireField(*divide, "effect"),
+		"may_abort_or_fail") == true);
+	const Json* analysis = FindFunctionGraphAnalysis(
+		controlFlow,
+		RequireString(*divide, "function_id"));
+	CHECK(analysis != nullptr);
+	CHECK(RequireField(*analysis, "post_dominance_complete") == false);
+}
+
+void TestParallelCertificatePairRelations(
+	const std::string& fixtureDirectory)
+{
+	const CompileResult result = CompileFixture(
+		fixtureDirectory, "certificate/pair_relations.prd");
+	const Json& straight = RequireParallelFunction(
+		result.manifest, "straight_line");
+	bool provedPrecedence = false;
+	std::ostringstream observedStraight;
+	for (const Json& pair : RequireArray(straight, "pair_relations"))
+	{
+		CheckUniqueEvidence(pair, "straight-line pair evidence");
+		const std::string relation = RequireString(pair, "relation");
+		const std::string status = RequireString(pair, "status");
+		observedStraight << " relation=" << relation
+			<< " status=" << status
+			<< " reason=" << RequireString(pair, "reason");
+		provedPrecedence |= relation == "MustPrecedeAB" &&
+			status == "Proved";
+	}
+	const Json& controlFlow = RequireControlFlow(result.manifest);
+	const std::string straightId =
+		RequireString(straight, "source_function_id");
+	for (const Json& analysis : RequireArray(
+		RequireField(controlFlow, "relay_icfg"),
+		"function_analyses"))
+	{
+		if (RequireString(analysis, "function_id") == straightId)
+		{
+			observedStraight << " analysis_status="
+				<< RequireString(analysis, "status")
+				<< " dominance_complete="
+				<< RequireField(analysis, "dominance_complete")
+				<< " reachability_complete="
+				<< RequireField(analysis, "reachability_complete")
+				<< " completeness_reasons="
+				<< RequireField(analysis, "completeness_reasons").dump();
+		}
+	}
+	CHECK_DETAIL(provedPrecedence, observedStraight.str());
+
+	for (const char* functionName : {
+		"distinct_arithmetic", "same_target", "exclusive"})
+	{
+		const Json& function = RequireParallelFunction(
+			result.manifest, functionName);
+		for (const Json& pair : RequireArray(function, "pair_relations"))
+			CheckUniqueEvidence(
+				pair, std::string(functionName) + " pair evidence");
+	}
+
+#ifdef RPREDA_ENABLE_Z3
+	auto requireRelation = [&](const char* functionName,
+		const char* expectedRelation,
+		bool requireCounterexample = false)
+	{
+		const Json& function = RequireParallelFunction(
+			result.manifest, functionName);
+		std::ostringstream observed;
+		for (const Json& pair : RequireArray(function, "pair_relations"))
+		{
+			const std::string relation = RequireString(pair, "relation");
+			const std::string status = RequireString(pair, "status");
+			observed << " relation=" << relation
+				<< " status=" << status
+				<< " reason=" << RequireString(pair, "reason");
+			if (relation == expectedRelation && status == "Proved")
+			{
+				if (requireCounterexample)
+					CHECK(!RequireField(pair, "counterexample").is_null());
+				return;
+			}
+		}
+		throw TestFailure(
+			std::string("missing ") + expectedRelation + " for " +
+			functionName + ":" + observed.str());
+	};
+	requireRelation("distinct_arithmetic", "CoEmissionIndependent");
+	requireRelation("same_target", "ProvedMayAlias", true);
+	requireRelation("exclusive", "MutuallyExclusive");
+#endif
+}
+
+void TestParallelCertificateWorkSoundness(
+	const std::string& fixtureDirectory)
+{
+	const CompileResult result = CompileFixture(
+		fixtureDirectory, "certificate/control_flow.prd");
+	const Json& early =
+		RequireParallelFunction(result.manifest, "early_return");
+	const Json& earlyDirect = RequireField(early, "direct_logical_work");
+	CHECK_DETAIL(
+		RequireString(earlyDirect, "status") == "Conservative",
+		"early direct status=" + RequireString(earlyDirect, "status") +
+			", reason=" + RequireString(earlyDirect, "reason"));
+	CHECK(RequireString(RequireField(earlyDirect, "exact"), "kind") == "unknown");
+	CheckConstant(RequireField(earlyDirect, "upper_bound"), 2, "early-return upper bound");
+
+	const Json& before = RequireParallelFunction(
+		result.manifest, "return_before_only_relay");
+	const Json& depth = RequireField(before, "relay_tree_depth");
+	CHECK(RequireString(depth, "status") == "Conservative");
+	CHECK(RequireString(RequireField(depth, "exact"), "kind") == "unknown");
+	CheckConstant(RequireField(depth, "upper_bound"), 1, "early-return depth upper bound");
+
+	const Json& bounded = RequireParallelFunction(
+		result.manifest, "bounded_occurrences");
+	CheckConstant(
+		RequireField(
+			RequireField(bounded, "direct_logical_work"), "upper_bound"),
+		3,
+		"u32-suffixed loop direct upper bound");
+	CheckConstant(
+		RequireField(RequireField(bounded, "transitive_logical_work"), "upper_bound"),
+		3,
+		"u32-suffixed loop transitive bound: " +
+			RequireField(bounded, "transitive_logical_work").dump());
+	CHECK(RequireField(
+		RequireField(bounded, "physical_route_work"), "constant_term") == 3);
+
+	const Json& loopPair = RequireParallelFunction(
+		result.manifest, "loop_pair");
+	bool rejectedLoopOccurrence = false;
+	for (const Json& pair : RequireArray(loopPair, "pair_relations"))
+	{
+		rejectedLoopOccurrence |=
+			RequireString(pair, "relation") == "Unknown" &&
+			RequireString(pair, "reason").find("loop occurrence") !=
+				std::string::npos;
+	}
+	CHECK(rejectedLoopOccurrence);
+}
+
+void TestParallelCertificateConservativeContexts(
+	const std::string& fixtureDirectory)
+{
+	const CompileResult sync = CompileFixture(
+		fixtureDirectory, "certificate/sync_contexts.prd");
+	const Json& repeated = RequireParallelFunction(
+		sync.manifest, "repeated_context");
+	bool rejectedAmbiguousContext = false;
+	for (const Json& pair : RequireArray(repeated, "pair_relations"))
+	{
+		rejectedAmbiguousContext |=
+			RequireString(pair, "relation") == "Unknown" &&
+			RequireString(pair, "reason").find("multiple call occurrences") !=
+				std::string::npos;
+	}
+	CHECK(rejectedAmbiguousContext);
+	for (const char* field : {
+		"direct_logical_work", "transitive_logical_work",
+		"physical_route_work", "relay_tree_depth"})
+	{
+		CheckUniqueEvidence(RequireField(repeated, field), field);
+	}
+
+	const CompileResult work = CompileFixture(
+		fixtureDirectory, "certificate/work_depth.prd");
+	const Json& nested = RequireParallelFunction(
+		work.manifest, "nested_broadcast");
+	CHECK(RequireString(
+		RequireField(nested, "transitive_logical_work"), "status") == "Unknown");
+	CHECK(RequireString(
+		RequireField(nested, "physical_route_work"), "status") == "Unknown");
+	CHECK(RequireString(nested, "certificate_status") != "Complete");
+
+	const Json& root = RequireParallelFunction(work.manifest, "root");
+	CHECK(RequireArray(root, "pair_relations").empty());
+	const Json& recursive = RequireParallelFunction(
+		work.manifest, "recursive_root");
+	CHECK(RequireString(
+		RequireField(recursive, "transitive_logical_work"), "status") ==
+		"Unknown");
+	CHECK(RequireString(
+		RequireField(recursive, "relay_tree_depth"), "status") == "Unknown");
 }
 
 #ifdef RPREDA_ENABLE_Z3
@@ -2719,6 +3829,71 @@ void CheckManualSolverStatus(
 		"unexpected solver result for " + detail
 			+ ": backend=" + result.backend
 			+ ", reason=" + result.reason);
+}
+
+void TestZ3ParallelCertificateHelperComposition(
+	const std::string& fixtureDirectory)
+{
+	const CompileResult result = CompileFixture(
+		fixtureDirectory, "certificate/sync_contexts.prd");
+	const Json& exclusive = RequireParallelFunction(
+		result.manifest, "exclusive_helper_context");
+	bool provedComposedExclusion = false;
+	std::ostringstream observedExclusive;
+	for (const Json& pair : RequireArray(exclusive, "pair_relations"))
+	{
+		observedExclusive << " relation=" << RequireString(pair, "relation")
+			<< " status=" << RequireString(pair, "status")
+			<< " reason=" << RequireString(pair, "reason");
+		provedComposedExclusion |=
+			RequireString(pair, "relation") == "MutuallyExclusive" &&
+			RequireString(pair, "status") == "Proved";
+	}
+	const Json& exclusiveControlFlow = RequireControlFlow(result.manifest);
+	const Json& exclusiveIcfg = RequireField(
+		exclusiveControlFlow, "relay_icfg");
+	for (const Json& composition : RequireArray(
+		exclusiveIcfg, "synchronous_composition_analyses"))
+	{
+		if (RequireString(composition, "root_function_id") ==
+			RequireString(exclusive, "source_function_id"))
+		{
+			observedExclusive << " composition_status="
+				<< RequireString(composition, "status")
+				<< " dominance_complete="
+				<< RequireField(composition, "dominance_complete")
+				<< " reachability_complete="
+				<< RequireField(composition, "reachability_complete")
+				<< " completeness_reasons="
+				<< RequireField(composition, "completeness_reasons").dump();
+		}
+	}
+	for (const Json& function : RequireArray(
+		exclusiveControlFlow, "functions"))
+	{
+		const std::string name = RequireString(function, "function");
+		if (name == "exclusive_helper_context" ||
+			name == "exclusive_only_helper")
+		{
+			observedExclusive << " function=" << name
+				<< " status=" << RequireString(function, "status")
+				<< " completeness_reasons="
+				<< RequireField(function, "completeness_reasons").dump();
+		}
+	}
+	CHECK_DETAIL(provedComposedExclusion, observedExclusive.str());
+
+	const Json& unique = RequireParallelFunction(
+		result.manifest, "unique_context");
+	bool rejectedUnboundHelperTarget = false;
+	for (const Json& pair : RequireArray(unique, "pair_relations"))
+	{
+		rejectedUnboundHelperTarget |=
+			RequireString(pair, "status") == "Unsupported" &&
+			RequireString(pair, "reason").find("formal/actual") !=
+				std::string::npos;
+	}
+	CHECK(rejectedUnboundHelperTarget);
 }
 
 void TestZ3ConditionalCountUpperBound(
@@ -3344,7 +4519,28 @@ int main(int argc, char** argv)
 		{ "opaque protocol node stays conservative", &TestOpaqueProtocolNodeIsConservative },
 		{ "ordinary relay-reachable call keeps depth unknown", &TestSummaryUnmodeledRelayReachableCall },
 		{ "overloaded source functions", &TestOverloadedSource },
+		{ "PREDA-native CFG, effects, and relay ICFG", &TestPredaNativeCFGAndICFG },
+		{ "generated relay lambda CFG", &TestGeneratedLambdaCFG },
+		{ "synchronous call graph recursion", &TestSynchronousCallGraphRecursion },
+		{ "overloaded synchronous call resolution", &TestOverloadedSynchronousCalls },
+		{ "nested loop break and continue targets", &TestNestedLoopTargets },
+		{ "runtime failure helper effect", &TestRuntimeFailureHelper },
+		{ "unknown call and opaque effects stay conservative", &TestUnknownCallAndOpaqueEffects },
+		{ "for update call CFG and ICFG", &TestForUpdateCallCFG },
+		{ "relay operand state effects", &TestRelayOperandStateEffects },
+		{ "call evaluation order conservatism", &TestCallEvaluationOrderConservatism },
+		{ "nonterminating CFG post-dominance", &TestNonterminatingPostDominance },
+		{ "synchronous relay composition", &TestSynchronousRelayComposition },
+		{ "generated lambda synchronous effect composition", &TestLambdaSynchronousEffectComposition },
+		{ "mutual recursive effect fixed point", &TestMutualRecursiveEffectFixedPoint },
+		{ "opaque CFG remains incomplete", &TestOpaqueCFGIsNotComplete },
+		{ "else-if CFG", &TestElseIfCFG },
+		{ "implicit runtime failure CFG", &TestImplicitFailureCFG },
+		{ "parallel certificate core pair relations", &TestParallelCertificatePairRelations },
+		{ "parallel certificate work and depth soundness", &TestParallelCertificateWorkSoundness },
+		{ "parallel certificate conservative sync and broadcast contexts", &TestParallelCertificateConservativeContexts },
 #ifdef RPREDA_ENABLE_Z3
+		{ "Z3 parallel certificate helper composition", &TestZ3ParallelCertificateHelperComposition },
 		{ "Z3 proves conditional relay count upper bound", &TestZ3ConditionalCountUpperBound },
 		{ "Z3 disproves same-target non-alias candidate", &TestZ3SameTargetNonAliasCounterexample },
 		{ "Z3 proves if/else guarded targets cannot alias concurrently", &TestZ3IfElseGuardedTargets },

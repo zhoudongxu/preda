@@ -1,0 +1,54 @@
+contract MutationStudy {
+    @uint32 uint32 observed;
+
+    @uint32 function handler_a(uint32 value) {
+        observed += value;
+    }
+
+    @uint32 function handler_b(uint32 value) {
+        observed += value + 1u32;
+    }
+
+    @global function global_handler(uint32 value) {
+    }
+
+    @shard function shard_handler(uint32 value) {
+    }
+
+    @address function exercise(
+        bool choose,
+        uint32 first,
+        uint32 second,
+        uint32 value
+    ) export {
+        if (choose) {
+            relay@first handler_a(value);
+        } else {
+            relay@second handler_b(value);
+        }
+        relay@first handler_a(value);
+        relay@second handler_b(value);
+    }
+
+    // Custom-keyed functions cannot be submitted directly by the script API.
+    // This address-scoped driver makes both keyed protocols observable.
+    @address function scoped_driver(uint32 target, uint32 value) export {
+        relay@target nextable(target, value);
+        relay@target alias_safe(target, value);
+    }
+
+    @uint32 function nextable(uint32 target, uint32 value) {
+        relay@target handler_a(value);
+    }
+
+    // This pair is provably non-aliasing before IntroduceAlias rewrites it.
+    @uint32 function alias_safe(uint32 base, uint32 value) {
+        relay@base handler_a(value);
+        relay@(base + 1u32) handler_b(value);
+    }
+
+    @global function broadcast(uint32 value) export {
+        relay@shards shard_handler(value);
+        relay@shards shard_handler(value);
+    }
+}

@@ -1,5 +1,8 @@
 #include "RelayManifestEmitter.h"
+#include "certificate/ParallelRelayCertificateEmitter.h"
 #include "analysis/RelaySummaryEmitter.h"
+#include "cfg/PredaCFGEmitter.h"
+#include "metrics/RelayAnalysisMetrics.h"
 #include "refinement/RelayRefinementEmitter.h"
 
 #include "../../3rdParty/nlohmann/json.hpp"
@@ -237,6 +240,8 @@ Json EmitNode(const ProtocolNode &node)
 
 std::string RelayManifestEmitter::Emit(const RelayProtocolIR &protocol)
 {
+	metrics::ScopedRelayAnalysisPhase timer(
+		metrics::RelayAnalysisPhase::ManifestEmission);
 	Json root = {
 		{"schema_version", protocol.schemaVersion},
 		{"dapp", protocol.dapp},
@@ -263,7 +268,7 @@ std::string RelayManifestEmitter::Emit(const RelayProtocolIR &protocol)
 			{"target_function", site.targetFunction},
 			{"handler_id", site.handlerId},
 		};
-#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+#ifdef RPREDA_ENABLE_BOUND_RELAY_MANIFEST
 		item["ordinal"] = site.ordinal;
 #endif
 		item["arguments"] = Json::array();
@@ -336,7 +341,7 @@ std::string RelayManifestEmitter::Emit(const RelayProtocolIR &protocol)
 			{"relay_site_ids", function.relaySiteIds},
 			{"root", EmitNode(function.root)},
 		};
-#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+#ifdef RPREDA_ENABLE_BOUND_RELAY_MANIFEST
 		item["exported_opcode"] = function.exportedOpcode;
 #endif
 		item["summary"] =
@@ -348,6 +353,14 @@ std::string RelayManifestEmitter::Emit(const RelayProtocolIR &protocol)
 			protocol.refinementSymbols,
 			protocol.refinementConstraints,
 			protocol.refinementProofObligations);
+	// Keep schema v4/v5 compatibility during the Phase A-D checkpoint.  The
+	// strict runtime loader consumes schema v5 and ignores this additive,
+	// compiler-only section.
+	root["control_flow"] = cfg::PredaCFGEmitter::Emit(
+		protocol.controlFlow);
+	root["parallel_certificate"] =
+		certificate::ParallelRelayCertificateEmitter::Emit(
+			protocol.parallelCertificate);
 	return root.dump(2);
 }
 

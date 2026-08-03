@@ -72,6 +72,8 @@ bool IsInitiallySupportedSolverGoal(
 	{
 	case RelayProofObligationKind::RelayCountUpperBound:
 	case RelayProofObligationKind::TargetNonAliasCandidate:
+	case RelayProofObligationKind::RelayMutualExclusion:
+	case RelayProofObligationKind::RelayTargetIndependence:
 	case RelayProofObligationKind::BooleanRefinement:
 		return true;
 	default:
@@ -243,6 +245,14 @@ RelaySolverResult RelayProofRunner::RunOne(
 			}
 			break;
 		}
+
+		case RelayProofObligationKind::RelayMutualExclusion:
+		case RelayProofObligationKind::RelayTargetIndependence:
+			// These Phase-E goals are self-contained exact path formulas.
+			// Pulling unrelated global assumptions into them could manufacture
+			// an inconsistent or vacuous proof.
+			selected = false;
+			break;
 
 		case RelayProofObligationKind::BooleanRefinement:
 			selected =

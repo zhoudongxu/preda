@@ -21,6 +21,9 @@
 namespace oxd {
 namespace relay_trace {
 namespace tests {
+#ifdef RPREDA_ENABLE_TRACE_FAULT_INJECTION
+int RunRelayTraceFaultInjectorUnitTests();
+#endif
 namespace {
 
 using Json = nlohmann::ordered_json;
@@ -137,6 +140,18 @@ bool HasNonEmptyReason(
 		}
 	}
 	return false;
+}
+
+const RelayValidationResult *FindResult(
+	const std::vector<RelayValidationResult> &results,
+	ValidationCheckKind kind)
+{
+	for (const RelayValidationResult &result : results)
+	{
+		if (result.checkKind == kind)
+			return &result;
+	}
+	return nullptr;
 }
 
 void TestNamedRelayTreeAndPointerReuse(TestState &state)
@@ -355,6 +370,12 @@ void TestOccurrencesAndCrossModuleIdentity(TestState &state)
 		state.Expect(
 			snapshot.emissions[3].occurrenceIndex == 0,
 			"same ordinal in another module has an independent occurrence");
+		state.Expect(
+			snapshot.emissions[0].emissionSequence == 0 &&
+				snapshot.emissions[1].emissionSequence == 1 &&
+				snapshot.emissions[2].emissionSequence == 2 &&
+				snapshot.emissions[3].emissionSequence == 3,
+			"one parent has a total logical emission order across sites and modules");
 		state.Expect(
 			snapshot.emissions[3].sourceModuleId == "module-b" &&
 				snapshot.emissions[3].sourceFunctionId ==
@@ -711,6 +732,84 @@ LoadedRelayManifest BuildValidationManifest()
 	return manifest;
 }
 
+ManifestWorkCertificate RuntimeWorkCertificate(
+	const std::string &id,
+	uint64_t upperBound,
+	ParallelCertificateStatus status =
+		ParallelCertificateStatus::Complete)
+{
+	ManifestWorkCertificate work;
+	work.certificateId = id;
+	work.status = status;
+	work.exact = upperBound;
+	work.upperBound = upperBound;
+	work.boundKind = relay_plan::ManifestWorkBoundKind::Constant;
+	work.constantTerm = upperBound;
+	work.expression = std::to_string(upperBound);
+	work.reason = "runtime test certificate";
+	return work;
+}
+
+ManifestRelayPairCertificate RuntimePairCertificate(
+	RelayPairCertificateRelation relation,
+	const std::string &id = "pair-runtime-root")
+{
+	ManifestRelayPairCertificate pair;
+	pair.certificateId = id;
+	pair.siteA = "site-0";
+	pair.siteB = "site-1";
+	pair.relation = relation;
+	pair.status = relation ==
+			RelayPairCertificateRelation::PotentialConflict ||
+		relation == RelayPairCertificateRelation::Unknown
+		? ParallelCertificateStatus::Conservative
+		: ParallelCertificateStatus::Proved;
+	pair.reason = "runtime pair test certificate";
+	pair.locationA.line = 3;
+	pair.locationA.column = 4;
+	pair.locationB.line = 9;
+	pair.locationB.column = 2;
+	return pair;
+}
+
+LoadedRelayManifest BuildParallelValidationManifest(
+	RelayPairCertificateRelation relation)
+{
+	LoadedRelayManifest manifest = BuildValidationManifest();
+	manifest.nonAliasProofs.clear();
+	manifest.parallelCertificateExtensionSchemaVersion = 1;
+	ManifestFunctionParallelCertificate certificate;
+	certificate.sourceFunctionId = "root";
+	certificate.status = ParallelCertificateStatus::Conservative;
+	certificate.reason = "runtime test function certificate";
+	certificate.pairRelations.push_back(
+		RuntimePairCertificate(relation));
+	certificate.directLogicalWork =
+		RuntimeWorkCertificate("work-direct-runtime-root", 2);
+	certificate.transitiveLogicalWork = RuntimeWorkCertificate(
+		"work-transitive-runtime-root",
+		4,
+		ParallelCertificateStatus::Conservative);
+	certificate.physicalRouteWork = RuntimeWorkCertificate(
+		"work-physical-runtime-root",
+		5,
+		ParallelCertificateStatus::Conservative);
+	certificate.physicalRouteWork.boundKind =
+		relay_plan::ManifestWorkBoundKind::ParameterizedUpperBound;
+	certificate.physicalRouteWork.constantTerm = 1;
+	certificate.physicalRouteWork.activeShardCountCoefficient = 1;
+	certificate.physicalRouteWork.expression =
+		"1 + active_shard_count";
+	certificate.relayTreeDepth = RuntimeWorkCertificate(
+		"work-depth-runtime-root",
+		2,
+		ParallelCertificateStatus::Conservative);
+	manifest.parallelCertificatesByFunction.emplace(
+		"root",
+		std::move(certificate));
+	return manifest;
+}
+
 RelayEmitTraceEvent ValidationEmission(
 	uint32_t ordinal,
 	uint32_t opcode,
@@ -722,11 +821,14 @@ RelayEmitTraceEvent ValidationEmission(
 	emission.parentTraceTxId = 1;
 	emission.relaySiteOrdinal = ordinal;
 	emission.relaySiteId = "site-" + std::to_string(ordinal);
+	emission.emissionSequence = ordinal;
 	emission.sourceModuleId = "module-a";
 	emission.sourceFunctionId = "root";
 	emission.actualOpcode = opcode;
 	emission.actualTargetScope = ScopeKind::Address;
-	emission.actualTarget.Assign(&target, 1);
+	std::array<uint8_t, 36> targetBytes{};
+	targetBytes.front() = target;
+	emission.actualTarget.Assign(targetBytes.data(), targetBytes.size());
 	emission.relayKind = RelayKind::CustomScope;
 	emission.depth = 1;
 	return emission;
@@ -851,6 +953,370 @@ void TestValidatorAndNonAlias(TestState &state)
 			ValidationCheckKind::Routing,
 			ValidationStatus::Mismatch),
 		"cross-shard route cannot target the executing owner shard");
+}
+
+RelayExecutionValidationInput ParallelValidationInput()
+{
+	RelayExecutionValidationInput input;
+	input.execution.traceTxId = 1;
+	input.execution.rootTraceTxId = 1;
+	input.execution.moduleId = "module-a";
+	input.execution.sourceFunctionId = "root";
+	input.execution.opcode = 1;
+	input.execution.ownerShard = 0;
+	input.activeShardCount = 4;
+	input.emissions = {
+		ValidationEmission(0, 42, 1),
+		ValidationEmission(1, 43, 2),
+	};
+	input.routes = {
+		ValidationRoute(0, 0),
+		ValidationRoute(1, 3),
+	};
+	input.observedTransitiveLogicalWork = 4;
+	input.observedPhysicalRouteWork = 5;
+	input.observedTransitiveDepth = 2;
+	return input;
+}
+
+void TestParallelCertificateValidation(TestState &state)
+{
+	RelayTraceValidator validator;
+
+	{
+		LoadedRelayManifest manifest = BuildParallelValidationManifest(
+			RelayPairCertificateRelation::MutuallyExclusive);
+		RelayExecutionValidationInput input = ParallelValidationInput();
+		auto results = validator.ValidateExecution(manifest, input);
+		state.Expect(
+			HasStatus(
+				results,
+				ValidationCheckKind::CertificateMutuallyExclusive,
+				ValidationStatus::Mismatch),
+			"joint runtime emission violates a proved mutual-exclusion certificate");
+		const RelayValidationResult *detail = FindResult(
+			results,
+			ValidationCheckKind::CertificateMutuallyExclusive);
+		state.Expect(
+			detail != nullptr &&
+				detail->detail.propertyId == "pair-runtime-root" &&
+				detail->detail.certificateId == "pair-runtime-root" &&
+				detail->detail.siteA == "site-0" &&
+				detail->detail.siteB == "site-1" &&
+				detail->detail.certificateRelation ==
+					RelayPairCertificateRelation::MutuallyExclusive &&
+				detail->detail.sourceLocation.line == 3 &&
+				detail->detail.relatedSourceLocation.line == 9,
+			"certificate mismatch reports property, pair, relation, and both locations");
+		input.emissions.pop_back();
+		input.routes.pop_back();
+		results = validator.ValidateExecution(manifest, input);
+		state.Expect(
+			HasStatus(
+				results,
+				ValidationCheckKind::CertificateMutuallyExclusive,
+				ValidationStatus::Passed),
+			"a single emitted site satisfies mutual exclusion");
+	}
+
+	{
+		LoadedRelayManifest manifest = BuildParallelValidationManifest(
+			RelayPairCertificateRelation::MustPrecedeAB);
+		RelayExecutionValidationInput input = ParallelValidationInput();
+		auto ordered = validator.ValidateExecution(manifest, input);
+		state.Expect(
+			HasStatus(
+				ordered,
+				ValidationCheckKind::CertificateMustPrecede,
+				ValidationStatus::Passed),
+			"per-parent emission sequence validates MustPrecede");
+		std::swap(
+			input.emissions[0].emissionSequence,
+			input.emissions[1].emissionSequence);
+		auto reversed = validator.ValidateExecution(manifest, input);
+		state.Expect(
+			HasStatus(
+				reversed,
+				ValidationCheckKind::CertificateMustPrecede,
+				ValidationStatus::Mismatch),
+			"reversed emission sequence violates MustPrecede");
+		input.emissions.push_back(input.emissions.front());
+		input.emissions.back().occurrenceIndex = 1;
+		auto repeated = validator.ValidateExecution(manifest, input);
+		state.Expect(
+			HasStatus(
+				repeated,
+				ValidationCheckKind::CertificateMustPrecede,
+				ValidationStatus::SkippedUnsupported),
+			"multiple occurrences do not receive an unsound ordering result");
+	}
+
+	{
+		LoadedRelayManifest manifest = BuildParallelValidationManifest(
+			RelayPairCertificateRelation::CoEmissionIndependent);
+		RelayExecutionValidationInput input = ParallelValidationInput();
+		// A synchronous helper keeps the relay site's static function
+		// identity while the certificate is selected by the relevant root
+		// invocation in input.execution.sourceFunctionId.
+		manifest.sitesByOrdinal.at(1).sourceFunctionId = "sync-helper";
+		input.emissions[1].sourceFunctionId = "sync-helper";
+		auto independent = validator.ValidateExecution(manifest, input);
+		state.Expect(
+			HasStatus(
+				independent,
+				ValidationCheckKind::CertificateCoEmissionIndependent,
+				ValidationStatus::Passed),
+			"root certificate composes synchronous-helper relay sites without changing static site ownership");
+		const RelayValidationResult *helperDetail = FindResult(
+			independent,
+			ValidationCheckKind::CertificateCoEmissionIndependent);
+		state.Expect(
+			helperDetail != nullptr &&
+				helperDetail->detail.function == "root",
+			"certificate reports retain relevant-root ownership across synchronous helpers");
+
+		RelayExecutionValidationInput unknownScope = input;
+		unknownScope.emissions[0].actualTargetScope = ScopeKind::Unknown;
+		auto unknownScopeResults =
+			validator.ValidateExecution(manifest, unknownScope);
+		state.Expect(
+			HasStatus(
+				unknownScopeResults,
+				ValidationCheckKind::CertificateCoEmissionIndependent,
+				ValidationStatus::SkippedUnsupported),
+			"target-based certificates require a known runtime target scope");
+
+		LoadedRelayManifest mismatchedScopeManifest = manifest;
+		mismatchedScopeManifest.sitesByOrdinal.at(0).targetScope =
+			ScopeKind::Uint32;
+		auto mismatchedScopeResults =
+			validator.ValidateExecution(mismatchedScopeManifest, input);
+		state.Expect(
+			HasStatus(
+				mismatchedScopeResults,
+				ValidationCheckKind::CertificateCoEmissionIndependent,
+				ValidationStatus::SkippedUnsupported),
+			"target-based certificates require runtime scope to match the bound manifest");
+
+		RelayExecutionValidationInput incompleteTarget = input;
+		incompleteTarget.emissions[0].actualTarget.bytes.clear();
+		auto incompleteTargetResults =
+			validator.ValidateExecution(manifest, incompleteTarget);
+		state.Expect(
+			HasStatus(
+				incompleteTargetResults,
+				ValidationCheckKind::CertificateCoEmissionIndependent,
+				ValidationStatus::SkippedUnsupported),
+			"target-based certificates reject incomplete keyed target bytes");
+
+		RelayExecutionValidationInput singleEmission = input;
+		singleEmission.emissions.pop_back();
+		singleEmission.routes.pop_back();
+		auto notApplicable =
+			validator.ValidateExecution(manifest, singleEmission);
+		state.Expect(
+			HasStatus(
+				notApplicable,
+				ValidationCheckKind::CertificateCoEmissionIndependent,
+				ValidationStatus::NotApplicable),
+			"co-emission independence is NotApplicable when only one certified site emits");
+		input.emissions[1].actualTarget = input.emissions[0].actualTarget;
+		auto aliased = validator.ValidateExecution(manifest, input);
+		state.Expect(
+			HasStatus(
+				aliased,
+				ValidationCheckKind::CertificateCoEmissionIndependent,
+				ValidationStatus::Mismatch),
+			"equal observed targets violate co-emission independence");
+	}
+
+	{
+		LoadedRelayManifest manifest = BuildParallelValidationManifest(
+			RelayPairCertificateRelation::ProvedMayAlias);
+		RelayExecutionValidationInput input = ParallelValidationInput();
+		input.emissions[1].actualTarget = input.emissions[0].actualTarget;
+		auto observed = validator.ValidateExecution(manifest, input);
+		state.Expect(
+			HasStatus(
+				observed,
+				ValidationCheckKind::CertificateProvedMayAlias,
+				ValidationStatus::Passed),
+			"equal runtime targets record an existential alias observation");
+		input.emissions[1] = ValidationEmission(1, 43, 2);
+		auto notObserved = validator.ValidateExecution(manifest, input);
+		state.Expect(
+			HasStatus(
+				notObserved,
+				ValidationCheckKind::CertificateProvedMayAlias,
+				ValidationStatus::NotApplicable),
+			"one execution need not realize a proved may-alias witness");
+	}
+}
+
+void TestParallelCertificateWorkBoundsAndStrictLatch(TestState &state)
+{
+	LoadedRelayManifest manifest = BuildParallelValidationManifest(
+		RelayPairCertificateRelation::PotentialConflict);
+	RelayExecutionValidationInput input = ParallelValidationInput();
+	RelayTraceValidator validator;
+	auto passed = validator.ValidateExecution(manifest, input);
+	state.Expect(
+		HasStatus(
+			passed,
+			ValidationCheckKind::DirectLogicalWork,
+			ValidationStatus::Passed) &&
+			HasStatus(
+				passed,
+				ValidationCheckKind::TransitiveLogicalWork,
+				ValidationStatus::Passed) &&
+			HasStatus(
+				passed,
+				ValidationCheckKind::PhysicalRouteWork,
+				ValidationStatus::Passed) &&
+			HasStatus(
+				passed,
+				ValidationCheckKind::RelayTreeDepth,
+				ValidationStatus::Passed),
+		"complete and conservative finite certificate bounds validate observed work");
+	state.Expect(
+		HasStatus(
+			passed,
+			ValidationCheckKind::Unknown,
+			ValidationStatus::SkippedUnsupported),
+		"PotentialConflict remains an explicit unsupported runtime property");
+
+	LoadedRelayManifest legacyUnmodeled = manifest;
+	legacyUnmodeled.functionsById["root"]
+		.hasUnmodeledRelayReachableCall = true;
+	auto legacySkipped = validator.ValidateExecution(legacyUnmodeled, input);
+	state.Expect(
+		HasStatus(
+			legacySkipped,
+			ValidationCheckKind::DirectCount,
+			ValidationStatus::SkippedUnsupported) &&
+			HasStatus(
+				legacySkipped,
+				ValidationCheckKind::CountUpperBound,
+				ValidationStatus::SkippedUnsupported) &&
+			HasStatus(
+				legacySkipped,
+				ValidationCheckKind::Depth,
+				ValidationStatus::SkippedUnsupported),
+		"legacy count and depth checks skip relay-reachable synchronous calls instead of reporting a local-only false pass");
+	state.Expect(
+		HasStatus(
+			legacySkipped,
+			ValidationCheckKind::DirectLogicalWork,
+			ValidationStatus::Passed) &&
+			HasStatus(
+				legacySkipped,
+				ValidationCheckKind::TransitiveLogicalWork,
+				ValidationStatus::Passed) &&
+			HasStatus(
+				legacySkipped,
+				ValidationCheckKind::RelayTreeDepth,
+				ValidationStatus::Passed),
+		"Phase-E composed work/depth certificates remain active when legacy local-only summaries are skipped");
+
+	LoadedRelayManifest directExceededManifest = manifest;
+	directExceededManifest.parallelCertificatesByFunction["root"]
+		.directLogicalWork = RuntimeWorkCertificate(
+			"work-direct-runtime-root",
+			1);
+	auto directExceeded =
+		validator.ValidateExecution(directExceededManifest, input);
+	state.Expect(
+		HasStatus(
+			directExceeded,
+			ValidationCheckKind::DirectLogicalWork,
+			ValidationStatus::Mismatch),
+		"direct logical work above the certified bound is a mismatch");
+
+	input.observedTransitiveLogicalWork = 5;
+	auto transitiveExceeded = validator.ValidateExecution(manifest, input);
+	state.Expect(
+		HasStatus(
+			transitiveExceeded,
+			ValidationCheckKind::TransitiveLogicalWork,
+			ValidationStatus::Mismatch),
+		"transitive logical work above the certified bound is a mismatch");
+
+	input = ParallelValidationInput();
+	input.observedTransitiveDepth = 3;
+	auto depthExceeded = validator.ValidateExecution(manifest, input);
+	state.Expect(
+		HasStatus(
+			depthExceeded,
+			ValidationCheckKind::RelayTreeDepth,
+			ValidationStatus::Mismatch),
+		"relay-tree depth above the certified bound is a mismatch");
+
+	input = ParallelValidationInput();
+	input.observedPhysicalRouteWork = 6;
+	auto exceeded = validator.ValidateExecution(manifest, input);
+	state.Expect(
+		HasStatus(
+			exceeded,
+			ValidationCheckKind::PhysicalRouteWork,
+			ValidationStatus::Mismatch),
+		"physical work checks constant plus coefficient times active shard count");
+
+	RelayTraceCollector strictCollector(TraceMode::Strict);
+	for (const RelayValidationResult &result : exceeded)
+	{
+		if (result.checkKind == ValidationCheckKind::PhysicalRouteWork)
+			strictCollector.AddValidationResult(result);
+	}
+	state.Expect(
+		strictCollector.StrictFailureLatched(),
+		"certificate mismatch reaches the existing strict-mode safe-point latch");
+
+	manifest.parallelCertificatesByFunction["root"]
+		.transitiveLogicalWork.status = ParallelCertificateStatus::Unknown;
+	manifest.parallelCertificatesByFunction["root"]
+		.transitiveLogicalWork.upperBound.reset();
+	manifest.parallelCertificatesByFunction["root"]
+		.transitiveLogicalWork.exact.reset();
+	input = ParallelValidationInput();
+	auto unknown = validator.ValidateExecution(manifest, input);
+	state.Expect(
+		HasNonEmptyReason(
+			unknown,
+			ValidationCheckKind::TransitiveLogicalWork,
+			ValidationStatus::SkippedUnsupported),
+		"Unknown work certificates are never silently treated as finite bounds");
+
+	input = ParallelValidationInput();
+	input.emissions[1].sourceFunctionId.clear();
+	auto incompleteIdentity = validator.ValidateExecution(manifest, input);
+	state.Expect(
+		HasStatus(
+			incompleteIdentity,
+			ValidationCheckKind::DirectLogicalWork,
+			ValidationStatus::SkippedUnsupported) &&
+			HasStatus(
+				incompleteIdentity,
+				ValidationCheckKind::Unknown,
+				ValidationStatus::SkippedUnsupported),
+		"incomplete static site identity suppresses direct-work and pair conclusions");
+
+	const RelayValidationResult *physical = FindResult(
+		exceeded,
+		ValidationCheckKind::PhysicalRouteWork);
+	RelayTraceSnapshot snapshot;
+	if (physical != nullptr)
+		snapshot.validationResults.push_back(*physical);
+	RelayTraceReport report;
+	const Json json = Json::parse(report.BuildJson(snapshot, false).contents);
+	state.Expect(
+		json["validation_results"].size() == 1 &&
+			json["validation_results"][0]["detail"]["property_id"] ==
+				"work-physical-runtime-root" &&
+			json["validation_results"][0]["detail"]["certificate_id"] ==
+				"work-physical-runtime-root" &&
+			json["validation_results"][0]["check_kind"] ==
+				"certificate_physical_work",
+		"JSON report exposes the certificate property and check kind");
 }
 
 void TestBroadcastRouteCoverage(TestState &state)
@@ -1388,10 +1854,15 @@ int RunRelayRuntimeTraceUnitTests()
 	TestNestedRelayTree(state);
 	TestBroadcastLogicalPhysicalSplit(state);
 	TestValidatorAndNonAlias(state);
+	TestParallelCertificateValidation(state);
+	TestParallelCertificateWorkBoundsAndStrictLatch(state);
 	TestBroadcastRouteCoverage(state);
 	TestManifestBindingAndCache(state);
 	TestReportAndStrictMismatch(state);
 	TestMultithreadedIsolation(state);
+#ifdef RPREDA_ENABLE_TRACE_FAULT_INJECTION
+	state.failures += RunRelayTraceFaultInjectorUnitTests();
+#endif
 	if (state.failures == 0)
 		std::cout << "Relay runtime trace unit tests passed\n";
 	return state.failures;

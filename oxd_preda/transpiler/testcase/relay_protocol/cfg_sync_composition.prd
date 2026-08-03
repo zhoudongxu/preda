@@ -1,0 +1,60 @@
+contract ProtocolCFGSyncComposition {
+    @address uint32 observed;
+
+    @address function receive(uint32 value) {
+        observed += value;
+    }
+
+    @address function helper(address target, uint32 value) {
+        relay@target receive(value);
+    }
+
+    @address function bridge(address target, uint32 value) {
+        helper(target, value);
+    }
+
+    @address function helper_multi(address target, uint32 value) {
+        relay@target receive(value);
+    }
+
+    @address function helper_left(address target, uint32 value) {
+        relay@target receive(value);
+    }
+
+    @address function helper_right(address target, uint32 value) {
+        relay@target receive(value);
+    }
+
+    @address function send(
+        address first,
+        address second,
+        uint32 value
+    ) export {
+        relay@first receive(value);
+        bridge(second, value);
+        relay@first receive(value);
+    }
+
+    @address function send_multi(
+        address first,
+        address second,
+        uint32 value
+    ) export {
+        relay@first receive(value);
+        helper_multi(second, value);
+        helper_multi(second, value);
+    }
+
+    @address function send_branch(
+        bool choose_left,
+        address first,
+        address second,
+        uint32 value
+    ) export {
+        if (choose_left) {
+            helper_left(first, value);
+        } else {
+            helper_right(second, value);
+        }
+    }
+}

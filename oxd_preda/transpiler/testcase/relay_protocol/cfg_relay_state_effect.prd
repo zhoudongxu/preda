@@ -1,0 +1,19 @@
+contract ProtocolCFGRelayStateEffect {
+    @address address owner;
+    @address uint32 amount;
+    @address uint32 observed;
+
+    @address function receive(uint32 value) {
+        observed += value;
+    }
+
+    @address function send_named() export {
+        relay@owner receive(amount);
+    }
+
+    @address function send_lambda() export {
+        relay@owner (uint32 captured_amount = amount) {
+            observed += captured_amount;
+        }
+    }
+}

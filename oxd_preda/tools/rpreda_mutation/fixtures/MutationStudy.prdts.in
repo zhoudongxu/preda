@@ -1,0 +1,23 @@
+// Deterministic runtime-strict fixture for the R-PREDA mutation framework.
+random.reseed $~seed$
+allocate.address $~addresses$
+chain.gaslimit 256
+
+chain.deploy @0 {{SOURCE}}
+
+// Exercise both branch arms and all straight-line relays.
+txn_exercise_true = MutationStudy.exercise @random {
+    choose:true, first:11, second:12, value:7
+}
+txn_exercise_false = MutationStudy.exercise @random {
+    choose:false, first:11, second:12, value:7
+}
+
+// Drive custom uint32 scopes through a legal address-scoped source tx.
+txn_scoped = MutationStudy.scoped_driver @random { target:13, value:5 }
+
+// Global exports must use #g (or omit the target), never an address target.
+txn_broadcast = MutationStudy.broadcast #g { value:3 }
+
+chain.run
+chain.info

@@ -229,6 +229,22 @@ bool ExpressionParser::ParseIdentifier_Internal(PredaParser::IdentifierContext *
 		m_pErrorPortal->AddIdentifierNotDefinedError(identifierName);
 		return false;
 	}
+	if (pDefinedIdentifier != nullptr &&
+		pDefinedIdentifier->qualifiedType.baseConcreteType != nullptr &&
+		pDefinedIdentifier->qualifiedType.baseConcreteType->typeCategory ==
+			transpiler::ConcreteType::FunctionType)
+	{
+		outResult.callableIdentifier = pDefinedIdentifier;
+	}
+	if (pDefinedIdentifier != nullptr &&
+		m_pTranspilerCtx->functionCtx.GetFunctionSignature() != nullptr)
+	{
+		m_pFunctionCallGraph->RecordIdentifierUse(
+			m_pTranspilerCtx->functionCtx.functionRef,
+			pDefinedIdentifier,
+			outerType,
+			ctx);
+	}
 
 	// first check if it's a type
 	if (type != nullptr)
@@ -601,7 +617,7 @@ bool ExpressionParser::ParseExpression_Internal(PredaParser::ExpressionContext *
 				if (overloadFuncIndex == -1)
 					return false;
 
-				transpiler::FunctionSignature& signature = constructorType->vOverloadedFunctions[overloadFuncIndex];
+					transpiler::FunctionSignature& signature = constructorType->vOverloadedFunctions[overloadFuncIndex];
 
 				if (m_pTranspilerCtx->functionCtx.GetFunctionSignature())
 				{
@@ -613,8 +629,15 @@ bool ExpressionParser::ParseExpression_Internal(PredaParser::ExpressionContext *
 						return false;
 					}
 
-					auto itor = m_pFunctionCallGraph->m_functionCallerSets.try_emplace(&signature).first;
-					itor->second.insert(m_pTranspilerCtx->functionCtx.GetFunctionSignature());
+						transpiler::FunctionRef callee;
+						callee.functionIdentifier = pMember;
+						callee.overloadIndex =
+							static_cast<size_t>(overloadFuncIndex);
+						m_pFunctionCallGraph->RecordCall(
+							m_pTranspilerCtx->functionCtx.functionRef,
+							callee,
+							ctx,
+							FunctionCallOrigin::TypeConstructor);
 				}
 
 				outResult.text = "(" + subExpRes[0].text + "(" + functionArgumentsSynthesizeResult + "))";
@@ -661,8 +684,14 @@ bool ExpressionParser::ParseExpression_Internal(PredaParser::ExpressionContext *
 							}
 
 							outResult.bIsTypeName = false;
-							outResult.text = "imported_contract_" + std::to_string(itor->second.importSlotIndex) + "." + pMember->outputName;
-							outResult.type = pMember->qualifiedType;
+								outResult.text = "imported_contract_" + std::to_string(itor->second.importSlotIndex) + "." + pMember->outputName;
+								outResult.type = pMember->qualifiedType;
+								if (pMember->qualifiedType.baseConcreteType != nullptr &&
+									pMember->qualifiedType.baseConcreteType->typeCategory ==
+										transpiler::ConcreteType::FunctionType)
+								{
+									outResult.callableIdentifier = pMember;
+								}
 
 							return true;
 						}
@@ -685,7 +714,13 @@ bool ExpressionParser::ParseExpression_Internal(PredaParser::ExpressionContext *
 						outResult.text = subExpRes[0].text + "::" + pMember->outputName;
 					}
 
-					outResult.type = memberType;
+						outResult.type = memberType;
+						if (memberType.baseConcreteType != nullptr &&
+							memberType.baseConcreteType->typeCategory ==
+								transpiler::ConcreteType::FunctionType)
+						{
+							outResult.callableIdentifier = pMember;
+						}
 
 					return true;
 				}
@@ -1100,8 +1135,23 @@ bool ExpressionParser::ParseExpression_Internal(PredaParser::ExpressionContext *
 				return false;
 			}
 
-			auto itor = m_pFunctionCallGraph->m_functionCallerSets.try_emplace(&signature).first;
-			itor->second.insert(m_pTranspilerCtx->functionCtx.GetFunctionSignature());
+				transpiler::FunctionRef callee;
+				callee.functionIdentifier =
+					subExpRes[0].callableIdentifier;
+				callee.overloadIndex =
+					static_cast<size_t>(overloadFuncIndex);
+				FunctionCallOrigin origin =
+					(subExpRes[0].type.baseConcreteType ==
+							m_pTranspilerCtx->m_builtInDebugPrintFunctionType ||
+					 subExpRes[0].type.baseConcreteType ==
+							m_pTranspilerCtx->m_builtInDebugAssertFunctionType)
+						? FunctionCallOrigin::RuntimeHelper
+						: FunctionCallOrigin::Ordinary;
+				m_pFunctionCallGraph->RecordCall(
+					m_pTranspilerCtx->functionCtx.functionRef,
+					callee,
+					ctx,
+					origin);
 		}
 
 		outResult.text = subExpRes[0].text + "(" + functionArgumentsSynthesizeResult + ")";
@@ -1127,6 +1177,12 @@ bool ExpressionParser::ParseExpression_Internal(PredaParser::ExpressionContext *
 		}
 
 		outResult.type = pMember->qualifiedType;
+		if (pMember->qualifiedType.baseConcreteType != nullptr &&
+			pMember->qualifiedType.baseConcreteType->typeCategory ==
+				transpiler::ConcreteType::FunctionType)
+		{
+			outResult.callableIdentifier = pMember;
+		}
 
 		if (subExpRes[0].type.baseConcreteType->bIsUserDefinedStructType)
 			outResult.text = subExpRes[0].text + "->" + pMember->outputName;			//User-defined structs are defined as ref-types and have "->" operator overloaded to access the real struct type members
@@ -1140,6 +1196,7 @@ bool ExpressionParser::ParseExpression_Internal(PredaParser::ExpressionContext *
 	case transpiler::PredaExpressionTypes::SurroundWithParentheses:
 		outResult.text = "(" + subExpRes[0].text + ")";
 		outResult.type = subExpRes[0].type;
+		outResult.callableIdentifier = subExpRes[0].callableIdentifier;
 		return true;
 	case transpiler::PredaExpressionTypes::TernaryConditional:
 		if (subExpRes[0].type.baseConcreteType != m_pTranspilerCtx->GetBuiltInBoolType())

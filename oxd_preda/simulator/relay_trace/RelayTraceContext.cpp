@@ -127,6 +127,11 @@ uint32_t RelayTraceContext::NextOccurrence(
 	return next++;
 }
 
+uint64_t RelayTraceContext::NextEmissionSequence()
+{
+	return m_nextEmissionSequence++;
+}
+
 bool RelayTraceContext::HasMarkers() const
 {
 	return !m_markers.empty();

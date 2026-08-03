@@ -1,0 +1,11 @@
+contract ProtocolCFGRecursiveCall {
+    @address function recurse(uint32 remaining) {
+        if (remaining > 0u32) {
+            recurse(remaining - 1u32);
+        }
+    }
+
+    @address function start(uint32 remaining) export {
+        recurse(remaining);
+    }
+}

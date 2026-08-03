@@ -1,0 +1,11 @@
+contract ProtocolCFGNonterminatingFor {
+    @address function spin() export {
+        for (;;) {
+        }
+    }
+
+    @address function maybe_spin(bool keep_going) export {
+        while (keep_going) {
+        }
+    }
+}

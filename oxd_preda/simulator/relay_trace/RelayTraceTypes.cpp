@@ -113,6 +113,22 @@ const char *ToString(ValidationCheckKind kind)
 	case ValidationCheckKind::Routing: return "routing";
 	case ValidationCheckKind::CoemissionNonAlias:
 		return "coemission_non_alias";
+	case ValidationCheckKind::CertificateMutuallyExclusive:
+		return "certificate_mutual_exclusion";
+	case ValidationCheckKind::CertificateMustPrecede:
+		return "certificate_must_precede";
+	case ValidationCheckKind::CertificateCoEmissionIndependent:
+		return "certificate_coemission_independence";
+	case ValidationCheckKind::CertificateProvedMayAlias:
+		return "certificate_proved_may_alias";
+	case ValidationCheckKind::DirectLogicalWork:
+		return "certificate_direct_work";
+	case ValidationCheckKind::TransitiveLogicalWork:
+		return "certificate_transitive_work";
+	case ValidationCheckKind::PhysicalRouteWork:
+		return "certificate_physical_work";
+	case ValidationCheckKind::RelayTreeDepth:
+		return "certificate_depth";
 	case ValidationCheckKind::TargetRelation: return "target_relation";
 	case ValidationCheckKind::ArgumentRelation: return "argument_relation";
 	case ValidationCheckKind::GuardNecessity: return "guard_necessity";
@@ -120,6 +136,41 @@ const char *ToString(ValidationCheckKind kind)
 	case ValidationCheckKind::Unknown: return "unknown";
 	}
 	return "unknown";
+}
+
+const char *ToString(ParallelCertificateStatus status)
+{
+	switch (status)
+	{
+	case ParallelCertificateStatus::Proved: return "Proved";
+	case ParallelCertificateStatus::Complete: return "Complete";
+	case ParallelCertificateStatus::Conservative: return "Conservative";
+	case ParallelCertificateStatus::Unknown: return "Unknown";
+	case ParallelCertificateStatus::Unsupported: return "Unsupported";
+	}
+	return "Unknown";
+}
+
+const char *ToString(RelayPairCertificateRelation relation)
+{
+	switch (relation)
+	{
+	case RelayPairCertificateRelation::MutuallyExclusive:
+		return "MutuallyExclusive";
+	case RelayPairCertificateRelation::MustPrecedeAB:
+		return "MustPrecedeAB";
+	case RelayPairCertificateRelation::MustPrecedeBA:
+		return "MustPrecedeBA";
+	case RelayPairCertificateRelation::CoEmissionIndependent:
+		return "CoEmissionIndependent";
+	case RelayPairCertificateRelation::ProvedMayAlias:
+		return "ProvedMayAlias";
+	case RelayPairCertificateRelation::PotentialConflict:
+		return "PotentialConflict";
+	case RelayPairCertificateRelation::Unknown:
+		return "Unknown";
+	}
+	return "Unknown";
 }
 
 std::string BytesToHex(const uint8_t *data, size_t size)

@@ -1,0 +1,27 @@
+// Deterministic Ballot fixture for R-PREDA runtime optimization A/B.
+random.reseed $~seed$
+allocate.address $~addresses$
+chain.gaslimit 256
+
+chain.deploy @1 ../../../contracts/Ballot.prd
+state.set Ballot.address @all { weight:$random(1, 20)$, voted_case:0 }
+
+Ballot.init @0 { names:["Spring", "Yarn", "Combat"] }
+chain.run
+
+txn_vote[] = Ballot.vote @all {
+    proposal_index:$random(0, 2)$,
+    case_num:1
+}
+txn_finalize = Ballot.finalize @0 {}
+
+stopwatch.restart
+chain.run
+stopwatch.report
+chain.info
+
+viz.addr @all Ballot
+viz.shard #g Ballot
+viz.shard #all Ballot
+viz.block #g
+viz.block #all

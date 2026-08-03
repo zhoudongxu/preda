@@ -22,6 +22,8 @@ enum class RelayProofObligationKind : uint8_t
 	RelayCountEquality,
 	RelayCountUpperBound,
 	TargetNonAliasCandidate,
+	RelayMutualExclusion,
+	RelayTargetIndependence,
 	BooleanRefinement,
 	Unknown,
 };

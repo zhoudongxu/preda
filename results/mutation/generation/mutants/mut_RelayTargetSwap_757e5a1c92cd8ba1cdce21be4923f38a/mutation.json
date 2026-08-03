@@ -1,0 +1,41 @@
+{
+  "contract": "MutationStudy",
+  "description": "swap the targets of relay_site_4 and relay_site_5",
+  "edits": [
+    {
+      "byte_end_offset": 626,
+      "byte_start_offset": 622,
+      "expected_original": "first",
+      "replacement": "second"
+    },
+    {
+      "byte_end_offset": 665,
+      "byte_start_offset": 660,
+      "expected_original": "second",
+      "replacement": "first"
+    }
+  ],
+  "generation_status": "Generated",
+  "location": {
+    "byte_end_offset": 644,
+    "byte_start_offset": 616,
+    "column": 8,
+    "end_column": 37,
+    "end_line": 29,
+    "end_offset": 644,
+    "line": 29,
+    "start_offset": 616
+  },
+  "mutated_code_path": "generation/mutants/mut_RelayTargetSwap_757e5a1c92cd8ba1cdce21be4923f38a/MutationStudy.prd",
+  "mutated_fragment": "secondfirst",
+  "mutation_id": "mut_RelayTargetSwap_757e5a1c92cd8ba1cdce21be4923f38a",
+  "mutation_type": "RelayTargetSwap",
+  "original_code_path": "generation/mutants/mut_RelayTargetSwap_757e5a1c92cd8ba1cdce21be4923f38a/original.prd",
+  "original_fragment": "firstsecond",
+  "reason": "",
+  "relay_site_ids": [
+    "relay_site_4",
+    "relay_site_5"
+  ],
+  "source_function_id": "chsimu.MutationStudy::exercise(bool,uint32,uint32,uint32)"
+}

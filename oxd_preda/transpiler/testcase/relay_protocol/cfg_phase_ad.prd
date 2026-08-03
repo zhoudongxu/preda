@@ -1,0 +1,53 @@
+contract ProtocolCFGPhaseAD {
+    @address uint32 observed;
+    @global uint32 total;
+
+    @address function receive(uint32 value) {
+        observed += value;
+    }
+
+    @address function helper(address target, uint32 value) {
+        if (value > 0u32) {
+            relay@target receive(value);
+        }
+    }
+
+    @global function touch_global(uint32 value) {
+        total += value;
+    }
+
+    @address function send(
+        bool primary,
+        address first,
+        address second,
+        uint32 value
+    ) export {
+        if (primary) {
+            relay@first receive(value);
+        } else {
+            relay@second receive(value);
+        }
+
+        helper(first, value);
+
+        for (uint32 i = 0u32; i < 3u32; i++) {
+            if (i == 1u32) {
+                continue;
+            }
+            if (i == 2u32) {
+                break;
+            }
+            observed += i;
+        }
+
+        while (value > 0u32) {
+            break;
+        }
+
+        do {
+            if (primary) {
+                return;
+            }
+        } while (false);
+    }
+}

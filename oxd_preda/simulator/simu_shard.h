@@ -2,6 +2,10 @@
 #include "shard_data.h"
 #include "../native/types/typetraits.h"
 #include "core_contracts.h"
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+#include "../runtime/relay_plan/RelayPlan.h"
+#include <cstdint>
+#endif
 #ifdef RPREDA_ENABLE_RUNTIME_TRACE
 #include "../native/abi/relay_trace_abi.h"
 #include "relay_trace/RelayTraceTypes.h"
@@ -46,10 +50,16 @@ public:
 	RelayEmission(ChainSimulator* s, SimuShard* shard);
 	RelayEmission(Simulator* s, SimuShard* shard);
 	~RelayEmission();
-	void	Collect(SimuTxn* origin, rt::BufferEx<SimuTxn*>& txns, uint64_t remained_gas);
+	uint32_t Collect(SimuTxn* origin, rt::BufferEx<SimuTxn*>& txns, uint64_t remained_gas);
 	void	Dispatch();  // dispatch all collected and clean up
 	auto&	GetDeferredTxns() const { return _ToNextBlock; }
 	void	ClearDeferredTxns(){ _ToNextBlock.ShrinkSize(0); };
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+	void	ReserveForPlan(
+				const relay_plan::FunctionRelayPlan& plan,
+				uint64_t logicalRelayBound,
+				uint64_t maximumReserve);
+#endif
 };
 
 struct ShardStates
@@ -114,6 +124,11 @@ protected:
 	bool						_IsGlobalScope() const { return (SimuShard*)_pGlobalShard == this; }
 	uint64_t					_GetBlockTime() const { return _BlockTimeBase + _BlockHeight*SIMU_BLOCK_INTERVAL; }
 	SimuTxn*					_CreateRelayTxn(rvm::ContractInvokeId ciid, rvm::OpCode opcode, const rvm::ConstData* args_serialized, uint32_t gas_redistribution_weight) const;
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+	void						_AppendRelayEmission(
+									SimuTxn* txn,
+									uint64_t generationBeginNs);
+#endif
 
 #ifdef RPREDA_ENABLE_RUNTIME_TRACE
 	struct RelayTraceMarkerToken
@@ -250,7 +265,7 @@ public:
 	bool		ConfirmedTxnJsonify(const SimuTxn* txn, rt::Json& append) const;
 	size_t		GetPendingTxnCount() const {return _PendingTxns.GetSize();}
 	auto		GetAddressState(SimuAddressContract k) { return (const SimuState*)_AddressStates.Get(k); }
-	void		PushIntraRelay(SimuTxn* t) { _IntraRelayTxns.Push(t); }
+	void		PushIntraRelay(SimuTxn* t);
 #ifndef __APPLE__
 	std::pmr::unsynchronized_pool_resource* GetMemPool() { return &_MemoryPool; }
 #endif

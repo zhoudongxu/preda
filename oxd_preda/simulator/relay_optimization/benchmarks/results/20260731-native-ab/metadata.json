@@ -1,0 +1,163 @@
+{
+  "schema_version": 1,
+  "evidence_date": "2026-07-31",
+  "status": "accepted",
+  "engine": "PREDA Native Engine",
+  "artifacts": {
+    "binary": {
+      "path": "bin/bin_release/chsimu",
+      "sha256": "f9d670886135682c3a53ab78fe1b28fc55025d3f437b9ef2295f96f565d437c1"
+    },
+    "configuration": {
+      "path": "oxd_preda/simulator/relay_optimization/benchmarks/workloads.json",
+      "sha256": "190bc4113e29f5d5441f4682dab528b3370e94e56d26af4f1b800fcb0f3fe224"
+    }
+  },
+  "build_options": {
+    "RPREDA_ENABLE_RUNTIME_TRACE": false,
+    "RPREDA_ENABLE_RUNTIME_OPTIMIZATION": true,
+    "RPREDA_ENABLE_Z3": false
+  },
+  "performance_protocol": {
+    "seed": 88,
+    "order": 2,
+    "schedule_seed": 20260730,
+    "cpu_affinity": "0-7",
+    "warmups_per_workload_variant": 1,
+    "measured_repetitions_per_workload_variant": 5,
+    "workload_count": 5,
+    "variant_count": 4,
+    "measured_samples_expected": 100,
+    "measured_samples_succeeded": 100,
+    "metrics_scope": "measurement_window",
+    "measurement_window_status": "completed",
+    "raw_logs_included": false
+  },
+  "variants": [
+    "baseline",
+    "generic_batch_only",
+    "verified_reserve_only",
+    "verified_reserve_plus_batch"
+  ],
+  "workloads": {
+    "Token": {
+      "performance": {
+        "count": 10000,
+        "addresses": 1024,
+        "measured_source_transaction_offset": 0
+      },
+      "correctness": {
+        "count": 128,
+        "addresses": 128
+      },
+      "fixtures": {
+        "performance": {
+          "path": "oxd_preda/simulator/relay_optimization/benchmarks/fixtures/TokenPerformance.prdts",
+          "sha256": "97b9ef21808449408b1070d55232ac5220ea552f5959518e99faef90b7a99b9f"
+        },
+        "correctness": {
+          "path": "oxd_preda/simulator/relay_optimization/benchmarks/fixtures/TokenDeterministic.prdts",
+          "sha256": "198e29e811b37c66c3c6ba4ec3e05104dd9d64a2192bceef6ac6dd5675b3aff1"
+        }
+      }
+    },
+    "Ballot": {
+      "performance": {
+        "count": 10000,
+        "addresses": 10000,
+        "measured_source_transaction_offset": 1
+      },
+      "correctness": {
+        "count": 64,
+        "addresses": 64
+      },
+      "fixtures": {
+        "performance": {
+          "path": "oxd_preda/simulator/relay_optimization/benchmarks/fixtures/BallotPerformance.prdts",
+          "sha256": "02eb932fbfdbe0f9914d9de0b85e41b6180a43780faa70ca3a54fcacb19de54d"
+        },
+        "correctness": {
+          "path": "oxd_preda/simulator/relay_optimization/benchmarks/fixtures/BallotDeterministic.prdts",
+          "sha256": "7bd9e337b772822e4cc8af198c8d3d1c57b90b12f2d170fcf1dc31a534b669fa"
+        }
+      }
+    },
+    "MillionPixel": {
+      "performance": {
+        "count": 10000,
+        "addresses": 10000,
+        "measured_source_transaction_offset": 0
+      },
+      "correctness": {
+        "count": 128,
+        "addresses": 128
+      },
+      "fixtures": {
+        "performance": {
+          "path": "oxd_preda/simulator/relay_optimization/benchmarks/fixtures/MillionPixelPerformance.prdts",
+          "sha256": "6cc3744a5c5a4cb314be1dd78fff73696300ab0ada8e120c56792f538fb9b3c9"
+        },
+        "correctness": {
+          "path": "oxd_preda/simulator/relay_optimization/benchmarks/fixtures/MillionPixelDeterministic.prdts",
+          "sha256": "abf4ec0a71f8420b18e2c1a4ce7a17626e2cd7c206a68074096ece937156f278"
+        }
+      }
+    },
+    "Kitty": {
+      "performance": {
+        "count": 500,
+        "addresses": 500,
+        "measured_source_transaction_offset": 0
+      },
+      "correctness": {
+        "count": 32,
+        "addresses": 32
+      },
+      "fixtures": {
+        "performance": {
+          "path": "oxd_preda/simulator/relay_optimization/benchmarks/fixtures/KittyPerformance.prdts",
+          "sha256": "abafb41aa55f26c77780bb9487ffd4198e194173c19827c98e756cbe2d742496"
+        },
+        "correctness": {
+          "path": "oxd_preda/simulator/relay_optimization/benchmarks/fixtures/KittyDeterministic.prdts",
+          "sha256": "55001c2330d800ff5f515a29776013c6b532dc97587b97505504190b4946b0f0"
+        }
+      }
+    },
+    "AirDrop": {
+      "performance": {
+        "count": 1000,
+        "addresses": 1024,
+        "measured_source_transaction_offset": 0
+      },
+      "correctness": {
+        "count": 16,
+        "addresses": 128
+      },
+      "fixtures": {
+        "performance": {
+          "path": "oxd_preda/simulator/relay_optimization/benchmarks/fixtures/AirDropPerformance.prdts",
+          "sha256": "b043a0c0b2c5b52731e3b381b265e2643bba86c3abef5d01976d11cae0319103"
+        },
+        "correctness": {
+          "path": "oxd_preda/simulator/relay_optimization/benchmarks/fixtures/AirDropDeterministic.prdts",
+          "sha256": "a0859118f8325f1d17f762b62c46c768fb4717d1e22b51f21ec0293a996c87b3"
+        }
+      }
+    }
+  },
+  "correctness": {
+    "passed": true,
+    "reference_variant": "baseline",
+    "workloads_passed": 5,
+    "workloads_total": 5,
+    "variant_comparisons_passed": 20,
+    "variant_comparisons_total": 20
+  },
+  "files": {
+    "performance_summary_json": "performance_summary.json",
+    "performance_summary_csv": "performance_summary.csv",
+    "performance_samples_csv": "performance_samples.csv",
+    "correctness_json": "correctness.json"
+  }
+}

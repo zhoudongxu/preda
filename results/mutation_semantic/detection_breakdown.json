@@ -1,0 +1,868 @@
+{
+  "by_benchmark": {
+    "AirDrop": {
+      "detected_beyond_static_mutants": 0,
+      "detected_beyond_static_rate": 0.0,
+      "layer_combinations": {
+        "none": 1,
+        "static": 1
+      },
+      "multi_layer_mutants": 0,
+      "multi_layer_rate": 0.0,
+      "mutants_with_deep_layer_evidence": 0,
+      "mutants_with_deep_layer_evidence_rate": 0.0,
+      "per_layer": {
+        "certificate": {
+          "detected_mutants": 0,
+          "detection_rate": 0.0,
+          "eligible_mutants": 2,
+          "unique_detections": 0
+        },
+        "runtime": {
+          "detected_mutants": 0,
+          "detection_rate": 0.0,
+          "eligible_mutants": 2,
+          "unique_detections": 0
+        },
+        "static": {
+          "detected_mutants": 1,
+          "detection_rate": 1.0,
+          "eligible_mutants": 1,
+          "unique_detections": 1
+        },
+        "z3": {
+          "detected_mutants": 0,
+          "detection_rate": null,
+          "eligible_mutants": 0,
+          "unique_detections": 0
+        }
+      },
+      "total_mutants": 2
+    },
+    "Ballot": {
+      "detected_beyond_static_mutants": 0,
+      "detected_beyond_static_rate": 0.0,
+      "layer_combinations": {
+        "none": 1,
+        "static+certificate": 1
+      },
+      "multi_layer_mutants": 1,
+      "multi_layer_rate": 0.5,
+      "mutants_with_deep_layer_evidence": 1,
+      "mutants_with_deep_layer_evidence_rate": 0.5,
+      "per_layer": {
+        "certificate": {
+          "detected_mutants": 1,
+          "detection_rate": 0.5,
+          "eligible_mutants": 2,
+          "unique_detections": 0
+        },
+        "runtime": {
+          "detected_mutants": 0,
+          "detection_rate": 0.0,
+          "eligible_mutants": 2,
+          "unique_detections": 0
+        },
+        "static": {
+          "detected_mutants": 1,
+          "detection_rate": 0.5,
+          "eligible_mutants": 2,
+          "unique_detections": 0
+        },
+        "z3": {
+          "detected_mutants": 0,
+          "detection_rate": null,
+          "eligible_mutants": 0,
+          "unique_detections": 0
+        }
+      },
+      "total_mutants": 2
+    },
+    "Kitty": {
+      "detected_beyond_static_mutants": 0,
+      "detected_beyond_static_rate": 0.0,
+      "layer_combinations": {
+        "static+certificate": 1,
+        "static+z3": 1
+      },
+      "multi_layer_mutants": 2,
+      "multi_layer_rate": 1.0,
+      "mutants_with_deep_layer_evidence": 2,
+      "mutants_with_deep_layer_evidence_rate": 1.0,
+      "per_layer": {
+        "certificate": {
+          "detected_mutants": 1,
+          "detection_rate": 1.0,
+          "eligible_mutants": 1,
+          "unique_detections": 0
+        },
+        "runtime": {
+          "detected_mutants": 0,
+          "detection_rate": 0.0,
+          "eligible_mutants": 2,
+          "unique_detections": 0
+        },
+        "static": {
+          "detected_mutants": 2,
+          "detection_rate": 1.0,
+          "eligible_mutants": 2,
+          "unique_detections": 0
+        },
+        "z3": {
+          "detected_mutants": 1,
+          "detection_rate": 1.0,
+          "eligible_mutants": 1,
+          "unique_detections": 0
+        }
+      },
+      "total_mutants": 2
+    },
+    "MillionPixel": {
+      "detected_beyond_static_mutants": 3,
+      "detected_beyond_static_rate": 0.75,
+      "layer_combinations": {
+        "runtime": 1,
+        "static+certificate": 1,
+        "z3": 2
+      },
+      "multi_layer_mutants": 1,
+      "multi_layer_rate": 0.25,
+      "mutants_with_deep_layer_evidence": 4,
+      "mutants_with_deep_layer_evidence_rate": 1.0,
+      "per_layer": {
+        "certificate": {
+          "detected_mutants": 1,
+          "detection_rate": 1.0,
+          "eligible_mutants": 1,
+          "unique_detections": 0
+        },
+        "runtime": {
+          "detected_mutants": 1,
+          "detection_rate": 0.25,
+          "eligible_mutants": 4,
+          "unique_detections": 1
+        },
+        "static": {
+          "detected_mutants": 1,
+          "detection_rate": 0.3333333333333333,
+          "eligible_mutants": 3,
+          "unique_detections": 0
+        },
+        "z3": {
+          "detected_mutants": 2,
+          "detection_rate": 1.0,
+          "eligible_mutants": 2,
+          "unique_detections": 2
+        }
+      },
+      "total_mutants": 4
+    },
+    "Synthetic": {
+      "detected_beyond_static_mutants": 1,
+      "detected_beyond_static_rate": 0.1111111111111111,
+      "layer_combinations": {
+        "certificate+runtime": 1,
+        "static+certificate": 4,
+        "static+z3": 4
+      },
+      "multi_layer_mutants": 9,
+      "multi_layer_rate": 1.0,
+      "mutants_with_deep_layer_evidence": 9,
+      "mutants_with_deep_layer_evidence_rate": 1.0,
+      "per_layer": {
+        "certificate": {
+          "detected_mutants": 5,
+          "detection_rate": 1.0,
+          "eligible_mutants": 5,
+          "unique_detections": 0
+        },
+        "runtime": {
+          "detected_mutants": 1,
+          "detection_rate": 0.1111111111111111,
+          "eligible_mutants": 9,
+          "unique_detections": 0
+        },
+        "static": {
+          "detected_mutants": 8,
+          "detection_rate": 1.0,
+          "eligible_mutants": 8,
+          "unique_detections": 0
+        },
+        "z3": {
+          "detected_mutants": 4,
+          "detection_rate": 1.0,
+          "eligible_mutants": 4,
+          "unique_detections": 0
+        }
+      },
+      "total_mutants": 9
+    },
+    "Token": {
+      "detected_beyond_static_mutants": 0,
+      "detected_beyond_static_rate": 0.0,
+      "layer_combinations": {
+        "static+certificate": 1,
+        "static+z3": 2
+      },
+      "multi_layer_mutants": 3,
+      "multi_layer_rate": 1.0,
+      "mutants_with_deep_layer_evidence": 3,
+      "mutants_with_deep_layer_evidence_rate": 1.0,
+      "per_layer": {
+        "certificate": {
+          "detected_mutants": 1,
+          "detection_rate": 1.0,
+          "eligible_mutants": 1,
+          "unique_detections": 0
+        },
+        "runtime": {
+          "detected_mutants": 0,
+          "detection_rate": 0.0,
+          "eligible_mutants": 3,
+          "unique_detections": 0
+        },
+        "static": {
+          "detected_mutants": 3,
+          "detection_rate": 1.0,
+          "eligible_mutants": 3,
+          "unique_detections": 0
+        },
+        "z3": {
+          "detected_mutants": 2,
+          "detection_rate": 1.0,
+          "eligible_mutants": 2,
+          "unique_detections": 0
+        }
+      },
+      "total_mutants": 3
+    }
+  },
+  "by_category": {
+    "Alias": {
+      "detected_beyond_static_mutants": 0,
+      "detected_beyond_static_rate": 0.0,
+      "layer_combinations": {
+        "static+certificate": 1
+      },
+      "multi_layer_mutants": 1,
+      "multi_layer_rate": 1.0,
+      "mutants_with_deep_layer_evidence": 1,
+      "mutants_with_deep_layer_evidence_rate": 1.0,
+      "per_layer": {
+        "certificate": {
+          "detected_mutants": 1,
+          "detection_rate": 1.0,
+          "eligible_mutants": 1,
+          "unique_detections": 0
+        },
+        "runtime": {
+          "detected_mutants": 0,
+          "detection_rate": 0.0,
+          "eligible_mutants": 1,
+          "unique_detections": 0
+        },
+        "static": {
+          "detected_mutants": 1,
+          "detection_rate": 1.0,
+          "eligible_mutants": 1,
+          "unique_detections": 0
+        },
+        "z3": {
+          "detected_mutants": 0,
+          "detection_rate": null,
+          "eligible_mutants": 0,
+          "unique_detections": 0
+        }
+      },
+      "total_mutants": 1
+    },
+    "Argument": {
+      "detected_beyond_static_mutants": 0,
+      "detected_beyond_static_rate": 0.0,
+      "layer_combinations": {
+        "static+z3": 3
+      },
+      "multi_layer_mutants": 3,
+      "multi_layer_rate": 1.0,
+      "mutants_with_deep_layer_evidence": 3,
+      "mutants_with_deep_layer_evidence_rate": 1.0,
+      "per_layer": {
+        "certificate": {
+          "detected_mutants": 0,
+          "detection_rate": null,
+          "eligible_mutants": 0,
+          "unique_detections": 0
+        },
+        "runtime": {
+          "detected_mutants": 0,
+          "detection_rate": 0.0,
+          "eligible_mutants": 3,
+          "unique_detections": 0
+        },
+        "static": {
+          "detected_mutants": 3,
+          "detection_rate": 1.0,
+          "eligible_mutants": 3,
+          "unique_detections": 0
+        },
+        "z3": {
+          "detected_mutants": 3,
+          "detection_rate": 1.0,
+          "eligible_mutants": 3,
+          "unique_detections": 0
+        }
+      },
+      "total_mutants": 3
+    },
+    "Broadcast": {
+      "detected_beyond_static_mutants": 0,
+      "detected_beyond_static_rate": 0.0,
+      "layer_combinations": {
+        "none": 1
+      },
+      "multi_layer_mutants": 0,
+      "multi_layer_rate": 0.0,
+      "mutants_with_deep_layer_evidence": 0,
+      "mutants_with_deep_layer_evidence_rate": 0.0,
+      "per_layer": {
+        "certificate": {
+          "detected_mutants": 0,
+          "detection_rate": 0.0,
+          "eligible_mutants": 1,
+          "unique_detections": 0
+        },
+        "runtime": {
+          "detected_mutants": 0,
+          "detection_rate": 0.0,
+          "eligible_mutants": 1,
+          "unique_detections": 0
+        },
+        "static": {
+          "detected_mutants": 0,
+          "detection_rate": 0.0,
+          "eligible_mutants": 1,
+          "unique_detections": 0
+        },
+        "z3": {
+          "detected_mutants": 0,
+          "detection_rate": null,
+          "eligible_mutants": 0,
+          "unique_detections": 0
+        }
+      },
+      "total_mutants": 1
+    },
+    "Depth": {
+      "detected_beyond_static_mutants": 0,
+      "detected_beyond_static_rate": 0.0,
+      "layer_combinations": {
+        "static+certificate": 1
+      },
+      "multi_layer_mutants": 1,
+      "multi_layer_rate": 1.0,
+      "mutants_with_deep_layer_evidence": 1,
+      "mutants_with_deep_layer_evidence_rate": 1.0,
+      "per_layer": {
+        "certificate": {
+          "detected_mutants": 1,
+          "detection_rate": 1.0,
+          "eligible_mutants": 1,
+          "unique_detections": 0
+        },
+        "runtime": {
+          "detected_mutants": 0,
+          "detection_rate": 0.0,
+          "eligible_mutants": 1,
+          "unique_detections": 0
+        },
+        "static": {
+          "detected_mutants": 1,
+          "detection_rate": 1.0,
+          "eligible_mutants": 1,
+          "unique_detections": 0
+        },
+        "z3": {
+          "detected_mutants": 0,
+          "detection_rate": null,
+          "eligible_mutants": 0,
+          "unique_detections": 0
+        }
+      },
+      "total_mutants": 1
+    },
+    "Guard": {
+      "detected_beyond_static_mutants": 0,
+      "detected_beyond_static_rate": 0.0,
+      "layer_combinations": {
+        "static+z3": 2
+      },
+      "multi_layer_mutants": 2,
+      "multi_layer_rate": 1.0,
+      "mutants_with_deep_layer_evidence": 2,
+      "mutants_with_deep_layer_evidence_rate": 1.0,
+      "per_layer": {
+        "certificate": {
+          "detected_mutants": 0,
+          "detection_rate": null,
+          "eligible_mutants": 0,
+          "unique_detections": 0
+        },
+        "runtime": {
+          "detected_mutants": 0,
+          "detection_rate": 0.0,
+          "eligible_mutants": 2,
+          "unique_detections": 0
+        },
+        "static": {
+          "detected_mutants": 2,
+          "detection_rate": 1.0,
+          "eligible_mutants": 2,
+          "unique_detections": 0
+        },
+        "z3": {
+          "detected_mutants": 2,
+          "detection_rate": 1.0,
+          "eligible_mutants": 2,
+          "unique_detections": 0
+        }
+      },
+      "total_mutants": 2
+    },
+    "Order": {
+      "detected_beyond_static_mutants": 0,
+      "detected_beyond_static_rate": 0.0,
+      "layer_combinations": {
+        "static+certificate": 1
+      },
+      "multi_layer_mutants": 1,
+      "multi_layer_rate": 1.0,
+      "mutants_with_deep_layer_evidence": 1,
+      "mutants_with_deep_layer_evidence_rate": 1.0,
+      "per_layer": {
+        "certificate": {
+          "detected_mutants": 1,
+          "detection_rate": 1.0,
+          "eligible_mutants": 1,
+          "unique_detections": 0
+        },
+        "runtime": {
+          "detected_mutants": 0,
+          "detection_rate": 0.0,
+          "eligible_mutants": 1,
+          "unique_detections": 0
+        },
+        "static": {
+          "detected_mutants": 1,
+          "detection_rate": 1.0,
+          "eligible_mutants": 1,
+          "unique_detections": 0
+        },
+        "z3": {
+          "detected_mutants": 0,
+          "detection_rate": null,
+          "eligible_mutants": 0,
+          "unique_detections": 0
+        }
+      },
+      "total_mutants": 1
+    },
+    "Target": {
+      "detected_beyond_static_mutants": 3,
+      "detected_beyond_static_rate": 0.6,
+      "layer_combinations": {
+        "runtime": 1,
+        "static+z3": 2,
+        "z3": 2
+      },
+      "multi_layer_mutants": 2,
+      "multi_layer_rate": 0.4,
+      "mutants_with_deep_layer_evidence": 5,
+      "mutants_with_deep_layer_evidence_rate": 1.0,
+      "per_layer": {
+        "certificate": {
+          "detected_mutants": 0,
+          "detection_rate": null,
+          "eligible_mutants": 0,
+          "unique_detections": 0
+        },
+        "runtime": {
+          "detected_mutants": 1,
+          "detection_rate": 0.2,
+          "eligible_mutants": 5,
+          "unique_detections": 1
+        },
+        "static": {
+          "detected_mutants": 2,
+          "detection_rate": 0.5,
+          "eligible_mutants": 4,
+          "unique_detections": 0
+        },
+        "z3": {
+          "detected_mutants": 4,
+          "detection_rate": 1.0,
+          "eligible_mutants": 4,
+          "unique_detections": 2
+        }
+      },
+      "total_mutants": 5
+    },
+    "Work": {
+      "detected_beyond_static_mutants": 1,
+      "detected_beyond_static_rate": 0.125,
+      "layer_combinations": {
+        "certificate+runtime": 1,
+        "none": 1,
+        "static": 1,
+        "static+certificate": 5
+      },
+      "multi_layer_mutants": 6,
+      "multi_layer_rate": 0.75,
+      "mutants_with_deep_layer_evidence": 6,
+      "mutants_with_deep_layer_evidence_rate": 0.75,
+      "per_layer": {
+        "certificate": {
+          "detected_mutants": 6,
+          "detection_rate": 0.75,
+          "eligible_mutants": 8,
+          "unique_detections": 0
+        },
+        "runtime": {
+          "detected_mutants": 1,
+          "detection_rate": 0.125,
+          "eligible_mutants": 8,
+          "unique_detections": 0
+        },
+        "static": {
+          "detected_mutants": 6,
+          "detection_rate": 1.0,
+          "eligible_mutants": 6,
+          "unique_detections": 1
+        },
+        "z3": {
+          "detected_mutants": 0,
+          "detection_rate": null,
+          "eligible_mutants": 0,
+          "unique_detections": 0
+        }
+      },
+      "total_mutants": 8
+    }
+  },
+  "layers": [
+    "static",
+    "z3",
+    "certificate",
+    "runtime"
+  ],
+  "matrix": [
+    {
+      "benchmark": "Token",
+      "certificate": true,
+      "final_classification": "StaticProtocolMismatch",
+      "formula_ir_changed": false,
+      "mutation_id": "a898617e03138c73250032da8b31212f",
+      "mutation_type": "RelayDuplicate",
+      "runtime": false,
+      "semantic_category": "Work",
+      "static": true,
+      "z3": false
+    },
+    {
+      "benchmark": "Token",
+      "certificate": false,
+      "final_classification": "StaticProtocolMismatch",
+      "formula_ir_changed": true,
+      "mutation_id": "3ecf6f83f2d58a5a961def811aa5bb3f",
+      "mutation_type": "ArgumentArithmeticPerturb",
+      "runtime": false,
+      "semantic_category": "Argument",
+      "static": true,
+      "z3": true
+    },
+    {
+      "benchmark": "Token",
+      "certificate": false,
+      "final_classification": "StaticProtocolMismatch",
+      "formula_ir_changed": true,
+      "mutation_id": "7174f69426c67685186e8ff082c1a560",
+      "mutation_type": "GuardBoundaryChange",
+      "runtime": false,
+      "semantic_category": "Guard",
+      "static": true,
+      "z3": true
+    },
+    {
+      "benchmark": "Ballot",
+      "certificate": true,
+      "final_classification": "StaticProtocolMismatch",
+      "formula_ir_changed": false,
+      "mutation_id": "45bba551ed34aaeb28995e36a0d95357",
+      "mutation_type": "RelayDuplicate",
+      "runtime": false,
+      "semantic_category": "Work",
+      "static": true,
+      "z3": false
+    },
+    {
+      "benchmark": "Ballot",
+      "certificate": false,
+      "final_classification": "CompilerRejected",
+      "formula_ir_changed": false,
+      "mutation_id": "e9dcd8f257a9c49f2e7eab174af6f233",
+      "mutation_type": "BroadcastToSingle",
+      "runtime": false,
+      "semantic_category": "Broadcast",
+      "static": false,
+      "z3": false
+    },
+    {
+      "benchmark": "MillionPixel",
+      "certificate": true,
+      "final_classification": "StaticProtocolMismatch",
+      "formula_ir_changed": false,
+      "mutation_id": "4517d77c213c050a5ae2075e73e09abb",
+      "mutation_type": "RelayDuplicate",
+      "runtime": false,
+      "semantic_category": "Work",
+      "static": true,
+      "z3": false
+    },
+    {
+      "benchmark": "MillionPixel",
+      "certificate": false,
+      "final_classification": "Z3Disproved",
+      "formula_ir_changed": true,
+      "mutation_id": "1d6667b115f1afd8104be4ce30e30e3d",
+      "mutation_type": "TargetArithmeticPerturb",
+      "runtime": false,
+      "semantic_category": "Target",
+      "static": false,
+      "z3": true
+    },
+    {
+      "benchmark": "MillionPixel",
+      "certificate": false,
+      "final_classification": "Z3Disproved",
+      "formula_ir_changed": true,
+      "mutation_id": "70c84951203d3487f6a55dff0e270912",
+      "mutation_type": "TargetVariableSwap",
+      "runtime": false,
+      "semantic_category": "Target",
+      "static": false,
+      "z3": true
+    },
+    {
+      "benchmark": "MillionPixel",
+      "certificate": false,
+      "final_classification": "RuntimeStrictMismatch",
+      "formula_ir_changed": null,
+      "mutation_id": "runtime-mp-target-scope",
+      "mutation_type": "RuntimeTargetScopeCorruption",
+      "runtime": true,
+      "semantic_category": "Target",
+      "static": false,
+      "z3": false
+    },
+    {
+      "benchmark": "Kitty",
+      "certificate": true,
+      "final_classification": "StaticProtocolMismatch",
+      "formula_ir_changed": false,
+      "mutation_id": "1657e1ca9820b21bb431d73814ace93e",
+      "mutation_type": "RelayDuplicate",
+      "runtime": false,
+      "semantic_category": "Work",
+      "static": true,
+      "z3": false
+    },
+    {
+      "benchmark": "Kitty",
+      "certificate": false,
+      "final_classification": "StaticProtocolMismatch",
+      "formula_ir_changed": true,
+      "mutation_id": "9594747e185d3cfc7617deccbb0744d6",
+      "mutation_type": "ArgumentArithmeticPerturb",
+      "runtime": false,
+      "semantic_category": "Argument",
+      "static": true,
+      "z3": true
+    },
+    {
+      "benchmark": "AirDrop",
+      "certificate": false,
+      "final_classification": "StaticProtocolMismatch",
+      "formula_ir_changed": false,
+      "mutation_id": "e158f49d4c89aceb383265071650607d",
+      "mutation_type": "RelayDuplicate",
+      "runtime": false,
+      "semantic_category": "Work",
+      "static": true,
+      "z3": false
+    },
+    {
+      "benchmark": "AirDrop",
+      "certificate": false,
+      "final_classification": "Unsupported",
+      "formula_ir_changed": null,
+      "mutation_id": "runtime-airdrop-duplicate",
+      "mutation_type": "RuntimeRelayDuplicate",
+      "runtime": false,
+      "semantic_category": "Work",
+      "static": false,
+      "z3": false
+    },
+    {
+      "benchmark": "Synthetic",
+      "certificate": true,
+      "final_classification": "StaticProtocolMismatch",
+      "formula_ir_changed": false,
+      "mutation_id": "1488d6c095f1adc60e3d9d4f79fe9d87",
+      "mutation_type": "RelayDuplicate",
+      "runtime": false,
+      "semantic_category": "Work",
+      "static": true,
+      "z3": false
+    },
+    {
+      "benchmark": "Synthetic",
+      "certificate": true,
+      "final_classification": "StaticProtocolMismatch",
+      "formula_ir_changed": false,
+      "mutation_id": "9cb75393bd225806079998137ae77897",
+      "mutation_type": "RelayOrderSwap",
+      "runtime": false,
+      "semantic_category": "Order",
+      "static": true,
+      "z3": false
+    },
+    {
+      "benchmark": "Synthetic",
+      "certificate": true,
+      "final_classification": "StaticProtocolMismatch",
+      "formula_ir_changed": false,
+      "mutation_id": "2933f2f3d6732439e854e52b8840143c",
+      "mutation_type": "IntroduceAlias",
+      "runtime": false,
+      "semantic_category": "Alias",
+      "static": true,
+      "z3": false
+    },
+    {
+      "benchmark": "Synthetic",
+      "certificate": true,
+      "final_classification": "StaticProtocolMismatch",
+      "formula_ir_changed": false,
+      "mutation_id": "8cb23b1ef0c0b65147d2c9888476cf65",
+      "mutation_type": "IntroduceRelayRecursion",
+      "runtime": false,
+      "semantic_category": "Depth",
+      "static": true,
+      "z3": false
+    },
+    {
+      "benchmark": "Synthetic",
+      "certificate": false,
+      "final_classification": "StaticProtocolMismatch",
+      "formula_ir_changed": true,
+      "mutation_id": "fc502f164886498bbf446fe30d5401fc",
+      "mutation_type": "TargetArithmeticPerturb",
+      "runtime": false,
+      "semantic_category": "Target",
+      "static": true,
+      "z3": true
+    },
+    {
+      "benchmark": "Synthetic",
+      "certificate": false,
+      "final_classification": "StaticProtocolMismatch",
+      "formula_ir_changed": true,
+      "mutation_id": "e4bf549e8dd18cb4cdc8ae38d12f371f",
+      "mutation_type": "TargetVariableSwap",
+      "runtime": false,
+      "semantic_category": "Target",
+      "static": true,
+      "z3": true
+    },
+    {
+      "benchmark": "Synthetic",
+      "certificate": false,
+      "final_classification": "StaticProtocolMismatch",
+      "formula_ir_changed": true,
+      "mutation_id": "811bf309fd90fb1476c11eaa8c728405",
+      "mutation_type": "ArgumentArithmeticPerturb",
+      "runtime": false,
+      "semantic_category": "Argument",
+      "static": true,
+      "z3": true
+    },
+    {
+      "benchmark": "Synthetic",
+      "certificate": false,
+      "final_classification": "StaticProtocolMismatch",
+      "formula_ir_changed": true,
+      "mutation_id": "34fb5df52e83487caaee91c21d8ca93d",
+      "mutation_type": "GuardBoundaryChange",
+      "runtime": false,
+      "semantic_category": "Guard",
+      "static": true,
+      "z3": true
+    },
+    {
+      "benchmark": "Synthetic",
+      "certificate": true,
+      "final_classification": "CertificateViolation",
+      "formula_ir_changed": null,
+      "mutation_id": "runtime-synthetic-duplicate",
+      "mutation_type": "RuntimeRelayDuplicate",
+      "runtime": true,
+      "semantic_category": "Work",
+      "static": false,
+      "z3": false
+    }
+  ],
+  "overall": {
+    "detected_beyond_static_mutants": 4,
+    "detected_beyond_static_rate": 0.18181818181818182,
+    "layer_combinations": {
+      "certificate+runtime": 1,
+      "none": 2,
+      "runtime": 1,
+      "static": 1,
+      "static+certificate": 8,
+      "static+z3": 7,
+      "z3": 2
+    },
+    "multi_layer_mutants": 16,
+    "multi_layer_rate": 0.7272727272727273,
+    "mutants_with_deep_layer_evidence": 19,
+    "mutants_with_deep_layer_evidence_rate": 0.8636363636363636,
+    "per_layer": {
+      "certificate": {
+        "detected_mutants": 9,
+        "detection_rate": 0.75,
+        "eligible_mutants": 12,
+        "unique_detections": 0
+      },
+      "runtime": {
+        "detected_mutants": 2,
+        "detection_rate": 0.09090909090909091,
+        "eligible_mutants": 22,
+        "unique_detections": 1
+      },
+      "static": {
+        "detected_mutants": 16,
+        "detection_rate": 0.8421052631578947,
+        "eligible_mutants": 19,
+        "unique_detections": 1
+      },
+      "z3": {
+        "detected_mutants": 9,
+        "detection_rate": 1.0,
+        "eligible_mutants": 9,
+        "unique_detections": 2
+      }
+    },
+    "total_mutants": 22
+  },
+  "schema_version": 1
+}

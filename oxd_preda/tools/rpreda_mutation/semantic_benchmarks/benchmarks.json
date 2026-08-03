@@ -1,0 +1,357 @@
+{
+  "schema_version": 1,
+  "defaults": {
+    "seed": 88,
+    "order": 2,
+    "timeout_seconds": 45,
+    "max_selected_per_kind": 1
+  },
+  "benchmarks": {
+    "Token": {
+      "source": "oxd_preda/simulator/contracts/Token.prd",
+      "runtime_template": "fixtures/Token.prdts.in",
+      "runtime_parameters": {
+        "addresses": 8,
+        "count": 1
+      },
+      "coverage_allowlist": {
+        "label": "Token.transfer",
+        "required_function_ids": [
+          "chsimu.Token::transfer(address,bigint)"
+        ],
+        "required_site_ids": [
+          "relay_site_0"
+        ],
+        "portable_source_function_signatures": [
+          "transfer(address,bigint)"
+        ],
+        "include_reachable_relay_handlers": true
+      },
+      "semantic_categories": [
+        "Argument",
+        "Guard",
+        "Work",
+        "Runtime"
+      ],
+      "recommended_mutations": [
+        "ArgumentArithmeticPerturb",
+        "GuardBoundaryChange",
+        "RelayDuplicate"
+      ],
+      "mutation_kinds": [
+        "ArgumentArithmeticPerturb",
+        "GuardBoundaryChange",
+        "RelayDuplicate"
+      ],
+      "mutation_function_filters": {
+        "ArgumentArithmeticPerturb": ["transfer(address,bigint)"],
+        "GuardBoundaryChange": ["transfer(address,bigint)"],
+        "RelayDuplicate": ["transfer(address,bigint)"]
+      }
+    },
+    "Ballot": {
+      "source": "oxd_preda/simulator/contracts/Ballot.prd",
+      "runtime_template": "fixtures/Ballot.prdts.in",
+      "runtime_parameters": {
+        "addresses": 4,
+        "count": 4
+      },
+      "coverage_allowlist": {
+        "label": "Ballot",
+        "required_function_ids": [
+          "chsimu.Ballot::init(array string)",
+          "chsimu.Ballot::finalize()",
+          "chsimu.Ballot::__relaylambda_4_finalize()",
+          "chsimu.Ballot::__relaylambda_5_finalize()"
+        ],
+        "required_site_ids": [
+          "relay_site_0",
+          "relay_site_1",
+          "relay_site_2",
+          "relay_site_3"
+        ],
+        "portable_source_function_signatures": [
+          "init(array string)",
+          "finalize()",
+          "__relaylambda_4_finalize()",
+          "__relaylambda_5_finalize()"
+        ],
+        "include_reachable_relay_handlers": true
+      },
+      "semantic_categories": [
+        "Work",
+        "Depth",
+        "Broadcast",
+        "Runtime"
+      ],
+      "recommended_mutations": [
+        "RelayDuplicate",
+        "BroadcastToSingle"
+      ],
+      "mutation_kinds": [
+        "RelayDuplicate",
+        "BroadcastToSingle"
+      ],
+      "mutation_function_filters": {
+        "RelayDuplicate": ["finalize()"],
+        "BroadcastToSingle": ["__relaylambda_4_finalize()"]
+      }
+    },
+    "MillionPixel": {
+      "source": "oxd_preda/simulator/contracts/MillionPixel.prd",
+      "runtime_template": "fixtures/MillionPixel.prdts.in",
+      "runtime_parameters": {
+        "addresses": 4,
+        "count": 3
+      },
+      "coverage_allowlist": {
+        "label": "MillionPixel.occupy",
+        "required_function_ids": [
+          "chsimu.MillionPixel::occupy(uint16,uint16)"
+        ],
+        "required_site_ids": [
+          "relay_site_0"
+        ],
+        "portable_source_function_signatures": [
+          "occupy(uint16,uint16)"
+        ],
+        "include_reachable_relay_handlers": true
+      },
+      "semantic_categories": [
+        "Target",
+        "Work",
+        "Runtime"
+      ],
+      "recommended_mutations": [
+        "TargetArithmeticPerturb",
+        "TargetVariableSwap",
+        "RelayDuplicate",
+        "RuntimeTargetScopeCorruption"
+      ],
+      "mutation_kinds": [
+        "TargetArithmeticPerturb",
+        "TargetVariableSwap",
+        "RelayDuplicate"
+      ],
+      "mutation_function_filters": {
+        "TargetArithmeticPerturb": ["occupy(uint16,uint16)"],
+        "TargetVariableSwap": ["occupy(uint16,uint16)"],
+        "RelayDuplicate": ["occupy(uint16,uint16)"]
+      },
+      "runtime_faults": [
+        {
+          "mutation_id": "runtime-mp-target-scope",
+          "kind": "RuntimeTargetScopeCorruption",
+          "semantic_category": "Target",
+          "selector": {
+            "source_function_id": "chsimu.MillionPixel::occupy(uint16,uint16)",
+            "relay_site_id": "relay_site_0",
+            "occurrence_index": 0
+          },
+          "replacement_scope": "uint64",
+          "expected_runtime_check_kinds": ["target_scope_kind"]
+        }
+      ]
+    },
+    "Kitty": {
+      "source": "oxd_preda/simulator/contracts/Kitty.prd",
+      "runtime_template": "fixtures/Kitty.prdts.in",
+      "runtime_parameters": {
+        "addresses": 4,
+        "count": 4
+      },
+      "parameter_constraints": [
+        "addresses == count",
+        "count >= 2"
+      ],
+      "coverage_allowlist": {
+        "label": "Kitty",
+        "required_function_ids": [
+          "chsimu.KittyBreeding::mint(bigint,bool,address)",
+          "chsimu.KittyBreeding::breed(uint32,uint32,bool)",
+          "chsimu.KittyBreeding::registerNewBorns()",
+          "chsimu.KittyBreeding::__relaylambda_4_breed(uint32,uint32,bool)",
+          "chsimu.KittyBreeding::__relaylambda_5_registerNewBorns(array chsimu.KittyBreeding.KittyInfo)",
+          "chsimu.KittyBreeding::__relaylambda_6_breed(bigint,uint32,uint32,bool)"
+        ],
+        "required_site_ids": [
+          "relay_site_0",
+          "relay_site_1",
+          "relay_site_2",
+          "relay_site_3",
+          "relay_site_4",
+          "relay_site_5"
+        ],
+        "portable_source_function_signatures": [
+          "mint(bigint,bool,address)",
+          "breed(uint32,uint32,bool)",
+          "registerNewBorns()",
+          "__relaylambda_4_breed(uint32,uint32,bool)",
+          "__relaylambda_5_registerNewBorns(array chsimu.KittyBreeding.KittyInfo)",
+          "__relaylambda_6_breed(bigint,uint32,uint32,bool)"
+        ],
+        "include_reachable_relay_handlers": true
+      },
+      "semantic_categories": [
+        "Target",
+        "Argument",
+        "Guard",
+        "Work",
+        "Depth",
+        "Runtime"
+      ],
+      "recommended_mutations": [
+        "ArgumentArithmeticPerturb",
+        "RelayDuplicate"
+      ],
+      "mutation_kinds": [
+        "ArgumentArithmeticPerturb",
+        "RelayDuplicate"
+      ],
+      "mutation_function_filters": {
+        "ArgumentArithmeticPerturb": ["mint(bigint,bool,address)"],
+        "RelayDuplicate": ["mint(bigint,bool,address)"]
+      }
+    },
+    "AirDrop": {
+      "source": "oxd_preda/simulator/contracts/Token.prd",
+      "source_alias": "Token.transfer_n",
+      "runtime_template": "fixtures/AirDrop.prdts.in",
+      "runtime_parameters": {
+        "addresses": 8,
+        "count": 1
+      },
+      "coverage_allowlist": {
+        "label": "AirDrop/Token.transfer_n",
+        "required_function_ids": [
+          "chsimu.Token::transfer_n(array chsimu.Token.payment)"
+        ],
+        "required_site_ids": [
+          "relay_site_1"
+        ],
+        "portable_source_function_signatures": [
+          "transfer_n(array chsimu.Token.payment)"
+        ],
+        "include_reachable_relay_handlers": true
+      },
+      "semantic_categories": [
+        "Argument",
+        "Guard",
+        "Runtime"
+      ],
+      "recommended_mutations": [
+        "RelayDuplicate",
+        "RuntimeRelayDuplicate"
+      ],
+      "mutation_kinds": [
+        "RelayDuplicate"
+      ],
+      "mutation_function_filters": {
+        "RelayDuplicate": ["transfer_n(array chsimu.Token.payment)"]
+      },
+      "runtime_faults": [
+        {
+          "mutation_id": "runtime-airdrop-duplicate",
+          "kind": "RuntimeRelayDuplicate",
+          "semantic_category": "Work",
+          "selector": {
+            "source_function_id": "chsimu.Token::transfer_n(array chsimu.Token.payment)",
+            "relay_site_id": "relay_site_1",
+            "occurrence_index": 0
+          },
+          "expected_runtime_check_kinds": ["direct_count", "count_upper_bound"]
+        }
+      ],
+      "analysis_limitations": [
+        "The relay occurs in an array-length-bounded loop whose static occurrence count is currently Unknown.",
+        "Site-level target, argument, and guard obligations are Unsupported for loop-variable-dependent occurrences."
+      ]
+    },
+    "Synthetic": {
+      "source": "oxd_preda/tools/rpreda_mutation/fixtures/SemanticMutationStudy.prd",
+      "runtime_template": "fixtures/SemanticMutationStudy.prdts.in",
+      "runtime_parameters": {
+        "addresses": 8,
+        "count": 1
+      },
+      "coverage_allowlist": {
+        "label": "SemanticMutationStudy",
+        "required_function_ids": [
+          "chsimu.SemanticMutationStudy::target_arithmetic(uint16,uint16,uint32)",
+          "chsimu.SemanticMutationStudy::guarded_argument(uint32,uint32,uint32,uint32)",
+          "chsimu.SemanticMutationStudy::bounded_loop(uint32,uint32)",
+          "chsimu.SemanticMutationStudy::ordered_independent(uint32,uint32,uint32)",
+          "chsimu.SemanticMutationStudy::nested_driver(uint32,uint32)",
+          "chsimu.SemanticMutationStudy::nested_handler(uint32,uint32)",
+          "chsimu.SemanticMutationStudy::broadcast(uint32)"
+        ],
+        "required_site_ids": [
+          "relay_site_0",
+          "relay_site_1",
+          "relay_site_2",
+          "relay_site_3",
+          "relay_site_4",
+          "relay_site_5",
+          "relay_site_6",
+          "relay_site_7",
+          "relay_site_8",
+          "relay_site_9",
+          "relay_site_10"
+        ],
+        "portable_source_function_signatures": [
+          "target_arithmetic(uint16,uint16,uint32)",
+          "guarded_argument(uint32,uint32,uint32,uint32)",
+          "bounded_loop(uint32,uint32)",
+          "ordered_independent(uint32,uint32,uint32)",
+          "nested_driver(uint32,uint32)",
+          "nested_handler(uint32,uint32)",
+          "broadcast(uint32)"
+        ],
+        "include_reachable_relay_handlers": true
+      },
+      "semantic_categories": [
+        "Target",
+        "Argument",
+        "Guard",
+        "Order",
+        "Alias",
+        "Work",
+        "Depth",
+        "Runtime"
+      ],
+      "mutation_kinds": [
+        "TargetArithmeticPerturb",
+        "TargetVariableSwap",
+        "ArgumentArithmeticPerturb",
+        "GuardBoundaryChange",
+        "RelayOrderSwap",
+        "IntroduceAlias",
+        "RelayDuplicate",
+        "IntroduceRelayRecursion"
+      ],
+      "mutation_function_filters": {
+        "TargetArithmeticPerturb": ["target_arithmetic(uint16,uint16,uint32)"],
+        "TargetVariableSwap": ["target_arithmetic(uint16,uint16,uint32)"],
+        "ArgumentArithmeticPerturb": ["guarded_argument(uint32,uint32,uint32,uint32)"],
+        "GuardBoundaryChange": ["guarded_argument(uint32,uint32,uint32,uint32)"],
+        "RelayOrderSwap": ["ordered_independent(uint32,uint32,uint32)"],
+        "IntroduceAlias": ["ordered_independent(uint32,uint32,uint32)"],
+        "RelayDuplicate": ["bounded_loop(uint32,uint32)"],
+        "IntroduceRelayRecursion": ["nested_handler(uint32,uint32)"]
+      },
+      "runtime_faults": [
+        {
+          "mutation_id": "runtime-synthetic-duplicate",
+          "kind": "RuntimeRelayDuplicate",
+          "semantic_category": "Work",
+          "selector": {
+            "source_function_id": "chsimu.SemanticMutationStudy::bounded_loop(uint32,uint32)",
+            "relay_site_id": "relay_site_4",
+            "occurrence_index": 0
+          },
+          "expected_runtime_check_kinds": ["direct_count", "count_upper_bound"]
+        }
+      ]
+    }
+  }
+}

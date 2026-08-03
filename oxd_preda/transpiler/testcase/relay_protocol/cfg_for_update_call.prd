@@ -1,0 +1,13 @@
+contract ProtocolCFGForUpdateCall {
+    @address uint32 observed;
+
+    @address function step() {
+        observed += 1u32;
+    }
+
+    @address function run() export {
+        for (uint32 i = 0u32; i < 1u32; step()) {
+            continue;
+        }
+    }
+}

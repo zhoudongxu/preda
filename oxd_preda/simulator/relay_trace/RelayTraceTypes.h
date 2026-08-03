@@ -8,14 +8,15 @@
 #include <vector>
 
 #include "../../native/abi/vm_types.h"
+#include "../../runtime/relay_plan/BoundRelayManifest.h"
 
 namespace oxd {
 namespace relay_trace {
 
-using RelaySiteOrdinal = uint32_t;
+using RelaySiteOrdinal = relay_plan::RelaySiteOrdinal;
 
 constexpr RelaySiteOrdinal InvalidRelaySiteOrdinal =
-	std::numeric_limits<RelaySiteOrdinal>::max();
+	relay_plan::InvalidRelaySiteOrdinal;
 constexpr uint64_t NoTraceTransaction = 0;
 constexpr uint32_t NoTargetShard = std::numeric_limits<uint32_t>::max();
 
@@ -26,14 +27,7 @@ enum class TraceMode : uint8_t
 	Strict,
 };
 
-enum class RelayKind : uint8_t
-{
-	CustomScope,
-	Global,
-	AllShards,
-	DeferredNext,
-	Unknown,
-};
+using RelayKind = relay_plan::RelayKind;
 
 enum class RouteKind : uint8_t
 {
@@ -45,32 +39,12 @@ enum class RouteKind : uint8_t
 	Unknown,
 };
 
-enum class ScopeKind : uint8_t
-{
-	None,
-	Global,
-	Shard,
-	Address,
-	Uint32,
-	Uint64,
-	Uint96,
-	Uint128,
-	Uint160,
-	Uint256,
-	Uint512,
-	Unknown,
-};
-
-enum class ManifestLoadStatus : uint8_t
-{
-	ManifestNotFound,
-	ManifestParseError,
-	ManifestSchemaUnsupported,
-	ManifestBindingMissing,
-	ManifestBindingMismatch,
-	ManifestHashMismatch,
-	Loaded,
-};
+using ScopeKind = relay_plan::ScopeKind;
+using ManifestLoadStatus = relay_plan::ManifestLoadStatus;
+using ParallelCertificateStatus =
+	relay_plan::ParallelCertificateStatus;
+using RelayPairCertificateRelation =
+	relay_plan::RelayPairCertificateRelation;
 
 enum class ValidationStatus : uint8_t
 {
@@ -96,6 +70,14 @@ enum class ValidationCheckKind : uint8_t
 	Fanout,
 	Routing,
 	CoemissionNonAlias,
+	CertificateMutuallyExclusive,
+	CertificateMustPrecede,
+	CertificateCoEmissionIndependent,
+	CertificateProvedMayAlias,
+	DirectLogicalWork,
+	TransitiveLogicalWork,
+	PhysicalRouteWork,
+	RelayTreeDepth,
 	TargetRelation,
 	ArgumentRelation,
 	GuardNecessity,
@@ -103,29 +85,8 @@ enum class ValidationCheckKind : uint8_t
 	Unknown,
 };
 
-struct TraceSourceLocation
-{
-	int64_t line = 0;
-	int64_t column = 0;
-	int64_t endLine = 0;
-	int64_t endColumn = 0;
-	int64_t startOffset = -1;
-	int64_t endOffset = -1;
-};
-
-struct ArtifactIdentity
-{
-	std::string dapp;
-	std::string contract;
-	std::string transpilerVersion;
-	std::string intermediateHash;
-	std::string moduleId;
-	std::string moduleHashKind;
-	std::string moduleHash;
-	std::string manifestHashAlgorithm;
-	std::string manifestHash;
-	bool bindingComplete = false;
-};
+using TraceSourceLocation = relay_plan::RelaySourceLocation;
+using ArtifactIdentity = relay_plan::ArtifactIdentity;
 
 // Owning copy of a runtime scope key. It deliberately does not retain
 // rvm::ScopeKey::Data or a pointer into SimuTxn.
@@ -194,6 +155,9 @@ struct RelayEmitTraceEvent
 	RelaySiteOrdinal relaySiteOrdinal = InvalidRelaySiteOrdinal;
 	std::string relaySiteId;
 	uint32_t occurrenceIndex = 0;
+	// Total order of logical relay creation within one parent
+	// microtransaction. Unlike occurrenceIndex this is shared by all sites.
+	uint64_t emissionSequence = 0;
 	uint32_t depth = 0;
 
 	std::string sourceModuleId;
@@ -250,6 +214,12 @@ struct RelayTraceMismatch
 	std::string function;
 	uint32_t opcode = 0;
 	std::string relaySiteId;
+	std::string propertyId;
+	std::string certificateId;
+	std::string siteA;
+	std::string siteB;
+	RelayPairCertificateRelation certificateRelation =
+		RelayPairCertificateRelation::Unknown;
 	RelaySiteOrdinal relaySiteOrdinal = InvalidRelaySiteOrdinal;
 	uint32_t occurrenceIndex = 0;
 
@@ -257,6 +227,7 @@ struct RelayTraceMismatch
 	std::string expected;
 	std::string actual;
 	TraceSourceLocation sourceLocation;
+	TraceSourceLocation relatedSourceLocation;
 	ArtifactIdentity manifestIdentity;
 	std::string moduleIdentity;
 	std::string diagnosticReason;
@@ -328,6 +299,8 @@ const char *ToString(ScopeKind kind);
 const char *ToString(ManifestLoadStatus status);
 const char *ToString(ValidationStatus status);
 const char *ToString(ValidationCheckKind kind);
+const char *ToString(ParallelCertificateStatus status);
+const char *ToString(RelayPairCertificateRelation relation);
 
 std::string BytesToHex(const uint8_t *data, size_t size);
 std::string ModuleIdToHex(const rvm::ContractModuleID &moduleId);

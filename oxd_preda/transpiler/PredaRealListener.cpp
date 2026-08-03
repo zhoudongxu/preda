@@ -1,4 +1,5 @@
 #include "PredaRealListener.h"
+#include "relay_protocol/metrics/RelayAnalysisMetrics.h"
 #include "util.h"
 
 class AutoPopFunctionContextLocalScopeStack {
@@ -71,6 +72,49 @@ static std::string RelayProtocolFunctionId(
 {
 	return dappName + "." + contractName + "::" +
 		RelayProtocolFunctionSignature(function);
+}
+
+static transpiler::relay_protocol::SourceLocation
+RelayProtocolSourceLocation(const FunctionCallSite &site)
+{
+	transpiler::relay_protocol::SourceLocation result;
+	result.line = site.line;
+	result.column = site.column;
+	result.endLine = site.endLine;
+	result.endColumn = site.endColumn;
+	result.startOffset = site.startOffset;
+	result.endOffset = site.endOffset;
+	return result;
+}
+
+static transpiler::relay_protocol::SourceLocation
+RelayProtocolSourceLocation(antlr4::ParserRuleContext *context)
+{
+	FunctionCallSite site;
+	if (context != nullptr && context->start != nullptr)
+	{
+		site.line = static_cast<uint32_t>(context->start->getLine());
+		site.column = static_cast<uint32_t>(
+			context->start->getCharPositionInLine());
+		site.startOffset = static_cast<int64_t>(
+			context->start->getStartIndex());
+		if (context->stop != nullptr)
+		{
+			site.endLine = static_cast<uint32_t>(context->stop->getLine());
+			site.endColumn = static_cast<uint32_t>(
+				context->stop->getCharPositionInLine() +
+				context->stop->getText().size());
+			site.endOffset = static_cast<int64_t>(
+				context->stop->getStopIndex());
+		}
+		else
+		{
+			site.endLine = site.line;
+			site.endColumn = site.column;
+			site.endOffset = site.startOffset;
+		}
+	}
+	return RelayProtocolSourceLocation(site);
 }
 
 transpiler::DefinedIdentifierPtr PredaRealListener::DefineFunctionLocalVariable(ConcreteTypePtr pType, PredaParser::IdentifierContext *identifierCtx, bool bIsConst, uint32_t flags)
@@ -916,6 +960,8 @@ void PredaRealListener::enterReturnStatement(PredaParser::ReturnStatementContext
 		ExpressionParser::ExpressionResult expRes;
 		if (m_expressionParser.ParseExpression(ctx->expression(), expRes))
 		{
+			m_relayProtocolCollector.RecordExpressionEffects(
+				ctx->expression());
 			if (expRes.type.baseConcreteType != pSignature->returnType.baseConcreteType)
 			{
 				m_errorPortal.SetAnchor(ctx->start);
@@ -941,6 +987,7 @@ void PredaRealListener::enterIfWithBlock(PredaParser::IfWithBlockContext *ctx)
 	ExpressionParser::ExpressionResult expRes;
 	if (!m_expressionParser.ParseExpression(ctx->expression(), expRes))
 		return;
+	m_relayProtocolCollector.RecordCFGCondition(ctx->expression());
 	m_relayProtocolCollector.RecordExpressionEffects(ctx->expression());
 
 	if (expRes.type.baseConcreteType != m_transpilerCtx.GetBuiltInBoolType())
@@ -989,6 +1036,7 @@ void PredaRealListener::enterElseIfWithBlock(PredaParser::ElseIfWithBlockContext
 	ExpressionParser::ExpressionResult expRes;
 	if (!m_expressionParser.ParseExpression(ctx->expression(), expRes))
 		return;
+	m_relayProtocolCollector.RecordCFGCondition(ctx->expression());
 	m_relayProtocolCollector.RecordExpressionEffects(ctx->expression());
 
 	if (expRes.type.baseConcreteType != m_transpilerCtx.GetBuiltInBoolType())
@@ -1019,6 +1067,7 @@ void PredaRealListener::enterWhileStatement(PredaParser::WhileStatementContext *
 	ExpressionParser::ExpressionResult expRes;
 	if (!m_expressionParser.ParseExpression(ctx->expression(), expRes))
 		return;
+	m_relayProtocolCollector.RecordCFGCondition(ctx->expression());
 	m_relayProtocolCollector.RecordExpressionEffects(ctx->expression());
 
 	if (expRes.type.baseConcreteType != m_transpilerCtx.GetBuiltInBoolType())
@@ -1061,6 +1110,7 @@ void PredaRealListener::exitDoWhileStatement(PredaParser::DoWhileStatementContex
 		m_relayProtocolCollector.PopDependencyScope();
 		return;
 	}
+	m_relayProtocolCollector.RecordCFGCondition(ctx->expression());
 	m_relayProtocolCollector.RecordExpressionEffects(ctx->expression());
 
 	if (expRes.type.baseConcreteType != m_transpilerCtx.GetBuiltInBoolType())
@@ -1130,6 +1180,8 @@ void PredaRealListener::enterForStatement(PredaParser::ForStatementContext *ctx)
 		ExpressionParser::ExpressionResult expRes;
 		if (!m_expressionParser.ParseExpression(ctx->secondExpression, expRes))
 			return;
+		m_relayProtocolCollector.RecordCFGCondition(
+			ctx->secondExpression);
 		m_relayProtocolCollector.RecordExpressionEffects(
 			ctx->secondExpression);
 		if (expRes.type.baseConcreteType != m_transpilerCtx.GetBuiltInBoolType())
@@ -1525,7 +1577,7 @@ void PredaRealListener::enterRelayStatement(PredaParser::RelayStatementContext *
 	protocolInput.arguments = std::move(protocolArguments);
 	protocolInput.lambdaHandler = isLambdaHandler;
 	protocolInput.opcode = opCode;
-#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+#ifdef RPREDA_ENABLE_BOUND_RELAY_MANIFEST
 	transpiler::relay_protocol::RelaySiteOrdinal protocolSiteOrdinal = 0;
 	const std::string protocolSiteId =
 		m_relayProtocolCollector.CollectRelay(
@@ -2724,7 +2776,7 @@ void PredaRealListener::DefinePendingRelayLambdas()
 				vParamNameCtxs[parameterIndex]->identifier();
 			refinementParameters.push_back(std::move(parameter));
 		}
-#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+#ifdef RPREDA_ENABLE_BOUND_RELAY_MANIFEST
 		const transpiler::FunctionRef &lambdaFunction =
 			m_transpilerCtx.functionCtx.functionRef;
 		const std::string lambdaFunctionSignature =
@@ -3605,6 +3657,203 @@ void PredaRealListener::exitContractDefinition(PredaParser::ContractDefinitionCo
 		AUTO_POP_THIS_PTR_STACK;
 
 		DefinePendingRelayLambdas();
+		transpiler::relay_protocol::metrics::ScopedRelayAnalysisPhase
+			analysisTimer(
+				transpiler::relay_protocol::metrics::
+					RelayAnalysisPhase::AnalysisTotal);
+
+		// Phase A-D analysis is finalized while the PREDA parse tree and exact
+		// semantic FunctionRef objects are both still alive.  The builder copies
+		// every fact into owning IR and never feeds a result back into lowering.
+		transpiler::relay_protocol::cfg::PredaCFGBuilderInput cfgInput;
+		using FunctionKey =
+			std::pair<transpiler::DefinedIdentifier *, size_t>;
+		std::map<FunctionKey, std::string> localFunctionIds;
+		ConcreteTypePtr contractType =
+			m_transpilerCtx.thisPtrStack.stack.empty()
+				? ConcreteTypePtr()
+				: m_transpilerCtx.thisPtrStack.stack.back().thisType;
+		auto registerFunction =
+			[&](
+				const transpiler::FunctionRef &function,
+				const std::vector<PredaParser::StatementContext *> &statements,
+				antlr4::ParserRuleContext *sourceContext,
+				bool generatedRelayLambda)
+			{
+				const transpiler::FunctionSignature *signature =
+					function.GetSignature();
+				if (function.functionIdentifier == nullptr || signature == nullptr)
+					return;
+				transpiler::relay_protocol::cfg::PredaCFGFunctionInput input;
+				input.functionId = RelayProtocolFunctionId(
+					m_currentDAppName,
+					m_currentContractName,
+					function);
+				input.function = function.functionIdentifier->inputName;
+				input.signature = RelayProtocolFunctionSignature(function);
+				input.scope = transpiler::ScopeType(
+					signature->flags & uint32_t(transpiler::ScopeType::Mask));
+				input.generatedRelayLambda = generatedRelayLambda;
+				input.location = RelayProtocolSourceLocation(sourceContext);
+				input.statements = statements;
+				localFunctionIds[FunctionKey{
+					function.functionIdentifier.get(),
+					function.overloadIndex}] = input.functionId;
+				cfgInput.functions.push_back(std::move(input));
+			};
+		for (const ForwardDeclaredContractFunction &function :
+			m_forwardDeclaredFunctions)
+		{
+			registerFunction(
+				function.declaredFunc,
+				function.ctx->statement(),
+				function.ctx,
+				false);
+		}
+		for (const PendingRelayLambda &lambda : m_pendingRelayLambdas)
+		{
+			if (lambda.exportFuncSlot >= m_exportedFunctions.size())
+				continue;
+			registerFunction(
+				m_exportedFunctions[lambda.exportFuncSlot],
+				lambda.pDefinitionCtx->statement(),
+				lambda.pDefinitionCtx,
+				true);
+		}
+
+		auto functionIdFor =
+			[&](const transpiler::FunctionRef &function) -> std::string
+			{
+				if (function.functionIdentifier == nullptr)
+					return std::string();
+				auto found = localFunctionIds.find(FunctionKey{
+					function.functionIdentifier.get(),
+					function.overloadIndex});
+				return found == localFunctionIds.end()
+					? std::string()
+					: found->second;
+			};
+		for (const ResolvedFunctionCall &call :
+			m_functionCallGraph.m_resolvedCalls)
+		{
+			transpiler::relay_protocol::cfg::PredaCFGCallFactInput fact;
+			fact.edge.caller = functionIdFor(call.caller);
+			if (fact.edge.caller.empty())
+				continue;
+			fact.edge.callSite = RelayProtocolSourceLocation(call.callSite);
+			fact.edge.sourceText = call.callSite.text;
+			fact.edge.id = "call::" + fact.edge.caller + "::" +
+				std::to_string(fact.edge.callSite.startOffset) + "::" +
+				std::to_string(fact.edge.callSite.endOffset);
+			fact.edge.calleeIsConst =
+				call.callee.GetSignature() != nullptr &&
+				(call.callee.GetSignature()->flags &
+					uint32_t(transpiler::FunctionFlags::IsConst)) != 0;
+			const std::string localCallee = functionIdFor(call.callee);
+			if (!call.calleeResolved ||
+				call.callee.functionIdentifier == nullptr)
+			{
+				// A FunctionType alone is not a resolved call target.  In
+				// particular, unsupported callable-producing expressions must not
+				// fall through to the RuntimeHelper bucket merely because they have
+				// no local PREDA body.  Preserve the call site, but make the missing
+				// semantic provenance explicit and conservative.
+				fact.edge.kind = transpiler::relay_protocol::cfg::
+					PredaCallKind::ExternalUnknown;
+				fact.edge.resolved = false;
+				fact.edge.unresolvedReason =
+					call.callee.functionIdentifier == nullptr
+						? "callable provenance is unresolved; no exact FunctionRef callee is available"
+						: "callee signature is unresolved after semantic call resolution";
+			}
+			else if (call.origin == FunctionCallOrigin::TypeConstructor)
+			{
+				fact.edge.kind = transpiler::relay_protocol::cfg::
+					PredaCallKind::CompilerGeneratedHelper;
+				fact.edge.resolved = call.calleeResolved;
+			}
+			else if (call.origin == FunctionCallOrigin::RuntimeHelper)
+			{
+				fact.edge.kind = transpiler::relay_protocol::cfg::
+					PredaCallKind::RuntimeHelper;
+				fact.edge.resolved = call.calleeResolved;
+			}
+			else if (!localCallee.empty())
+			{
+				fact.edge.kind = transpiler::relay_protocol::cfg::
+					PredaCallKind::Synchronous;
+				fact.edge.callee = localCallee;
+				fact.edge.resolved = true;
+			}
+			else
+			{
+				ConcreteTypePtr owner =
+					call.callee.functionIdentifier == nullptr ||
+						call.callee.functionIdentifier->qualifiedType
+							.baseConcreteType == nullptr
+						? ConcreteTypePtr()
+						: call.callee.functionIdentifier->qualifiedType
+							.baseConcreteType->outerType;
+				const bool externalContract = owner != nullptr &&
+					owner != contractType &&
+					(owner->typeCategory ==
+							transpiler::ConcreteType::ContractType ||
+					 owner->typeCategory ==
+							transpiler::ConcreteType::InterfaceType);
+				fact.edge.kind = externalContract
+					? transpiler::relay_protocol::cfg::
+						PredaCallKind::ExternalUnknown
+					: transpiler::relay_protocol::cfg::
+						PredaCallKind::RuntimeHelper;
+				fact.edge.resolved =
+					!externalContract && call.calleeResolved;
+				if (call.callee.functionIdentifier != nullptr)
+				{
+					fact.edge.callee = externalContract && owner != nullptr
+						? owner->exportName + "::" +
+							RelayProtocolFunctionSignature(call.callee)
+						: "runtime::" +
+							RelayProtocolFunctionSignature(call.callee);
+				}
+				if (externalContract)
+					fact.edge.unresolvedReason =
+						"overload resolved but no local PREDA function body exists";
+				else if (!call.calleeResolved)
+					fact.edge.unresolvedReason =
+						"callable provenance is unresolved";
+			}
+			cfgInput.calls.push_back(std::move(fact));
+		}
+
+		for (const ResolvedIdentifierUse &use :
+			m_functionCallGraph.m_identifierUses)
+		{
+			transpiler::relay_protocol::cfg::PredaCFGIdentifierUseInput fact;
+			fact.functionId = functionIdFor(use.function);
+			if (fact.functionId.empty() || use.identifier == nullptr)
+				continue;
+			fact.location = RelayProtocolSourceLocation(use.sourceSite);
+			fact.name = use.identifier->inputName;
+			fact.functionSymbol =
+				use.identifier->qualifiedType.baseConcreteType != nullptr &&
+				use.identifier->qualifiedType.baseConcreteType->typeCategory ==
+					transpiler::ConcreteType::FunctionType;
+			fact.stateScope = transpiler::ScopeType(
+				use.identifier->flags & uint32_t(transpiler::ScopeType::Mask));
+			fact.stateVariable = !fact.functionSymbol &&
+				use.outerType == contractType &&
+				fact.stateScope != transpiler::ScopeType::None;
+			if (fact.stateVariable)
+			{
+				fact.stateVariableId =
+					m_currentDAppName + "." + m_currentContractName +
+					"::state::" +
+					std::to_string(static_cast<uint32_t>(fact.stateScope)) +
+					"::" + fact.name;
+			}
+			cfgInput.identifierUses.push_back(std::move(fact));
+		}
+		m_relayProtocolCollector.BuildControlFlow(std::move(cfgInput));
 		m_relayProtocolCollector.Finalize();
 
 		PropagateFunctionFlagAcrossCallingGraph();
@@ -3663,8 +3912,10 @@ void PredaRealListener::exitContractDefinition(PredaParser::ContractDefinitionCo
 		}
 		for (const transpiler::FunctionRef &function : m_exportedFunctions)
 			recordFunctionRelayReachability(function);
-		m_relayProtocolCollector.BuildSummaries();
-		m_relayProtocolCollector.BuildRefinement();
+			m_relayProtocolCollector.BuildSummaries();
+			m_relayProtocolCollector.BuildRefinement();
+			m_relayProtocolCollector.BuildParallelCertificate();
+		analysisTimer.Stop();
 
 		// check for entropy and relay coexist error in user-defined functions
 		for (auto &itor : m_forwardDeclaredFunctions)
@@ -3768,7 +4019,7 @@ void PredaRealListener::enterFunctionDefinition(PredaParser::FunctionDefinitionC
 		refinementParameters.push_back(
 			std::move(refinementParameter));
 	}
-#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+#ifdef RPREDA_ENABLE_BOUND_RELAY_MANIFEST
 	const transpiler::FunctionRef &protocolFunction =
 		m_transpilerCtx.functionCtx.functionRef;
 	int64_t exportedOpcode = -1;

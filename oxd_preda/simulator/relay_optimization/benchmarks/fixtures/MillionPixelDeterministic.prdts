@@ -1,0 +1,20 @@
+// Deterministic MillionPixel fixture for R-PREDA runtime optimization A/B.
+random.reseed $~seed$
+allocate.address $~addresses$
+chain.gaslimit 256
+
+chain.deploy @0 ../../../contracts/MillionPixel.prd
+
+txn_bench[] = MillionPixel.occupy*$~count$ @random {
+    x:$random(0, 99)$,
+    y:$random(0, 99)$
+}
+
+stopwatch.restart
+chain.run
+stopwatch.report
+chain.info
+
+viz.uint_scope #32 MillionPixel:all
+viz.block #g
+viz.block #all

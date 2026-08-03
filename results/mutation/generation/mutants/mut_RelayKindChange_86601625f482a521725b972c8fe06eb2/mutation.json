@@ -1,0 +1,34 @@
+{
+  "contract": "MutationStudy",
+  "description": "change relay kind from 'custom_scope' to 'next'",
+  "edits": [
+    {
+      "byte_end_offset": 1098,
+      "byte_start_offset": 1093,
+      "expected_original": "target",
+      "replacement": "next"
+    }
+  ],
+  "generation_status": "Generated",
+  "location": {
+    "byte_end_offset": 1098,
+    "byte_start_offset": 1093,
+    "column": 14,
+    "end_column": 20,
+    "end_line": 41,
+    "end_offset": 1098,
+    "line": 41,
+    "start_offset": 1093
+  },
+  "mutated_code_path": "generation/mutants/mut_RelayKindChange_86601625f482a521725b972c8fe06eb2/MutationStudy.prd",
+  "mutated_fragment": "next",
+  "mutation_id": "mut_RelayKindChange_86601625f482a521725b972c8fe06eb2",
+  "mutation_type": "RelayKindChange",
+  "original_code_path": "generation/mutants/mut_RelayKindChange_86601625f482a521725b972c8fe06eb2/original.prd",
+  "original_fragment": "target",
+  "reason": "",
+  "relay_site_ids": [
+    "relay_site_8"
+  ],
+  "source_function_id": "chsimu.MutationStudy::nextable(uint32,uint32)"
+}

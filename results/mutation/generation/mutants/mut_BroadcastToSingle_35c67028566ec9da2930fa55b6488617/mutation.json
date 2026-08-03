@@ -1,0 +1,40 @@
+{
+  "contract": "MutationStudy",
+  "description": "replace all-shards broadcast with one next-scope relay",
+  "edits": [
+    {
+      "byte_end_offset": 1426,
+      "byte_start_offset": 1421,
+      "expected_original": "shards",
+      "replacement": "next"
+    },
+    {
+      "byte_end_offset": 1440,
+      "byte_start_offset": 1428,
+      "expected_original": "shard_handler",
+      "replacement": "global_handler"
+    }
+  ],
+  "generation_status": "Generated",
+  "location": {
+    "byte_end_offset": 1426,
+    "byte_start_offset": 1421,
+    "column": 14,
+    "end_column": 20,
+    "end_line": 51,
+    "end_offset": 1426,
+    "line": 51,
+    "start_offset": 1421
+  },
+  "mutated_code_path": "generation/mutants/mut_BroadcastToSingle_35c67028566ec9da2930fa55b6488617/MutationStudy.prd",
+  "mutated_fragment": "nextglobal_handler",
+  "mutation_id": "mut_BroadcastToSingle_35c67028566ec9da2930fa55b6488617",
+  "mutation_type": "BroadcastToSingle",
+  "original_code_path": "generation/mutants/mut_BroadcastToSingle_35c67028566ec9da2930fa55b6488617/original.prd",
+  "original_fragment": "shardsshard_handler",
+  "reason": "",
+  "relay_site_ids": [
+    "relay_site_0"
+  ],
+  "source_function_id": "chsimu.MutationStudy::broadcast(uint32)"
+}

@@ -1,0 +1,16 @@
+// Deterministic MillionPixel timing fixture. No visualization state queries.
+random.reseed $~seed$
+allocate.address $~addresses$
+chain.gaslimit 256
+
+chain.deploy @0 ../../../contracts/MillionPixel.prd
+
+txn_bench[] = MillionPixel.occupy*$~count$ @random {
+    x:$random(0, 99)$,
+    y:$random(0, 99)$
+}
+
+stopwatch.restart
+chain.run
+stopwatch.report
+chain.info

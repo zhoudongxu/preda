@@ -1,8 +1,14 @@
 #include "RelayProtocolCollector.h"
 #include "analysis/RelaySummaryBuilder.h"
+#include "cfg/PredaCFGBuilder.h"
+#include "metrics/RelayAnalysisMetrics.h"
+
+#if defined(RPREDA_ENABLE_Z3) || \
+	defined(RPREDA_ENABLE_BOUND_RELAY_MANIFEST)
+#include "refinement/solver/RelayProofRunner.h"
+#endif
 
 #ifdef RPREDA_ENABLE_Z3
-#include "refinement/solver/RelayProofRunner.h"
 #include "refinement/solver/z3/Z3RelaySolver.h"
 #endif
 
@@ -330,6 +336,7 @@ void RelayProtocolCollector::Reset(
 	m_stateSymbols.clear();
 	m_expressionFormulaSnapshots.clear();
 	m_refinementTypeSymbols.clear();
+	m_cfgConditions.clear();
 	m_currentRefinementFunctionId.clear();
 	m_namedHandlers.clear();
 	m_exportedFunctionOpcodes.clear();
@@ -372,7 +379,7 @@ void RelayProtocolCollector::BeginFunctionDependencyAnalysis(
 	uint64_t functionOverloadIndex,
 	int64_t exportedOpcode)
 {
-#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+#ifdef RPREDA_ENABLE_BOUND_RELAY_MANIFEST
 	if (exportedOpcode >= 0)
 		SetFunctionExportOpcode(functionId, exportedOpcode);
 	FunctionProtocol &protocol = GetOrCreateFunction(
@@ -456,7 +463,7 @@ void RelayProtocolCollector::SetFunctionExportOpcode(
 	const std::string &functionId,
 	int64_t exportedOpcode)
 {
-#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+#ifdef RPREDA_ENABLE_BOUND_RELAY_MANIFEST
 	if (functionId.empty() || exportedOpcode < 0)
 		return;
 	m_exportedFunctionOpcodes[functionId] = exportedOpcode;
@@ -609,6 +616,30 @@ void RelayProtocolCollector::RecordExpressionEffects(
 	}
 	m_dependencyAnalyzer.RecordExpressionEffects(owningExpression);
 	RecordRefinementExpressionEffects(owningExpression);
+}
+
+void RelayProtocolCollector::RecordCFGCondition(
+	PredaParser::ExpressionContext *expression)
+{
+	if (expression == nullptr || m_currentRefinementFunctionId.empty())
+		return;
+	const RelayExprIR owningExpression =
+		BuildExpression(expression, "bool");
+	cfg::PredaCFGConditionInput condition;
+	condition.functionId = m_currentRefinementFunctionId;
+	condition.location = owningExpression.location;
+	condition.expression = owningExpression;
+	condition.formula = BuildRefinementFormula(owningExpression);
+	for (const cfg::PredaCFGConditionInput &existing : m_cfgConditions)
+	{
+		if (existing.functionId == condition.functionId &&
+			existing.location.startOffset == condition.location.startOffset &&
+			existing.location.endOffset == condition.location.endOffset)
+		{
+			return;
+		}
+	}
+	m_cfgConditions.push_back(std::move(condition));
 }
 
 refinement::FormulaExpr
@@ -1465,7 +1496,7 @@ std::string RelayProtocolCollector::CollectRelay(
 	function.root.children.push_back(BuildProtocolNode(site));
 	m_ir.relaySites.push_back(std::move(site));
 	m_ir.edges.push_back(std::move(edge));
-#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+#ifdef RPREDA_ENABLE_BOUND_RELAY_MANIFEST
 	SetFunctionExportOpcode(input.targetFunctionId, input.opcode);
 #endif
 	return siteId;
@@ -1552,28 +1583,38 @@ void RelayProtocolCollector::Finalize()
 
 void RelayProtocolCollector::BuildSummaries()
 {
+	metrics::ScopedRelayAnalysisPhase timer(
+		metrics::RelayAnalysisPhase::SummaryAnalysis);
 	transpiler::relay_protocol::analysis::RelaySummaryBuilder builder;
 	builder.Build(m_ir);
 }
 
 void RelayProtocolCollector::BuildRefinement()
 {
-	refinement::RelayConstraintGenerator generator;
-	refinement::RelayConstraintGenerationResult result =
-		generator.Generate(
-			m_ir,
-			m_refinementSymbols,
-			m_formulaBuilder);
+	metrics::ScopedRelayAnalysisPhase totalTimer(
+		metrics::RelayAnalysisPhase::RefinementTotal);
+	{
+		metrics::ScopedRelayAnalysisPhase generationTimer(
+			metrics::RelayAnalysisPhase::RefinementGeneration);
+		refinement::RelayConstraintGenerator generator;
+		refinement::RelayConstraintGenerationResult result =
+			generator.Generate(
+				m_ir,
+				m_refinementSymbols,
+				m_formulaBuilder);
 
-	// Generate() may add the stable per-site and per-function synthetic
-	// symbols used by its owning constraints. Copy the symbol set only after
-	// that pass is complete.
-	m_ir.refinementSymbols = m_refinementSymbols.GetSymbols();
-	m_ir.refinementConstraints = std::move(result.constraints);
-	m_ir.refinementProofObligations =
-		std::move(result.proofObligations);
+		// Generate() may add the stable per-site and per-function synthetic
+		// symbols used by its owning constraints. Copy the symbol set only after
+		// that pass is complete.
+		m_ir.refinementSymbols = m_refinementSymbols.GetSymbols();
+		m_ir.refinementConstraints = std::move(result.constraints);
+		m_ir.refinementProofObligations =
+			std::move(result.proofObligations);
+	}
 
 #ifdef RPREDA_ENABLE_Z3
+	metrics::ScopedRelayAnalysisPhase solverTimer(
+		metrics::RelayAnalysisPhase::RefinementSolver);
 	// Solver results are observational sidecar metadata only. The backend
 	// consumes the finalized FormulaIR and never feeds a result back into
 	// lowering, routing, or runtime execution.
@@ -1583,7 +1624,39 @@ void RelayProtocolCollector::BuildRefinement()
 		m_ir.refinementSymbols,
 		m_ir.refinementConstraints,
 		m_ir.refinementProofObligations);
+#elif defined(RPREDA_ENABLE_BOUND_RELAY_MANIFEST)
+	// A bound manifest carries proof roles and explicit solver outcomes even
+	// when the optional backend is unavailable. Semantic definitions remain
+	// established by compiler construction; actual solver goals are NotRun.
+	refinement::solver::RelayProofRunner runner(nullptr);
+	runner.Run(
+		m_ir.refinementSymbols,
+		m_ir.refinementConstraints,
+		m_ir.refinementProofObligations);
 #endif
+}
+
+void RelayProtocolCollector::BuildParallelCertificate()
+{
+	metrics::ScopedRelayAnalysisPhase timer(
+		metrics::RelayAnalysisPhase::CertificateGeneration);
+	certificate::ParallelRelayCertificateBuilder builder;
+#ifdef RPREDA_ENABLE_Z3
+	refinement::solver::z3_backend::Z3RelaySolver backend;
+	builder.Build(m_ir, &backend);
+#else
+	builder.Build(m_ir, nullptr);
+#endif
+}
+
+void RelayProtocolCollector::BuildControlFlow(
+	cfg::PredaCFGBuilderInput input)
+{
+	input.conditions.insert(
+		input.conditions.end(),
+		m_cfgConditions.begin(),
+		m_cfgConditions.end());
+	m_ir.controlFlow = cfg::PredaCFGBuilder().Build(input, m_ir);
 }
 
 } // namespace relay_protocol

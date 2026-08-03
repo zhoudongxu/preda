@@ -5,12 +5,17 @@
 #include "../native/types/abi_def_impl.h"
 #include "../../SFC/core/ext/botan/botan.h"
 
-#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+#if defined(RPREDA_ENABLE_RUNTIME_TRACE) || \
+	defined(RPREDA_ENABLE_RUNTIME_OPTIMIZATION)
 #include <algorithm>
 #include <chrono>
 #include <cctype>
+#include <limits>
+#include <map>
 #include <set>
 #include <tuple>
+#include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #endif
 
@@ -18,6 +23,7 @@ namespace oxd
 {
 bool ChainSimulator::Init(const os::CommandLine& cmd)
 {
+	m_vizInfo.isVizEnabled = false;
 	m_attribute.shardOrder = cmd.GetOptionAs<uint32_t>("order", 2);
 	m_attribute.isShardAsync = cmd.HasOption("async");
 	m_attribute.defaultEngineMode = (cmd.HasOption("WASM") || cmd.HasOption("wasm"))? rvm::EngineId::PREDA_WASM: rvm::EngineId::PREDA_NATIVE;
@@ -40,6 +46,34 @@ bool ChainSimulator::Init(const os::CommandLine& cmd)
 	os::File::RemovePath(repo_dir);
 	rt::String native_repo = repo_dir + "/native";
 
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+	if(!_InitRelayOptimization(cmd, native_repo))
+		return false;
+#else
+	if(cmd.HasOption("rpreda_opt"))
+	{
+		rt::String requested = cmd.GetOption("rpreda_opt");
+		requested.MakeLower();
+		if(requested != "baseline")
+		{
+			_LOG_ERROR(
+				"[R-PREDA optimization]: this binary was built with "
+				"RPREDA_ENABLE_RUNTIME_OPTIMIZATION=OFF");
+			return false;
+		}
+	}
+	if(cmd.HasOption("rpreda_opt_ablation") ||
+		cmd.HasOption("rpreda_opt_report") ||
+		cmd.HasOption("rpreda_audit_sample_rate") ||
+		cmd.HasOption("rpreda_max_relay_reserve"))
+	{
+		_LOG_ERROR(
+			"[R-PREDA optimization]: optimizer-only options require "
+			"RPREDA_ENABLE_RUNTIME_OPTIMIZATION=ON");
+		return false;
+	}
+#endif
+
 #ifdef RPREDA_ENABLE_RUNTIME_TRACE
 	if(!_InitRelayTrace(cmd, native_repo))
 		return false;
@@ -58,6 +92,275 @@ bool ChainSimulator::Init(const os::CommandLine& cmd)
 	_InitChain();
 	return true;
 }
+
+#if defined(RPREDA_ENABLE_BOUND_RELAY_MANIFEST) || \
+	defined(RPREDA_ENABLE_RUNTIME_OPTIMIZATION)
+namespace
+{
+std::string _RPredaString(rt::String_Ref value)
+{
+	return value.Begin()
+		? std::string(value.Begin(), value.GetLength())
+		: std::string();
+}
+
+std::string _RPredaString(const rvm::ConstString& value)
+{
+	return value.StrPtr
+		? std::string(value.StrPtr, value.Length)
+		: std::string();
+}
+
+std::string _RPredaLower(std::string value)
+{
+	std::transform(
+		value.begin(),
+		value.end(),
+		value.begin(),
+		[](unsigned char c)
+		{
+			return static_cast<char>(std::tolower(c));
+		});
+	return value;
+}
+
+std::string _RPredaBytesToHex(
+	const uint8_t* data,
+	size_t size)
+{
+	static constexpr char Digits[] = "0123456789abcdef";
+	std::string output;
+	output.resize(size * 2);
+	for(size_t index = 0; index < size; ++index)
+	{
+		output[index * 2] = Digits[data[index] >> 4];
+		output[index * 2 + 1] = Digits[data[index] & 0x0f];
+	}
+	return output;
+}
+}
+#endif
+
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+bool ChainSimulator::_InitRelayOptimization(
+	const os::CommandLine& cmd,
+	rt::String_Ref nativeRepository)
+{
+	using namespace relay_optimization;
+
+	m_relayOptimizationConfig = OptimizationConfig{};
+	m_relayOptimizationReportWritten = false;
+	m_relayOptimizationAudit.reset();
+	m_relayPlanRegistry.reset();
+
+	std::string error;
+	if(cmd.HasOption("rpreda_opt") &&
+		!ParseOptimizationMode(
+			_RPredaString(cmd.GetOption("rpreda_opt")),
+			m_relayOptimizationConfig.mode,
+			error))
+	{
+		_LOG_ERROR(
+			"[R-PREDA optimization]: invalid -rpreda_opt: " <<
+			error);
+		return false;
+	}
+
+	const bool ablationWasExplicit =
+		cmd.HasOption("rpreda_opt_ablation");
+	if(ablationWasExplicit &&
+		!ParseOptimizationAblation(
+			_RPredaString(cmd.GetOption("rpreda_opt_ablation")),
+			m_relayOptimizationConfig.ablation,
+			error))
+	{
+		_LOG_ERROR(
+			"[R-PREDA optimization]: invalid "
+			"-rpreda_opt_ablation: " << error);
+		return false;
+	}
+
+	if(cmd.HasOption("rpreda_audit_sample_rate") &&
+		!ParseAuditSampleRate(
+			_RPredaString(
+				cmd.GetOption("rpreda_audit_sample_rate")),
+			m_relayOptimizationConfig.auditSampleRate,
+			error))
+	{
+		_LOG_ERROR(
+			"[R-PREDA optimization]: invalid "
+			"-rpreda_audit_sample_rate: " << error);
+		return false;
+	}
+
+	if(cmd.HasOption("rpreda_max_relay_reserve") &&
+		!ParseUnsignedDecimal(
+			_RPredaString(
+				cmd.GetOption("rpreda_max_relay_reserve")),
+			m_relayOptimizationConfig.maxRelayReserve,
+			error))
+	{
+		_LOG_ERROR(
+			"[R-PREDA optimization]: invalid "
+			"-rpreda_max_relay_reserve: " << error);
+		return false;
+	}
+
+	if(cmd.HasOption("rpreda_opt_report"))
+	{
+		m_relayOptimizationConfig.reportPath =
+			_RPredaString(cmd.GetOption("rpreda_opt_report"));
+		if(m_relayOptimizationConfig.reportPath.empty())
+		{
+			_LOG_ERROR(
+				"[R-PREDA optimization]: "
+				"-rpreda_opt_report requires a non-empty path");
+			return false;
+		}
+	}
+
+	if(!ValidateOptimizationConfig(
+		m_relayOptimizationConfig,
+		ablationWasExplicit,
+		error))
+	{
+		_LOG_ERROR(
+			"[R-PREDA optimization]: invalid configuration: " <<
+			error);
+		return false;
+	}
+
+	if(m_relayOptimizationConfig.mode !=
+			OptimizationMode::Baseline &&
+		m_attribute.defaultEngineMode !=
+			rvm::EngineId::PREDA_NATIVE)
+	{
+		_LOG_ERROR(
+			"[R-PREDA optimization]: optimize modes are supported "
+			"only by the PREDA Native Engine");
+		return false;
+	}
+
+	if(m_relayOptimizationConfig.UsesRelayPlan())
+	{
+		const std::string repository =
+			_RPredaString(nativeRepository);
+		m_relayPlanRegistry =
+			std::make_unique<relay_plan::RelayPlanRegistry>(
+				repository + "/relay_protocol",
+				&m_relayOptimizationMetrics.plan);
+	}
+	if(m_relayOptimizationConfig.AuditEnabled())
+	{
+		m_relayOptimizationAudit =
+			std::make_unique<RelayOptimizationAudit>(
+				m_relayOptimizationConfig.auditSampleRate,
+				&m_relayOptimizationMetrics);
+	}
+
+	_LOGC_HIGHLIGHT(
+		"[R-PREDA optimization]: mode=" <<
+		ToString(m_relayOptimizationConfig.mode) <<
+		", ablation=" <<
+		ToString(m_relayOptimizationConfig.ablation) <<
+		", max_relay_reserve=" <<
+		m_relayOptimizationConfig.maxRelayReserve);
+	return true;
+}
+
+bool ChainSimulator::RelayOptimizationAuditFailureLatched() const noexcept
+{
+	return m_relayOptimizationAudit &&
+		m_relayOptimizationAudit->FailureLatched();
+}
+
+void ChainSimulator::_WriteRelayOptimizationReport()
+{
+	if(m_relayOptimizationReportWritten)
+		return;
+	m_relayOptimizationReportWritten = true;
+	if(m_relayOptimizationConfig.reportPath.empty())
+		return;
+
+	std::optional<relay_optimization::AuditFailure> failure;
+	if(m_relayOptimizationAudit)
+		failure = m_relayOptimizationAudit->FirstFailure();
+	std::string error;
+	if(!m_relayOptimizationReport.WriteAtomically(
+		m_relayOptimizationConfig.reportPath,
+		m_relayOptimizationConfig,
+		m_relayOptimizationMetrics.Snapshot(),
+		failure,
+		&error,
+		m_relayOptimizationMetrics.SnapshotMeasurementWindow()))
+	{
+		_LOGC_WARNING(
+			"[R-PREDA optimization]: failed to write report '" <<
+			m_relayOptimizationConfig.reportPath << "': " <<
+			error);
+	}
+}
+#endif
+
+#ifdef RPREDA_ENABLE_BOUND_RELAY_MANIFEST
+relay_plan::RelayPlanLookupResult
+ChainSimulator::LookupRelayPlan(
+	const rvm::ContractModuleID& moduleId,
+	uint32_t opcode)
+{
+	if(!m_relayPlanRegistry)
+		return {};
+
+	// The steady-state path is a module/opcode lookup only.  Trusted binding
+	// metadata and the manifest are resolved once on the first invocation;
+	// Compile() clears this registry when a module may have been refreshed.
+	const std::string moduleIdentity =
+		relay_plan::RelayPlanLoader::RuntimeHashIdentity(moduleId);
+	auto cached = m_relayPlanRegistry->Lookup(moduleIdentity, opcode);
+	if(cached.loadResult)
+		return cached;
+
+	auto* provider =
+		dynamic_cast<rvm::IRelayManifestModuleMetadataProvider*>(
+			GetEngine(rvm::EngineId::PREDA_NATIVE));
+	rvm::RelayManifestArtifactBinding trusted{};
+	if(provider == nullptr ||
+		!provider->GetRelayManifestArtifactBinding(
+			moduleId,
+			trusted) ||
+		!trusted.bindingComplete)
+	{
+		m_relayPlanRegistry->Metrics().planBindingFailures.fetch_add(
+			1,
+			std::memory_order_relaxed);
+		return {};
+	}
+
+	relay_plan::ExpectedArtifactBinding expected;
+	expected.identity.dapp = _RPredaString(trusted.dapp);
+	expected.identity.contract = _RPredaString(trusted.contract);
+	expected.identity.transpilerVersion =
+		_RPredaString(trusted.transpilerVersion);
+	expected.identity.intermediateHash =
+		relay_plan::RelayPlanLoader::RuntimeHashIdentity(
+			trusted.intermediateHash);
+	expected.identity.moduleId =
+		relay_plan::RelayPlanLoader::RuntimeHashIdentity(
+			trusted.moduleId);
+	expected.identity.moduleHashKind = "preda_module_id";
+	expected.identity.moduleHash = expected.identity.moduleId;
+	expected.identity.manifestHashAlgorithm = "sha256";
+	expected.identity.manifestHash =
+		_RPredaBytesToHex(
+			reinterpret_cast<const uint8_t*>(
+				&trusted.manifestHash),
+			sizeof(trusted.manifestHash));
+	expected.identity.bindingComplete = true;
+	expected.requireModuleHash = true;
+	expected.trustedManifestHash = expected.identity.manifestHash;
+	return m_relayPlanRegistry->Lookup(expected, opcode);
+}
+#endif
 
 #ifdef RPREDA_ENABLE_RUNTIME_TRACE
 namespace
@@ -114,6 +417,29 @@ bool _RelayTraceIsJsonLinesPath(const std::string& path)
 	return lower.size() >= 6 &&
 		lower.compare(lower.size() - 6, 6, ".jsonl") == 0;
 }
+
+#ifdef RPREDA_ENABLE_TRACE_FAULT_INJECTION
+relay_trace::RelayValidationResult _RelayTraceFaultProvenance(
+	const relay_trace::RuntimeTraceFaultApplication& application)
+{
+	relay_trace::RelayValidationResult result;
+	result.status = relay_trace::ValidationStatus::NotApplicable;
+	result.checkKind = relay_trace::ValidationCheckKind::Unknown;
+	result.reason = application.reason;
+	result.detail.checkKind = result.checkKind;
+	result.detail.propertyId =
+		"runtime_fault." + application.mutationId;
+	result.detail.function = application.sourceFunctionId;
+	result.detail.relaySiteId = application.relaySiteId;
+	result.detail.rootTraceTxId = application.rootTraceTxId;
+	result.detail.parentTraceTxId = application.parentTraceTxId;
+	result.detail.occurrenceIndex = application.occurrenceIndex;
+	result.detail.expected = relay_trace::ToString(application.kind);
+	result.detail.actual = relay_trace::ToString(application.status);
+	result.detail.diagnosticReason = result.reason;
+	return result;
+}
+#endif
 }
 
 bool ChainSimulator::_InitRelayTrace(
@@ -140,9 +466,26 @@ bool ChainSimulator::_InitRelayTrace(
 
 	m_relayTraceReportPath.clear();
 	m_relayTraceCollector.reset();
-	m_relayManifestLoader.reset();
 	m_relayTraceValidator.reset();
 	m_relayTraceReport.reset();
+#ifdef RPREDA_ENABLE_TRACE_FAULT_INJECTION
+	m_relayTraceFaultInjector.reset();
+	if(cmd.HasOption("rpreda_trace_fault") &&
+		m_relayTraceMode != relay_trace::TraceMode::Strict)
+	{
+		_LOG_ERROR(
+			"[R-PREDA trace]: fault injection requires strict mode");
+		return false;
+	}
+#else
+	if(cmd.HasOption("rpreda_trace_fault"))
+	{
+		_LOG_ERROR(
+			"[R-PREDA trace]: -rpreda_trace_fault requires a build "
+			"with RPREDA_ENABLE_TRACE_FAULT_INJECTION=ON");
+		return false;
+	}
+#endif
 	{
 		std::lock_guard<std::mutex> lock(m_relayManifestMutex);
 		m_relayManifestResults.clear();
@@ -154,6 +497,25 @@ bool ChainSimulator::_InitRelayTrace(
 
 	if(m_relayTraceMode == relay_trace::TraceMode::Off)
 		return true;
+
+#ifdef RPREDA_ENABLE_TRACE_FAULT_INJECTION
+	if(cmd.HasOption("rpreda_trace_fault"))
+	{
+		const std::string specPath = _RelayTraceString(
+			cmd.GetOption("rpreda_trace_fault"));
+		std::string error;
+		m_relayTraceFaultInjector =
+			relay_trace::RelayTraceFaultInjector::LoadSpecFile(
+				specPath,
+				error);
+		if(!m_relayTraceFaultInjector)
+		{
+			_LOG_ERROR(
+				"[R-PREDA trace]: invalid runtime fault spec: " << error);
+			return false;
+		}
+	}
+#endif
 
 	if(m_attribute.defaultEngineMode != rvm::EngineId::PREDA_NATIVE)
 	{
@@ -176,9 +538,16 @@ bool ChainSimulator::_InitRelayTrace(
 	m_relayTraceCollector =
 		std::make_unique<relay_trace::RelayTraceCollector>(
 			m_relayTraceMode);
-	m_relayManifestLoader =
-		std::make_unique<relay_trace::RelayManifestLoader>(
-			repository + "/relay_protocol");
+	// Runtime trace and protocol-guided optimization intentionally share one
+	// binding-verified registry.  Besides avoiding duplicate I/O and JSON
+	// parsing when both features are enabled, this guarantees that both
+	// consumers observe the same immutable manifest instance.
+	if(!m_relayPlanRegistry)
+	{
+		m_relayPlanRegistry =
+			std::make_unique<relay_plan::RelayPlanRegistry>(
+				repository + "/relay_protocol");
+	}
 	m_relayTraceValidator =
 		std::make_unique<relay_trace::RelayTraceValidator>();
 	m_relayTraceReport =
@@ -204,7 +573,7 @@ ChainSimulator::LoadRelayTraceManifest(
 {
 	if(m_relayTraceMode == relay_trace::TraceMode::Off ||
 		!m_relayTraceCollector ||
-		!m_relayManifestLoader ||
+		!m_relayPlanRegistry ||
 		!m_relayTraceValidator)
 	{
 		return {};
@@ -283,7 +652,7 @@ ChainSimulator::LoadRelayTraceManifest(
 			trustedIdentity;
 	}
 	if(invalidatePriorManifest)
-		m_relayManifestLoader->Invalidate(moduleIdentity);
+		m_relayPlanRegistry->Invalidate(moduleIdentity);
 
 	std::shared_ptr<const relay_trace::RelayManifestLoadResult> loaded;
 	if(!trustedAvailable)
@@ -299,7 +668,7 @@ ChainSimulator::LoadRelayTraceManifest(
 	}
 	else
 	{
-		loaded = m_relayManifestLoader->Load(expected);
+		loaded = m_relayPlanRegistry->Load(expected);
 	}
 
 	bool recordResult = false;
@@ -396,8 +765,33 @@ void ChainSimulator::ValidateRelayTraceExecution(
 		return;
 	}
 
-	const auto executionSlice =
+	auto executionSlice =
 		m_relayTraceCollector->ExecutionSlice(execution.traceTxId);
+#ifdef RPREDA_ENABLE_TRACE_FAULT_INJECTION
+	if(m_relayTraceFaultInjector)
+	{
+		try
+		{
+			const auto application =
+				m_relayTraceFaultInjector->Apply(executionSlice);
+			if(application.status ==
+					relay_trace::RuntimeTraceFaultApplicationStatus::Applied ||
+				application.status ==
+					relay_trace::RuntimeTraceFaultApplicationStatus::Invalid)
+			{
+				m_relayTraceCollector->AddValidationResult(
+					_RelayTraceFaultProvenance(application));
+			}
+		}
+		catch(...)
+		{
+			// An injector failure is instrumentation failure, never a semantic
+			// runtime kill, and must not escape into worker execution.
+			m_relayTraceCollector->RecordObserverFailureNoexcept(
+				"validation-slice fault injection");
+		}
+	}
+#endif
 	const std::string executingModule =
 		relay_trace::RelayManifestLoader::RuntimeHashIdentity(moduleId);
 	std::string executingFunction;
@@ -453,13 +847,13 @@ void ChainSimulator::ValidateRelayTraceExecution(
 
 		const bool emittedByExecutingModule =
 			emission.sourceModuleId == executingModule;
-		const std::string sourceFunctionId =
+		const std::string relevantRootFunctionId =
 			emittedByExecutingModule
 				? executingFunction
 				: std::string();
 		const std::string key = makeGroupKey(
 			emission.sourceModuleId,
-			sourceFunctionId);
+			relevantRootFunctionId);
 		auto found = groups.find(key);
 		if(found == groups.end())
 		{
@@ -479,14 +873,16 @@ void ChainSimulator::ValidateRelayTraceExecution(
 			group.execution = execution;
 			group.execution.moduleId = emission.sourceModuleId;
 			group.execution.sourceFunctionId =
-				sourceFunctionId;
+				relevantRootFunctionId;
 			group.functionOwnershipResolved = false;
 			found = groups.emplace(key, std::move(group)).first;
 		}
 
-		relay_trace::RelayEmitTraceEvent independentlyBound = emission;
-		independentlyBound.sourceFunctionId = sourceFunctionId;
-		found->second.emissions.push_back(std::move(independentlyBound));
+		// Preserve the static source function resolved from the bound relay
+		// site. group.execution.sourceFunctionId separately identifies the
+		// relevant root invocation, including relays emitted by synchronous
+		// helpers in this module.
+		found->second.emissions.push_back(emission);
 	}
 
 	const auto validationBegin = std::chrono::steady_clock::now();
@@ -525,7 +921,14 @@ void ChainSimulator::ValidateRelayTraceExecution(
 				input))
 		{
 			if(result.checkKind ==
-				relay_trace::ValidationCheckKind::Depth)
+				relay_trace::ValidationCheckKind::Depth ||
+				result.checkKind ==
+					relay_trace::ValidationCheckKind::
+					TransitiveLogicalWork ||
+				result.checkKind ==
+					relay_trace::ValidationCheckKind::PhysicalRouteWork ||
+				result.checkKind ==
+					relay_trace::ValidationCheckKind::RelayTreeDepth)
 			{
 				// Transitive depth is finalized once the worker set has
 				// stopped and the complete observed trace forest is stable.
@@ -556,6 +959,8 @@ void ChainSimulator::ValidateRelayTraceExecution(
 					relay_trace::ValidationCheckKind::DirectCount ||
 				 result.checkKind ==
 					relay_trace::ValidationCheckKind::CountUpperBound ||
+				 result.checkKind ==
+					relay_trace::ValidationCheckKind::DirectLogicalWork ||
 				 result.checkKind ==
 					relay_trace::ValidationCheckKind::GuardNecessity))
 			{
@@ -589,16 +994,55 @@ void ChainSimulator::_FinalizeRelayTraceDepthValidation()
 		return;
 	}
 	m_relayTraceDepthFinalized = true;
+#ifdef RPREDA_ENABLE_TRACE_FAULT_INJECTION
+	// Workers are stopped at this caller. Publish a deterministic selector-miss
+	// outcome without latching strict failure.
+	if(m_relayTraceFaultInjector &&
+		!m_relayTraceFaultInjector->Terminal())
+	{
+		relay_trace::RuntimeTraceFaultApplication application;
+		const auto& spec = m_relayTraceFaultInjector->Spec();
+		application.status =
+			relay_trace::RuntimeTraceFaultApplicationStatus::NotApplied;
+		application.mutationId = spec.mutationId;
+		application.kind = spec.kind;
+		application.sourceFunctionId = spec.selector.sourceFunctionId;
+		application.relaySiteId = spec.selector.relaySiteId;
+		application.occurrenceIndex = spec.selector.occurrenceIndex;
+		application.reason =
+			"runtime trace selector did not match any completed execution";
+		m_relayTraceCollector->AddValidationResult(
+			_RelayTraceFaultProvenance(application));
+	}
+#endif
 
 	const auto validationBegin = std::chrono::steady_clock::now();
 	try
 	{
 		const auto snapshot = m_relayTraceCollector->Snapshot();
+		std::unordered_map<
+			std::string,
+			std::shared_ptr<const relay_trace::RelayManifestLoadResult>>
+			manifestLoads;
+		{
+			std::lock_guard<std::mutex> lock(m_relayManifestMutex);
+			manifestLoads = m_relayManifestResults;
+		}
 		std::unordered_map<uint64_t, std::vector<uint64_t>> children;
 		std::unordered_map<uint64_t, uint32_t> depthByTraceId;
+		std::unordered_map<
+			uint64_t,
+			const relay_trace::RelayExecutionTraceEvent *>
+			executionByTraceId;
+		std::unordered_map<uint64_t, uint64_t>
+			logicalEmissionsByParent;
+		std::unordered_map<uint64_t, uint64_t> routesByParent;
 
 		for(const auto& event : snapshot.executions)
+		{
 			depthByTraceId[event.traceTxId] = event.depth;
+			executionByTraceId[event.traceTxId] = &event;
+		}
 
 		using LogicalEmissionKey = std::tuple<
 			uint64_t,
@@ -608,6 +1052,7 @@ void ChainSimulator::_FinalizeRelayTraceDepthValidation()
 		std::map<LogicalEmissionKey, uint32_t> logicalDepths;
 		for(const auto& emission : snapshot.emissions)
 		{
+			++logicalEmissionsByParent[emission.parentTraceTxId];
 			children[emission.parentTraceTxId].push_back(
 				emission.childTraceTxId);
 			depthByTraceId[emission.childTraceTxId] =
@@ -623,6 +1068,7 @@ void ChainSimulator::_FinalizeRelayTraceDepthValidation()
 		}
 		for(const auto& route : snapshot.routes)
 		{
+			++routesByParent[route.parentTraceTxId];
 			children[route.parentTraceTxId].push_back(
 				route.physicalTraceTxId);
 			auto logical = logicalDepths.find(
@@ -642,37 +1088,64 @@ void ChainSimulator::_FinalizeRelayTraceDepthValidation()
 			const std::string& reason,
 			const relay_trace::LoadedRelayManifest* manifest)
 		{
-			relay_trace::RelayValidationResult result;
-			result.status =
-				relay_trace::ValidationStatus::SkippedUnsupported;
-			result.checkKind =
-				relay_trace::ValidationCheckKind::Depth;
-			result.reason = reason;
-			result.detail.rootTraceTxId = event.rootTraceTxId;
-			result.detail.parentTraceTxId = event.parentTraceTxId;
-			result.detail.currentTraceTxId = event.traceTxId;
-			result.detail.function = event.sourceFunctionId;
-			result.detail.opcode = event.opcode;
-			result.detail.checkKind = result.checkKind;
-			result.detail.moduleIdentity = event.moduleId;
-			result.detail.diagnosticReason = reason;
+			std::vector<std::pair<
+				relay_trace::ValidationCheckKind,
+				std::string>> checks = {
+				{relay_trace::ValidationCheckKind::Depth, {}},
+			};
 			if(manifest != nullptr)
-				result.detail.manifestIdentity = manifest->binding;
-			m_relayTraceCollector->AddValidationResult(result);
+			{
+				auto function =
+					manifest->parallelCertificatesByFunction.find(
+						event.sourceFunctionId);
+				if(function !=
+					manifest->parallelCertificatesByFunction.end())
+				{
+					checks.push_back({
+						relay_trace::ValidationCheckKind::
+							TransitiveLogicalWork,
+						function->second.transitiveLogicalWork.
+							certificateId});
+					checks.push_back({
+						relay_trace::ValidationCheckKind::
+							PhysicalRouteWork,
+						function->second.physicalRouteWork.
+							certificateId});
+					checks.push_back({
+						relay_trace::ValidationCheckKind::RelayTreeDepth,
+						function->second.relayTreeDepth.certificateId});
+				}
+			}
+			for(const auto& check : checks)
+			{
+				relay_trace::RelayValidationResult result;
+				result.status =
+					relay_trace::ValidationStatus::SkippedUnsupported;
+				result.checkKind = check.first;
+				result.reason = reason;
+				result.detail.rootTraceTxId = event.rootTraceTxId;
+				result.detail.parentTraceTxId = event.parentTraceTxId;
+				result.detail.currentTraceTxId = event.traceTxId;
+				result.detail.function = event.sourceFunctionId;
+				result.detail.opcode = event.opcode;
+				result.detail.checkKind = result.checkKind;
+				result.detail.propertyId = check.second;
+				result.detail.certificateId = check.second;
+				result.detail.moduleIdentity = event.moduleId;
+				result.detail.diagnosticReason = reason;
+				if(manifest != nullptr)
+					result.detail.manifestIdentity = manifest->binding;
+				m_relayTraceCollector->AddValidationResult(result);
+			}
 		};
 
 		for(const auto& event : snapshot.executions)
 		{
 			std::shared_ptr<
 				const relay_trace::RelayManifestLoadResult> load;
-			{
-				std::lock_guard<std::mutex> lock(
-					m_relayManifestMutex);
-				auto found =
-					m_relayManifestResults.find(event.moduleId);
-				if(found != m_relayManifestResults.end())
-					load = found->second;
-			}
+			auto rootLoad = manifestLoads.find(event.moduleId);
+			if(rootLoad != manifestLoads.end())
+				load = rootLoad->second;
 			if(!load || !*load)
 				continue;
 
@@ -705,6 +1178,10 @@ void ChainSimulator::_FinalizeRelayTraceDepthValidation()
 			}
 
 			uint32_t maximumObservedDepth = event.depth;
+			uint64_t observedLogicalWork = 0;
+			uint64_t observedPhysicalWork = 0;
+			bool workCounterOverflow = false;
+			bool descendantExecutionsComplete = true;
 			std::vector<uint64_t> pending{event.traceTxId};
 			std::unordered_set<uint64_t> visited;
 			while(!pending.empty())
@@ -713,6 +1190,54 @@ void ChainSimulator::_FinalizeRelayTraceDepthValidation()
 				pending.pop_back();
 				if(!visited.insert(current).second)
 					continue;
+				auto descendant = executionByTraceId.find(current);
+				bool descendantIdentityValid = false;
+				if(descendant != executionByTraceId.end() &&
+					descendant->second->completed &&
+					descendant->second->succeeded &&
+					!descendant->second->moduleId.empty() &&
+					!descendant->second->sourceFunctionId.empty())
+				{
+					auto descendantLoad = manifestLoads.find(
+						descendant->second->moduleId);
+					if(descendantLoad != manifestLoads.end() &&
+						descendantLoad->second &&
+						*descendantLoad->second)
+					{
+						auto function = descendantLoad->second->manifest->
+							functionIdByOpcode.find(
+								descendant->second->opcode);
+						descendantIdentityValid = function !=
+								descendantLoad->second->manifest->
+									functionIdByOpcode.end() &&
+							function->second ==
+								descendant->second->sourceFunctionId;
+					}
+				}
+				if(!descendantIdentityValid)
+				{
+					descendantExecutionsComplete = false;
+				}
+				auto logical = logicalEmissionsByParent.find(current);
+				if(logical != logicalEmissionsByParent.end())
+				{
+					if(observedLogicalWork >
+						std::numeric_limits<uint64_t>::max() -
+							logical->second)
+						workCounterOverflow = true;
+					else
+						observedLogicalWork += logical->second;
+				}
+				auto routes = routesByParent.find(current);
+				if(routes != routesByParent.end())
+				{
+					if(observedPhysicalWork >
+						std::numeric_limits<uint64_t>::max() -
+							routes->second)
+						workCounterOverflow = true;
+					else
+						observedPhysicalWork += routes->second;
+				}
 
 				auto depth = depthByTraceId.find(current);
 				if(depth != depthByTraceId.end())
@@ -745,10 +1270,20 @@ void ChainSimulator::_FinalizeRelayTraceDepthValidation()
 			input.execution.depth = event.depth;
 			input.execution.isRelay = event.isRelay;
 			input.activeShardCount = GetShardCount();
-			input.observedTransitiveDepth =
-				maximumObservedDepth >= event.depth
-					? maximumObservedDepth - event.depth
-					: 0;
+			if(descendantExecutionsComplete)
+			{
+				input.observedTransitiveDepth =
+					maximumObservedDepth >= event.depth
+						? maximumObservedDepth - event.depth
+						: 0;
+			}
+			if(!workCounterOverflow && descendantExecutionsComplete)
+			{
+				input.observedTransitiveLogicalWork =
+					observedLogicalWork;
+				input.observedPhysicalRouteWork =
+					observedPhysicalWork;
+			}
 
 			bool emittedDepthResult = false;
 			for(auto result :
@@ -757,7 +1292,15 @@ void ChainSimulator::_FinalizeRelayTraceDepthValidation()
 					input))
 			{
 				if(result.checkKind !=
-					relay_trace::ValidationCheckKind::Depth)
+						relay_trace::ValidationCheckKind::Depth &&
+					result.checkKind !=
+						relay_trace::ValidationCheckKind::
+						TransitiveLogicalWork &&
+					result.checkKind !=
+						relay_trace::ValidationCheckKind::
+						PhysicalRouteWork &&
+					result.checkKind !=
+						relay_trace::ValidationCheckKind::RelayTreeDepth)
 				{
 					continue;
 				}
@@ -890,6 +1433,23 @@ bool ChainSimulator::Compile(const std::vector<std::pair<rt::String, rt::String>
 	if(!ret)
 		return false;
 
+#ifdef RPREDA_ENABLE_BOUND_RELAY_MANIFEST
+	// A successful compilation may republish a different manifest for an
+	// otherwise identical executable module ID.  Drop immutable plan/cache
+	// views at this explicit reload boundary; transaction hot paths never
+	// perform file freshness checks.
+	if(m_relayPlanRegistry)
+		m_relayPlanRegistry->Clear();
+#endif
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+	{
+		std::lock_guard<std::mutex> lock(m_relayManifestMutex);
+		m_relayManifestResults.clear();
+		m_relayManifestTrustedIdentities.clear();
+		m_relayManifestResultsRecorded.clear();
+	}
+#endif
+
 	rt::Json json;
 	build.GetContractsInfo(json);
 	_LOG(rt::JsonBeautified(json));
@@ -956,6 +1516,17 @@ bool ChainSimulator::SetState(rvm::ContractInvokeId ciid, SimuState* pState, uin
 void ChainSimulator::IssueTxn(SimuTxn* txn)
 {
 	if(!txn) return;
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+	if(m_relayOptimizationAudit &&
+		txn->Type != rvm::InvokeContextType::System &&
+		txn->GetEngineId() == rvm::EngineId::PREDA_NATIVE)
+	{
+		// Assign the audit-only issuance ordinal on the serial admission path.
+		// Failure is latched for the simulator safe point and never prevents
+		// ownership transfer to the stock queue.
+		m_relayOptimizationAudit->RegisterSourceIssuance(txn);
+	}
+#endif
 	SimuShard* pShard = GetShard(txn->ShardIndex);
 	ASSERT(pShard);
 	pShard->PushNormalTxn(txn);
@@ -1007,11 +1578,20 @@ void ChainSimulator::Term()
 #ifdef RPREDA_ENABLE_RUNTIME_TRACE
 		// All workers are stopped before pointer-keyed local trace metadata is
 		// cleared. At this safe point the observed relay forest is stable, so
-		// transitive maximum-depth checks can be finalized without racing a
-		// worker or speculating about future nested emissions.
+		// transitive logical/physical work and maximum-depth checks can be
+		// finalized without racing a worker or speculating about future nested
+		// emissions.
 		_FinalizeRelayTraceDepthValidation();
 		if(m_relayTraceCollector)
 			m_relayTraceCollector->ShutdownClearLiveTransactions();
+#endif
+
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+		// Optimization audit is read-only side metadata. Finalize only after
+		// every worker has stopped so failures are surfaced at a deterministic
+		// simulator safe point rather than from worker threads.
+		if(m_relayOptimizationAudit)
+			m_relayOptimizationAudit->FinalizeSamples();
 #endif
 
 		for(auto p : m_shards)_SafeDel(p);
@@ -1032,9 +1612,18 @@ void ChainSimulator::Term()
 	}
 
 #ifdef RPREDA_ENABLE_RUNTIME_TRACE
-	if(m_relayManifestLoader)
-		m_relayManifestLoader->Clear();
 	_WriteRelayTraceReport();
+#endif
+
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+	// Snapshot metrics before the normal shutdown cache clear so a clean
+	// teardown is not reported as a runtime plan invalidation.
+	_WriteRelayOptimizationReport();
+#endif
+
+#ifdef RPREDA_ENABLE_BOUND_RELAY_MANIFEST
+	if(m_relayPlanRegistry)
+		m_relayPlanRegistry->Clear();
 #endif
 }
 

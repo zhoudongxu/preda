@@ -3,18 +3,39 @@
 #include "simu_global.h"
 #include "simu_script.h"
 
+#ifdef RPREDA_ENABLE_BOUND_RELAY_MANIFEST
+#include "../native/abi/relay_manifest_abi.h"
+#include "../runtime/relay_plan/RelayPlanRegistry.h"
+#endif
+
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+#include "relay_optimization/RelayOptimizationAudit.h"
+#include "relay_optimization/RelayOptimizationMetrics.h"
+#include "relay_optimization/RelayOptimizationReport.h"
+#include "relay_optimization/RelayOptimizationTypes.h"
+#endif
+
 #ifdef RPREDA_ENABLE_RUNTIME_TRACE
 #include "../native/abi/relay_trace_abi.h"
 #include "relay_trace/RelayManifestLoader.h"
 #include "relay_trace/RelayTraceCollector.h"
 #include "relay_trace/RelayTraceReport.h"
 #include "relay_trace/RelayTraceValidator.h"
+#ifdef RPREDA_ENABLE_TRACE_FAULT_INJECTION
+#include "relay_trace/RelayTraceFaultInjector.h"
+#endif
 
 #include <memory>
 #include <mutex>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#endif
+
+#if defined(RPREDA_ENABLE_BOUND_RELAY_MANIFEST) || \
+	defined(RPREDA_ENABLE_RUNTIME_OPTIMIZATION)
+#include <memory>
+#include <string>
 #endif
 
 #if defined(PLATFORM_WIN)
@@ -83,17 +104,36 @@ protected:
 	oxd::SimuGlobalShard*			m_pGlobalShard = nullptr;
 	rt::Buffer<oxd::SimuShard*>		m_shards;
 
+#ifdef RPREDA_ENABLE_BOUND_RELAY_MANIFEST
+	std::unique_ptr<relay_plan::RelayPlanRegistry>
+									m_relayPlanRegistry;
+#endif
+
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+	relay_optimization::OptimizationConfig
+									m_relayOptimizationConfig;
+	relay_optimization::OptimizationMetrics
+									m_relayOptimizationMetrics;
+	std::unique_ptr<relay_optimization::RelayOptimizationAudit>
+									m_relayOptimizationAudit;
+	relay_optimization::RelayOptimizationReport
+									m_relayOptimizationReport;
+	bool							m_relayOptimizationReportWritten = false;
+#endif
+
 #ifdef RPREDA_ENABLE_RUNTIME_TRACE
 	relay_trace::TraceMode			m_relayTraceMode = relay_trace::TraceMode::Off;
 	std::string						m_relayTraceReportPath;
 	std::unique_ptr<relay_trace::RelayTraceCollector>
 									m_relayTraceCollector;
-	std::unique_ptr<relay_trace::RelayManifestLoader>
-									m_relayManifestLoader;
 	std::unique_ptr<relay_trace::RelayTraceValidator>
 									m_relayTraceValidator;
 	std::unique_ptr<relay_trace::RelayTraceReport>
 									m_relayTraceReport;
+#ifdef RPREDA_ENABLE_TRACE_FAULT_INJECTION
+	std::unique_ptr<relay_trace::RelayTraceFaultInjector>
+									m_relayTraceFaultInjector;
+#endif
 	mutable std::mutex				m_relayManifestMutex;
 	std::unordered_map<
 		std::string,
@@ -159,6 +199,19 @@ public:
 	bool				RelayTraceStrictFailureLatched() const noexcept;
 #endif
 
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+	const relay_optimization::OptimizationConfig&
+						GetRelayOptimizationConfig() const noexcept
+						{ return m_relayOptimizationConfig; }
+	relay_optimization::OptimizationMetrics*
+						GetRelayOptimizationMetrics() noexcept
+						{ return &m_relayOptimizationMetrics; }
+	relay_optimization::RelayOptimizationAudit*
+						GetRelayOptimizationAudit() noexcept
+						{ return m_relayOptimizationAudit.get(); }
+	bool				RelayOptimizationAuditFailureLatched() const noexcept;
+#endif
+
 	// SET Interfaces //
 	void				SetScriptGasLimit(uint64_t gas_limit) { m_runtimeInfo.gasLimit = gas_limit; }
 	void				SetScriptGlobalGasLimit(uint64_t gas_limit) { m_runtimeInfo.globalGasLimit = gas_limit; }
@@ -200,6 +253,13 @@ protected:
 							bool invocationSucceeded);
 #endif
 
+#ifdef RPREDA_ENABLE_BOUND_RELAY_MANIFEST
+	relay_plan::RelayPlanLookupResult
+						LookupRelayPlan(
+							const rvm::ContractModuleID& moduleId,
+							uint32_t opcode);
+#endif
+
 	void				OnTxnPushed(){ if(os::AtomicIncrement(&m_runtimeInfo.pendingTxnCount) < 2) m_chainIdle.Reset(); }
 	void				OnTxnPushed(uint32_t count){ if(os::AtomicAdd(count, &m_runtimeInfo.pendingTxnCount) < (int)(2 + count)) m_chainIdle.Reset(); }
 	void				OnTxnsConfirmed(uint32_t count){ os::AtomicAdd(-(int32_t)count, &m_runtimeInfo.pendingTxnCount); os::AtomicAdd(count, &m_runtimeInfo.executedTxnCount); }
@@ -233,6 +293,13 @@ private:
 							rt::String_Ref nativeRepository);
 	void				_FinalizeRelayTraceDepthValidation();
 	void				_WriteRelayTraceReport();
+#endif
+
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+	bool				_InitRelayOptimization(
+							const os::CommandLine& cmd,
+							rt::String_Ref nativeRepository);
+	void				_WriteRelayOptimizationReport();
 #endif
 
 protected:

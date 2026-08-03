@@ -7,9 +7,20 @@
 #include "chain_simu.h"
 #include "core_contracts.h"
 
+#ifdef RPREDA_PENDING_TXNS_BATCH_TESTING
+#include <atomic>
+#include <new>
+#endif
 
 namespace oxd
 {
+#ifdef RPREDA_PENDING_TXNS_BATCH_TESTING
+namespace
+{
+std::atomic<bool> g_failNextPushBatchForTesting{false};
+}
+#endif
+
 ShardStateKeyObj::ShardStateKeyObj(const ShardStateKeyObj& x)
 {
 	Contract = x.Contract;
@@ -89,6 +100,90 @@ bool PendingTxns::Push(SimuTxn** txns, uint32_t count)
 
 	return ret;
 }
+
+PendingPushResult PendingTxns::PushBatch(
+	SimuTxn* const* txns,
+	uint32_t count,
+	PendingBatchAuditObservation* audit) noexcept
+{
+	PendingPushResult result;
+	if(count == 0)
+	{
+		// wasEmpty is intentionally not observed for an empty batch: the
+		// caller has no item to account or notify, so no lock is required.
+		result.committed = true;
+		return result;
+	}
+
+	ASSERT(txns);
+	try
+	{
+		std::lock_guard<std::mutex> lock(_Mutex);
+		result.wasEmpty = _Queue.empty();
+		const size_t oldSize = _Queue.size();
+		if(audit)
+		{
+			audit->sizeBefore = oldSize;
+			audit->sizeAfter = oldSize;
+			audit->inserted.clear();
+		}
+		try
+		{
+			for(uint32_t index = 0; index < count; ++index)
+			{
+				ASSERT(txns[index]);
+				ASSERT(txns[index]->IsRelay());
+			}
+			_Queue.insert(_Queue.end(), txns, txns + count);
+			if(audit)
+			{
+				audit->sizeAfter = _Queue.size();
+				audit->inserted.assign(
+					_Queue.end() - count,
+					_Queue.end());
+			}
+#ifdef RPREDA_PENDING_TXNS_BATCH_TESTING
+			if(g_failNextPushBatchForTesting.exchange(
+				false,
+				std::memory_order_acq_rel))
+			{
+				throw std::bad_alloc();
+			}
+#endif
+			result.committed = true;
+			result.inserted = count;
+		}
+		catch(...)
+		{
+			// End insertion never transfers ownership until the whole batch
+			// commits. Restore the exact old prefix before returning failure.
+			while(_Queue.size() > oldSize)
+				_Queue.pop_back();
+			result.committed = false;
+			result.inserted = 0;
+			if(audit)
+			{
+				audit->sizeAfter = oldSize;
+				audit->inserted.clear();
+			}
+		}
+	}
+	catch(...)
+	{
+		// A lock acquisition failure occurs before mutation. noexcept callers
+		// receive an ordinary uncommitted result and retain every pointer.
+		result.committed = false;
+		result.inserted = 0;
+	}
+	return result;
+}
+
+#ifdef RPREDA_PENDING_TXNS_BATCH_TESTING
+void PendingTxns::FailNextPushBatchForTesting() noexcept
+{
+	g_failNextPushBatchForTesting.store(true, std::memory_order_release);
+}
+#endif
 
 bool PendingTxns::Push_Front(SimuTxn* tx)
 {

@@ -1,0 +1,20 @@
+contract ProtocolCFGMutualRecursionEffect {
+    @address uint32 observed;
+
+    @address function left(uint32 remaining) {
+        observed += 1u32;
+        if (remaining > 0u32) {
+            right(remaining - 1u32);
+        }
+    }
+
+    @address function right(uint32 remaining) {
+        if (remaining > 0u32) {
+            left(remaining - 1u32);
+        }
+    }
+
+    @address function run(uint32 remaining) export {
+        right(remaining);
+    }
+}

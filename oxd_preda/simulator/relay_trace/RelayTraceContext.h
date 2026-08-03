@@ -56,6 +56,7 @@ public:
 	uint32_t NextOccurrence(
 		const std::string &moduleId,
 		RelaySiteOrdinal ordinal);
+	uint64_t NextEmissionSequence();
 	bool HasMarkers() const;
 	size_t MarkerDepth() const;
 
@@ -80,6 +81,7 @@ private:
 	std::vector<RelaySiteMarkerFrame> m_markers;
 	std::unordered_map<OccurrenceKey, uint32_t, OccurrenceKeyHash>
 		m_nextOccurrence;
+	uint64_t m_nextEmissionSequence = 0;
 };
 
 const char *ToString(MarkerOperationStatus status);

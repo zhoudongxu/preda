@@ -1,5 +1,6 @@
 #pragma once
 #include <deque>
+#include <vector>
 #ifndef __APPLE__
 #include <memory_resource>
 #endif
@@ -292,6 +293,22 @@ public:
 
 
 
+struct PendingPushResult
+{
+	bool		committed = false;
+	// Meaningful only for a non-empty batch. Empty batches deliberately do
+	// not lock or observe the queue and leave this false.
+	bool		wasEmpty = false;
+	uint32_t	inserted = 0;
+};
+
+struct PendingBatchAuditObservation
+{
+	size_t					sizeBefore = 0;
+	size_t					sizeAfter = 0;
+	std::vector<SimuTxn*>	inserted;
+};
+
 class PendingTxns
 {
 protected:
@@ -303,8 +320,16 @@ public:
 	~PendingTxns();
 	bool		Push(SimuTxn* tx);							// push a txn to the back of the queue, returns true if queue was empty
 	bool		Push(SimuTxn** txns, uint32_t count);		// push multiple txns to the back of the queue, returns true if queue was empty
+	PendingPushResult
+				PushBatch(
+					SimuTxn* const* txns,
+					uint32_t count,
+					PendingBatchAuditObservation* audit = nullptr) noexcept;
 	bool		Push_Front(SimuTxn* txn);					// push a txn to the front of the queue, returns true if queue was empty
 	SimuTxn*	Pop();										// pop a txn from the front of the queue
+#ifdef RPREDA_PENDING_TXNS_BATCH_TESTING
+	static void	FailNextPushBatchForTesting() noexcept;
+#endif
 	bool		IsEmpty() const
 	{
 		std::lock_guard<std::mutex> lock(_Mutex);

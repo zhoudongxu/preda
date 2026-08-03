@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "defaults": {
+    "seed": 88,
+    "order": 2
+  },
+  "workloads": {
+    "Token": {
+      "performance_fixture": "fixtures/TokenPerformance.prdts",
+      "correctness_fixture": "fixtures/TokenDeterministic.prdts",
+      "performance_parameters": {
+        "count": 10000,
+        "addresses": 1024
+      },
+      "correctness_parameters": {
+        "count": 128,
+        "addresses": 128
+      },
+      "expected_runtime_features": {
+        "relay_activity": true,
+        "generic_batch": true,
+        "verified_reserve": false
+      },
+      "measured_source_transaction_offset": 0
+    },
+    "Ballot": {
+      "performance_fixture": "fixtures/BallotPerformance.prdts",
+      "correctness_fixture": "fixtures/BallotDeterministic.prdts",
+      "performance_parameters": {
+        "count": 10000,
+        "addresses": 10000
+      },
+      "correctness_parameters": {
+        "count": 64,
+        "addresses": 64
+      },
+      "expected_runtime_features": {
+        "relay_activity": true,
+        "generic_batch": true,
+        "verified_reserve": true
+      },
+      "measured_source_transaction_offset": 1
+    },
+    "MillionPixel": {
+      "performance_fixture": "fixtures/MillionPixelPerformance.prdts",
+      "correctness_fixture": "fixtures/MillionPixelDeterministic.prdts",
+      "performance_parameters": {
+        "count": 10000,
+        "addresses": 10000
+      },
+      "correctness_parameters": {
+        "count": 128,
+        "addresses": 128
+      },
+      "expected_runtime_features": {
+        "relay_activity": true,
+        "generic_batch": true,
+        "verified_reserve": true
+      },
+      "measured_source_transaction_offset": 0
+    },
+    "Kitty": {
+      "performance_fixture": "fixtures/KittyPerformance.prdts",
+      "correctness_fixture": "fixtures/KittyDeterministic.prdts",
+      "performance_parameters": {
+        "count": 500,
+        "addresses": 500
+      },
+      "correctness_parameters": {
+        "count": 32,
+        "addresses": 32
+      },
+      "expected_runtime_features": {
+        "relay_activity": true,
+        "generic_batch": true,
+        "verified_reserve": true
+      },
+      "measured_source_transaction_offset": 0
+    },
+    "AirDrop": {
+      "performance_fixture": "fixtures/AirDropPerformance.prdts",
+      "correctness_fixture": "fixtures/AirDropDeterministic.prdts",
+      "performance_parameters": {
+        "count": 1000,
+        "addresses": 1024
+      },
+      "correctness_parameters": {
+        "count": 16,
+        "addresses": 128
+      },
+      "expected_runtime_features": {
+        "relay_activity": true,
+        "generic_batch": true,
+        "verified_reserve": false
+      },
+      "measured_source_transaction_offset": 0
+    }
+  }
+}

@@ -1,0 +1,83 @@
+contract ProtocolCertificateSyncContexts {
+    @uint32 uint32 observed;
+
+    @uint32 function receive(uint32 value) {
+        observed += value;
+    }
+
+    @address function helper(uint32 target, uint32 value) {
+        relay@target receive(value);
+    }
+
+    @address function helper(uint64 target, uint32 value) {
+        relay@uint32(target) receive(value);
+    }
+
+    @address function exclusive_only_helper(uint32 target, uint32 value) {
+        relay@target receive(value);
+    }
+
+    @address function unique_only_helper(uint32 target, uint32 value) {
+        relay@target receive(value);
+    }
+
+    @address function unique_context(
+        uint32 first,
+        uint32 second,
+        uint32 value
+    ) export {
+        relay@first receive(value);
+        unique_only_helper(second, value);
+    }
+
+    @address function exclusive_helper_context(
+        bool choose_helper,
+        uint32 first,
+        uint32 second,
+        uint32 value
+    ) export {
+        if (choose_helper) {
+            exclusive_only_helper(first, value);
+        } else {
+            relay@second receive(value);
+        }
+    }
+
+    @address function repeated_context(
+        uint32 first,
+        uint32 second,
+        uint32 value
+    ) export {
+        relay@first receive(value);
+        helper(second, value);
+        helper(second, value);
+    }
+
+    @address function overloaded_context(
+        uint32 first,
+        uint64 second,
+        uint32 value
+    ) export {
+        helper(first, value);
+        helper(second, value);
+    }
+
+    @address function recursive_helper(
+        uint32 target,
+        uint32 remaining,
+        uint32 value
+    ) {
+        if (remaining > 0u32) {
+            relay@target receive(value);
+            recursive_helper(target, remaining - 1u32, value);
+        }
+    }
+
+    @address function recursive_context(
+        uint32 target,
+        uint32 remaining,
+        uint32 value
+    ) export {
+        recursive_helper(target, remaining, value);
+    }
+}

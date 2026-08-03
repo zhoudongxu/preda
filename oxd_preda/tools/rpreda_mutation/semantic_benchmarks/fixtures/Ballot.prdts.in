@@ -1,0 +1,25 @@
+// Deterministic Ballot/Voting nested global-shard-global relay fixture.
+random.reseed $~seed$
+allocate.address $~addresses$
+chain.gaslimit 256
+
+chain.deploy @1 {{SOURCE}}
+state.set Ballot.address @all { weight:1, voted_case:0 }
+
+txn_init = Ballot.init @0 { names:["Spring", "Yarn", "Combat"] }
+chain.run
+
+txn_vote[] = Ballot.vote @all {
+    proposal_index:0,
+    case_num:1
+}
+txn_finalize = Ballot.finalize @0 {}
+
+chain.run
+chain.info
+
+viz.addr @all Ballot
+viz.shard #g Ballot
+viz.shard #all Ballot
+viz.block #g
+viz.block #all

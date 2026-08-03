@@ -18,6 +18,9 @@ public:
 		std::string text;							// text to be output to code stream
 		transpiler::QualifiedConcreteType type;		// type of expression, if it's a typename expression, only type.baseConcreteType is relevant
 		bool bIsTypeName = false;					// whether this expression is a type name instead of a value
+		// Exact semantic provenance for a callable expression. It is analysis
+		// metadata only and never participates in generated C++ text.
+		transpiler::DefinedIdentifierPtr callableIdentifier;
 	};
 
 private:
