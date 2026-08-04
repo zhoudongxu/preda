@@ -1,0 +1,20 @@
+random.reseed $~seed$
+allocate.address $~addresses$
+chain.gaslimit 65536
+
+chain.deploy @1 {{SOURCE}}
+
+txn_yes = Ballot.vote_parallel @0 {
+    choice:true, voter:"$@1$", statistics:"$@2$",
+    yesStatistics:"$@3$", noStatistics:"$@4$", amount:1
+}
+txn_no = Ballot.vote_parallel @5 {
+    choice:false, voter:"$@1$", statistics:"$@2$",
+    yesStatistics:"$@3$", noStatistics:"$@4$", amount:2
+}
+
+chain.run
+chain.info
+
+viz.addr @all Ballot
+viz.block #all

@@ -6,7 +6,7 @@ allocate.address $~addresses$
 chain.gaslimit 256
 
 chain.deploy @1 {{SOURCE}}
-state.set Token.address @all { balance:"1000" }
+state.set Token.address @all { balance:"1000", auditTransfers:0, auditVolume:"0" }
 
 txn_airdrop = Token.transfer_n @0 { recipients:[ \
     { to:"$@1$", amount:"100" }, { to:"$@2$", amount:"200" }, \

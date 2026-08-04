@@ -13,6 +13,7 @@
       "source": "oxd_preda/simulator/contracts/Token.prd",
       "runtime_template": "oxd_preda/tools/rpreda_mutation/semantic_benchmarks/fixtures/Token.prdts.in",
       "runtime_parameters": {"addresses": 8, "count": 1},
+      "static_function_filters": ["transfer(address,bigint)"],
       "runtime_function_filters": ["transfer(address,bigint)"],
       "runtime_coverage": {
         "required_function_ids": ["chsimu.Token::transfer(address,bigint)"],
@@ -26,14 +27,19 @@
       "source": "oxd_preda/simulator/contracts/Ballot.prd",
       "runtime_template": "oxd_preda/tools/rpreda_mutation/semantic_benchmarks/fixtures/Ballot.prdts.in",
       "runtime_parameters": {"addresses": 4, "count": 4},
+      "static_function_filters": [
+        "init(array string)",
+        "vote(uint32,uint32)",
+        "finalize()"
+      ],
       "runtime_coverage": {
         "required_function_ids": [
           "chsimu.Ballot::init(array string)",
           "chsimu.Ballot::finalize()",
-          "chsimu.Ballot::__relaylambda_4_finalize()",
-          "chsimu.Ballot::__relaylambda_5_finalize()"
+          "chsimu.Ballot::__relaylambda_9_finalize()",
+          "chsimu.Ballot::__relaylambda_10_finalize()"
         ],
-        "required_site_ids": ["relay_site_0", "relay_site_1", "relay_site_2", "relay_site_3"],
+        "required_site_ids": ["relay_site_4", "relay_site_5", "relay_site_6", "relay_site_7"],
         "unresolved_site_ids": []
       },
       "include_in_static_aggregate": true
@@ -43,6 +49,7 @@
       "source": "oxd_preda/simulator/contracts/MillionPixel.prd",
       "runtime_template": "oxd_preda/tools/rpreda_mutation/semantic_benchmarks/fixtures/MillionPixel.prdts.in",
       "runtime_parameters": {"addresses": 4, "count": 3},
+      "static_function_filters": ["occupy(uint16,uint16)"],
       "runtime_function_filters": ["occupy(uint16,uint16)"],
       "runtime_coverage": {
         "required_function_ids": ["chsimu.MillionPixel::occupy(uint16,uint16)"],
@@ -56,16 +63,21 @@
       "source": "oxd_preda/simulator/contracts/Kitty.prd",
       "runtime_template": "oxd_preda/tools/rpreda_mutation/semantic_benchmarks/fixtures/Kitty.prdts.in",
       "runtime_parameters": {"addresses": 4, "count": 4},
+      "static_function_filters": [
+        "mint(bigint,bool,address)",
+        "breed(uint32,uint32,bool)",
+        "registerNewBorns()"
+      ],
       "runtime_coverage": {
         "required_function_ids": [
           "chsimu.KittyBreeding::mint(bigint,bool,address)",
           "chsimu.KittyBreeding::breed(uint32,uint32,bool)",
           "chsimu.KittyBreeding::registerNewBorns()",
-          "chsimu.KittyBreeding::__relaylambda_4_breed(uint32,uint32,bool)",
-          "chsimu.KittyBreeding::__relaylambda_5_registerNewBorns(array chsimu.KittyBreeding.KittyInfo)",
-          "chsimu.KittyBreeding::__relaylambda_6_breed(bigint,uint32,uint32,bool)"
+          "chsimu.KittyBreeding::__relaylambda_7_breed(uint32,uint32,bool)",
+          "chsimu.KittyBreeding::__relaylambda_8_registerNewBorns(array chsimu.KittyBreeding.KittyInfo)",
+          "chsimu.KittyBreeding::__relaylambda_9_breed(bigint,uint32,uint32,bool)"
         ],
-        "required_site_ids": ["relay_site_0", "relay_site_1", "relay_site_2", "relay_site_3", "relay_site_4", "relay_site_5"],
+        "required_site_ids": ["relay_site_0", "relay_site_4", "relay_site_5", "relay_site_6", "relay_site_7", "relay_site_8"],
         "unresolved_site_ids": []
       },
       "include_in_static_aggregate": true

@@ -61,20 +61,20 @@
         "required_function_ids": [
           "chsimu.Ballot::init(array string)",
           "chsimu.Ballot::finalize()",
-          "chsimu.Ballot::__relaylambda_4_finalize()",
-          "chsimu.Ballot::__relaylambda_5_finalize()"
+          "chsimu.Ballot::__relaylambda_9_finalize()",
+          "chsimu.Ballot::__relaylambda_10_finalize()"
         ],
         "required_site_ids": [
-          "relay_site_0",
-          "relay_site_1",
-          "relay_site_2",
-          "relay_site_3"
+          "relay_site_4",
+          "relay_site_5",
+          "relay_site_6",
+          "relay_site_7"
         ],
         "portable_source_function_signatures": [
           "init(array string)",
           "finalize()",
-          "__relaylambda_4_finalize()",
-          "__relaylambda_5_finalize()"
+          "__relaylambda_9_finalize()",
+          "__relaylambda_10_finalize()"
         ],
         "include_reachable_relay_handlers": true
       },
@@ -94,7 +94,7 @@
       ],
       "mutation_function_filters": {
         "RelayDuplicate": ["finalize()"],
-        "BroadcastToSingle": ["__relaylambda_4_finalize()"]
+        "BroadcastToSingle": ["__relaylambda_9_finalize()"]
       }
     },
     "MillionPixel": {
@@ -170,25 +170,25 @@
           "chsimu.KittyBreeding::mint(bigint,bool,address)",
           "chsimu.KittyBreeding::breed(uint32,uint32,bool)",
           "chsimu.KittyBreeding::registerNewBorns()",
-          "chsimu.KittyBreeding::__relaylambda_4_breed(uint32,uint32,bool)",
-          "chsimu.KittyBreeding::__relaylambda_5_registerNewBorns(array chsimu.KittyBreeding.KittyInfo)",
-          "chsimu.KittyBreeding::__relaylambda_6_breed(bigint,uint32,uint32,bool)"
+          "chsimu.KittyBreeding::__relaylambda_7_breed(uint32,uint32,bool)",
+          "chsimu.KittyBreeding::__relaylambda_8_registerNewBorns(array chsimu.KittyBreeding.KittyInfo)",
+          "chsimu.KittyBreeding::__relaylambda_9_breed(bigint,uint32,uint32,bool)"
         ],
         "required_site_ids": [
           "relay_site_0",
-          "relay_site_1",
-          "relay_site_2",
-          "relay_site_3",
           "relay_site_4",
-          "relay_site_5"
+          "relay_site_5",
+          "relay_site_6",
+          "relay_site_7",
+          "relay_site_8"
         ],
         "portable_source_function_signatures": [
           "mint(bigint,bool,address)",
           "breed(uint32,uint32,bool)",
           "registerNewBorns()",
-          "__relaylambda_4_breed(uint32,uint32,bool)",
-          "__relaylambda_5_registerNewBorns(array chsimu.KittyBreeding.KittyInfo)",
-          "__relaylambda_6_breed(bigint,uint32,uint32,bool)"
+          "__relaylambda_7_breed(uint32,uint32,bool)",
+          "__relaylambda_8_registerNewBorns(array chsimu.KittyBreeding.KittyInfo)",
+          "__relaylambda_9_breed(bigint,uint32,uint32,bool)"
         ],
         "include_reachable_relay_handlers": true
       },

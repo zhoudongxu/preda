@@ -28,6 +28,56 @@ contract Ballot {
     // address scope
     @address uint64 weight;
     @address uint32 voted_case;
+    @address uint64 parallelReputation;
+    @address uint64 parallelStatistics;
+    @address uint64 parallelYesStatistics;
+    @address uint64 parallelNoStatistics;
+
+    @address function parallel_update_reputation(uint64 amount)
+    {
+        parallelReputation += amount;
+    }
+
+    @address function parallel_update_statistics(uint64 amount)
+    {
+        parallelStatistics += amount;
+    }
+
+    @address function parallel_update_yes(uint64 amount)
+    {
+        parallelYesStatistics += amount;
+    }
+
+    @address function parallel_update_no(uint64 amount)
+    {
+        parallelNoStatistics += amount;
+    }
+
+    // DAO voting extension with one independent voter/statistics pair and
+    // two mutually exclusive branch-specific counter relays.
+    @address function vote_parallel(
+        bool choice,
+        address voter,
+        address statistics,
+        address yesStatistics,
+        address noStatistics,
+        uint64 amount
+    ) export
+    {
+        if(voter != statistics)
+        {
+            relay@voter parallel_update_reputation(amount);
+            relay@statistics parallel_update_statistics(amount);
+        }
+        if(choice)
+        {
+            relay@yesStatistics parallel_update_yes(amount);
+        }
+        if(!choice)
+        {
+            relay@noStatistics parallel_update_no(amount);
+        }
+    }
 
     @address function bool is_voting()
     {

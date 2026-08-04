@@ -1,0 +1,482 @@
+{
+  "schema_version": 1,
+  "study": "parallel_certificate_extension",
+  "aggregate_with_original_coverage": false,
+  "output_subdirectory": "certificate_extension",
+  "defaults": {
+    "seed": 88,
+    "order": 2,
+    "addresses": 8,
+    "timeout_seconds": 60,
+    "strict_runtime_validation": true,
+    "site_resolution": "semantic_locator_only"
+  },
+  "benchmarks": [
+    {
+      "name": "TokenParallel",
+      "source": "oxd_preda/simulator/contracts/Token.prd",
+      "runtime_template": "fixtures/TokenParallel.prdts.in",
+      "function_signature": "transfer_parallel(address,address,bigint)",
+      "runtime_arguments": [
+        "-seed:88",
+        "-order:2",
+        "-addresses:8"
+      ],
+      "runtime_coverage": {
+        "required_function_signatures": [
+          "transfer_parallel(address,address,bigint)"
+        ],
+        "required_semantic_sites": [
+          "recipient",
+          "audit"
+        ],
+        "unresolved_site_ids": []
+      },
+      "sites": {
+        "recipient": {
+          "source_function_signature": "transfer_parallel(address,address,bigint)",
+          "target_text": "to",
+          "target_function": "parallel_deposit",
+          "relay_kind": "custom_scope",
+          "target_scope": "address",
+          "occurrence": 0
+        },
+        "audit": {
+          "source_function_signature": "transfer_parallel(address,address,bigint)",
+          "target_text": "audit",
+          "target_function": "parallel_record_audit",
+          "relay_kind": "custom_scope",
+          "target_scope": "address",
+          "occurrence": 0
+        }
+      },
+      "certificates": [
+        {
+          "id": "token.receiver_audit.independence",
+          "pattern": "receiver_audit",
+          "certificate_type": "CoEmissionIndependent",
+          "site_a": "recipient",
+          "site_b": "audit",
+          "expected_relation": "CoEmissionIndependent",
+          "expected_status": "Proved",
+          "mutation": {
+            "kind": "IntroduceAlias",
+            "sites": [
+              "recipient",
+              "audit"
+            ],
+            "validation_required": true,
+            "expected_regression_contains": "lost proved CoEmissionIndependent"
+          }
+        },
+        {
+          "id": "token.receiver_audit.precedence",
+          "pattern": "receiver_audit",
+          "certificate_type": "MustPrecede",
+          "site_a": "recipient",
+          "site_b": "audit",
+          "expected_relation": "MustPrecedeAB",
+          "expected_status": "Proved",
+          "mutation": {
+            "kind": "RelayOrderSwap",
+            "sites": [
+              "recipient",
+              "audit"
+            ],
+            "validation_required": true,
+            "expected_regression_contains": "precedence reversed"
+          }
+        }
+      ]
+    },
+    {
+      "name": "BallotParallel",
+      "source": "oxd_preda/simulator/contracts/Ballot.prd",
+      "runtime_template": "fixtures/BallotParallel.prdts.in",
+      "function_signature": "vote_parallel(bool,address,address,address,address,uint64)",
+      "runtime_arguments": [
+        "-seed:88",
+        "-order:2",
+        "-addresses:8"
+      ],
+      "runtime_coverage": {
+        "required_function_signatures": [
+          "vote_parallel(bool,address,address,address,address,uint64)"
+        ],
+        "required_semantic_sites": [
+          "voter",
+          "statistics",
+          "yes",
+          "no"
+        ],
+        "unresolved_site_ids": []
+      },
+      "sites": {
+        "voter": {
+          "source_function_signature": "vote_parallel(bool,address,address,address,address,uint64)",
+          "target_text": "voter",
+          "relay_kind": "custom_scope",
+          "target_scope": "address",
+          "occurrence": 0
+        },
+        "statistics": {
+          "source_function_signature": "vote_parallel(bool,address,address,address,address,uint64)",
+          "target_text": "statistics",
+          "relay_kind": "custom_scope",
+          "target_scope": "address",
+          "occurrence": 0
+        },
+        "yes": {
+          "source_function_signature": "vote_parallel(bool,address,address,address,address,uint64)",
+          "target_text": "yesStatistics",
+          "relay_kind": "custom_scope",
+          "target_scope": "address",
+          "occurrence": 0
+        },
+        "no": {
+          "source_function_signature": "vote_parallel(bool,address,address,address,address,uint64)",
+          "target_text": "noStatistics",
+          "relay_kind": "custom_scope",
+          "target_scope": "address",
+          "occurrence": 0
+        }
+      },
+      "certificates": [
+        {
+          "id": "ballot.voter_statistics.independence",
+          "pattern": "voter_statistics",
+          "certificate_type": "CoEmissionIndependent",
+          "site_a": "voter",
+          "site_b": "statistics",
+          "expected_relation": "CoEmissionIndependent",
+          "expected_status": "Proved",
+          "mutation": {
+            "kind": "IntroduceAlias",
+            "sites": [
+              "voter",
+              "statistics"
+            ],
+            "validation_required": true,
+            "expected_regression_contains": "lost proved CoEmissionIndependent"
+          }
+        },
+        {
+          "id": "ballot.yes_no.mutual_exclusion",
+          "pattern": "branch_specific_statistics",
+          "certificate_type": "MutualExclusive",
+          "site_a": "yes",
+          "site_b": "no",
+          "expected_relation": "MutuallyExclusive",
+          "expected_status": "Proved",
+          "mutation": {
+            "kind": "GuardNegate",
+            "sites": [
+              "yes"
+            ],
+            "validation_required": true,
+            "expected_regression_contains": "lost proved MutuallyExclusive"
+          }
+        }
+      ]
+    },
+    {
+      "name": "MillionPixelParallel",
+      "source": "oxd_preda/simulator/contracts/MillionPixel.prd",
+      "runtime_template": "fixtures/MillionPixelParallel.prdts.in",
+      "function_signature": "occupy_parallel(uint16,uint16,uint32,address)",
+      "runtime_arguments": [
+        "-seed:88",
+        "-order:2",
+        "-addresses:8"
+      ],
+      "runtime_coverage": {
+        "required_function_signatures": [
+          "occupy_parallel(uint16,uint16,uint32,address)"
+        ],
+        "required_semantic_sites": [
+          "owner_stats",
+          "pixel"
+        ],
+        "unresolved_site_ids": []
+      },
+      "sites": {
+        "owner_stats": {
+          "source_function_signature": "occupy_parallel(uint16,uint16,uint32,address)",
+          "target_text": "ownerStatisticsKey",
+          "relay_kind": "custom_scope",
+          "target_scope": "uint32",
+          "occurrence": 0
+        },
+        "pixel": {
+          "source_function_signature": "occupy_parallel(uint16,uint16,uint32,address)",
+          "target_text": "index",
+          "relay_kind": "custom_scope",
+          "target_scope": "uint32",
+          "occurrence": 0
+        }
+      },
+      "certificates": [
+        {
+          "id": "million_pixel.pixel_owner_stats.independence",
+          "pattern": "pixel_owner_statistics",
+          "certificate_type": "CoEmissionIndependent",
+          "site_a": "owner_stats",
+          "site_b": "pixel",
+          "expected_relation": "CoEmissionIndependent",
+          "expected_status": "Proved",
+          "mutation": {
+            "kind": "IntroduceAlias",
+            "sites": [
+              "owner_stats",
+              "pixel"
+            ],
+            "validation_required": true,
+            "expected_regression_contains": "lost proved CoEmissionIndependent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "KittyParallel",
+      "source": "oxd_preda/simulator/contracts/Kitty.prd",
+      "runtime_template": "fixtures/KittyParallel.prdts.in",
+      "function_signature": "breed_parallel(address,address,address,bigint,bool)",
+      "runtime_arguments": [
+        "-seed:88",
+        "-order:2",
+        "-addresses:8"
+      ],
+      "runtime_coverage": {
+        "required_function_signatures": [
+          "breed_parallel(address,address,address,bigint,bool)"
+        ],
+        "required_semantic_sites": [
+          "offspring",
+          "parent1",
+          "parent2"
+        ],
+        "unresolved_site_ids": []
+      },
+      "sites": {
+        "offspring": {
+          "source_function_signature": "breed_parallel(address,address,address,bigint,bool)",
+          "target_text": "offspring",
+          "relay_kind": "custom_scope",
+          "target_scope": "address",
+          "occurrence": 0
+        },
+        "parent1": {
+          "source_function_signature": "breed_parallel(address,address,address,bigint,bool)",
+          "target_text": "parent1",
+          "relay_kind": "custom_scope",
+          "target_scope": "address",
+          "occurrence": 0
+        },
+        "parent2": {
+          "source_function_signature": "breed_parallel(address,address,address,bigint,bool)",
+          "target_text": "parent2",
+          "relay_kind": "custom_scope",
+          "target_scope": "address",
+          "occurrence": 0
+        }
+      },
+      "certificates": [
+        {
+          "id": "kitty.offspring_parent1.independence",
+          "pattern": "offspring_parent_updates",
+          "certificate_type": "CoEmissionIndependent",
+          "site_a": "offspring",
+          "site_b": "parent1",
+          "expected_relation": "CoEmissionIndependent",
+          "expected_status": "Proved",
+          "mutation": {
+            "kind": "IntroduceAlias",
+            "sites": [
+              "offspring",
+              "parent1"
+            ],
+            "validation_required": true,
+            "expected_regression_contains": "lost proved CoEmissionIndependent"
+          }
+        },
+        {
+          "id": "kitty.offspring_parent2.independence",
+          "pattern": "offspring_parent_updates",
+          "certificate_type": "CoEmissionIndependent",
+          "site_a": "offspring",
+          "site_b": "parent2",
+          "expected_relation": "CoEmissionIndependent",
+          "expected_status": "Proved",
+          "mutation": {
+            "kind": "IntroduceAlias",
+            "sites": [
+              "offspring",
+              "parent2"
+            ],
+            "validation_required": true,
+            "expected_regression_contains": "lost proved CoEmissionIndependent"
+          }
+        },
+        {
+          "id": "kitty.parent1_parent2.independence",
+          "pattern": "offspring_parent_updates",
+          "certificate_type": "CoEmissionIndependent",
+          "site_a": "parent1",
+          "site_b": "parent2",
+          "expected_relation": "CoEmissionIndependent",
+          "expected_status": "Proved",
+          "mutation": {
+            "kind": "IntroduceAlias",
+            "sites": [
+              "parent1",
+              "parent2"
+            ],
+            "validation_required": true,
+            "expected_regression_contains": "lost proved CoEmissionIndependent"
+          }
+        },
+        {
+          "id": "kitty.direct_work.bound",
+          "pattern": "offspring_parent_updates",
+          "certificate_type": "WorkBound",
+          "bound_field": "direct_logical_work",
+          "expected_status": "Proved",
+          "expected_upper_bound": 3,
+          "mutation": {
+            "kind": "RelayDuplicate",
+            "sites": [
+              "offspring"
+            ],
+            "validation_required": true,
+            "expected_regression_contains": "certificate bound increased"
+          }
+        },
+        {
+          "id": "kitty.transitive_work.bound",
+          "pattern": "offspring_parent_updates",
+          "certificate_type": "WorkBound",
+          "bound_field": "transitive_logical_work",
+          "expected_status": "Proved",
+          "expected_upper_bound": 3,
+          "mutation": {
+            "kind": "PositiveOnly",
+            "validation_required": false,
+            "reason": "The RelayDuplicate validation is owned by the direct-work record; this record is retained as positive bound evidence."
+          }
+        },
+        {
+          "id": "kitty.physical_work.bound",
+          "pattern": "offspring_parent_updates",
+          "certificate_type": "WorkBound",
+          "bound_field": "physical_route_work",
+          "expected_status": "Proved",
+          "expected_upper_bound": 3,
+          "mutation": {
+            "kind": "PositiveOnly",
+            "validation_required": false,
+            "reason": "The RelayDuplicate validation is owned by the direct-work record; this record is retained as positive bound evidence."
+          }
+        },
+        {
+          "id": "kitty.depth.bound",
+          "pattern": "offspring_parent_updates",
+          "certificate_type": "DepthBound",
+          "bound_field": "relay_tree_depth",
+          "expected_status": "Proved",
+          "expected_upper_bound": 1,
+          "mutation": {
+            "kind": "PositiveOnly",
+            "validation_required": false,
+            "reason": "RelayDuplicate changes work but does not increase sibling relay-tree depth, so no false depth violation is claimed."
+          }
+        }
+      ]
+    },
+    {
+      "name": "AirDropParallel",
+      "source": "oxd_preda/simulator/contracts/Token.prd",
+      "runtime_template": "fixtures/AirDropParallel.prdts.in",
+      "function_signature": "transfer_n_parallel(address,bigint,address,bigint,address,bigint,address)",
+      "runtime_arguments": [
+        "-seed:88",
+        "-order:2",
+        "-addresses:8"
+      ],
+      "runtime_coverage": {
+        "required_function_signatures": [
+          "transfer_n_parallel(address,bigint,address,bigint,address,bigint,address)"
+        ],
+        "required_semantic_sites": [
+          "recipient0",
+          "recipient1",
+          "recipient2",
+          "summary"
+        ],
+        "unresolved_site_ids": []
+      },
+      "sites": {
+        "recipient0": {
+          "source_function_signature": "transfer_n_parallel(address,bigint,address,bigint,address,bigint,address)",
+          "target_text": "recipient0",
+          "relay_kind": "custom_scope",
+          "target_scope": "address",
+          "occurrence": 0
+        },
+        "recipient1": {
+          "source_function_signature": "transfer_n_parallel(address,bigint,address,bigint,address,bigint,address)",
+          "target_text": "recipient1",
+          "relay_kind": "custom_scope",
+          "target_scope": "address",
+          "occurrence": 0
+        },
+        "recipient2": {
+          "source_function_signature": "transfer_n_parallel(address,bigint,address,bigint,address,bigint,address)",
+          "target_text": "recipient2",
+          "relay_kind": "custom_scope",
+          "target_scope": "address",
+          "occurrence": 0
+        },
+        "summary": {
+          "source_function_signature": "transfer_n_parallel(address,bigint,address,bigint,address,bigint,address)",
+          "target_text": "summary",
+          "relay_kind": "custom_scope",
+          "target_scope": "address",
+          "occurrence": 0
+        }
+      },
+      "certificates": [
+        {
+          "id": "airdrop.distribution_summary.precedence",
+          "pattern": "distribution_then_summary",
+          "certificate_type": "MustPrecede",
+          "site_a": "recipient2",
+          "site_b": "summary",
+          "expected_relation": "MustPrecedeAB",
+          "expected_status": "Proved",
+          "mutation": {
+            "kind": "RelayOrderSwap",
+            "sites": [
+              "recipient2",
+              "summary"
+            ],
+            "validation_required": true,
+            "expected_regression_contains": "precedence reversed"
+          }
+        },
+        {
+          "id": "airdrop.direct_work.bound",
+          "pattern": "distribution_then_summary",
+          "certificate_type": "WorkBound",
+          "bound_field": "direct_logical_work",
+          "expected_status": "Proved",
+          "expected_upper_bound": 4,
+          "mutation": {
+            "kind": "PositiveOnly",
+            "validation_required": false,
+            "reason": "RelayOrderSwap preserves relay cardinality; the finite work bound is reported as positive evidence only."
+          }
+        }
+      ]
+    }
+  ]
+}

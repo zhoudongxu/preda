@@ -1,0 +1,2086 @@
+{
+  "metadata": {
+    "aggregate_with_original_coverage": false,
+    "chsimu": "bin/bin_release/chsimu",
+    "chsimu_sha256": "05c8cc1d8a0d21b63e308ab586fd675595d1f9b65dbac61b718cbce820cc1fa1",
+    "completed_at": "2026-08-03T10:35:09.957683+00:00",
+    "config": "<config>",
+    "config_sha256": "ef64be1c53c7edf643ae16536198263e9df71663dbd911ba8c5112c9df8c0ea5",
+    "mutation_engine": "bin/bin_release/rpreda_mutation",
+    "mutation_engine_sha256": "fbf0543e155440d01111a41dfc19312d21efa84de968765c2022db7b8548cb13",
+    "repo_commit": "c74a38d5c3e86014f14450647dc6cd1893868f15",
+    "repo_dirty_tracked_files": [
+      "M oxd_preda/simulator/contracts/AirDrop.prdts",
+      " M oxd_preda/simulator/contracts/Ballot.prd",
+      " M oxd_preda/simulator/contracts/Ballot.prdts",
+      " M oxd_preda/simulator/contracts/Kitty.prd",
+      " M oxd_preda/simulator/contracts/MillionPixel.prd",
+      " M oxd_preda/simulator/contracts/Token.prd",
+      " M oxd_preda/simulator/contracts/Token.prdts",
+      " M oxd_preda/simulator/relay_optimization/benchmarks/fixtures/AirDropDeterministic.prdts",
+      " M oxd_preda/simulator/relay_optimization/benchmarks/fixtures/AirDropPerformance.prdts",
+      " M oxd_preda/simulator/relay_optimization/benchmarks/fixtures/BallotDeterministic.prdts",
+      " M oxd_preda/simulator/relay_optimization/benchmarks/fixtures/BallotPerformance.prdts",
+      " M oxd_preda/simulator/relay_optimization/benchmarks/fixtures/TokenDeterministic.prdts",
+      " M oxd_preda/simulator/relay_optimization/benchmarks/fixtures/TokenPerformance.prdts",
+      " M oxd_preda/tools/rpreda_mutation/semantic_benchmarks/fixtures/AirDrop.prdts.in",
+      " M oxd_preda/tools/rpreda_mutation/semantic_benchmarks/fixtures/Ballot.prdts.in",
+      " M oxd_preda/tools/rpreda_mutation/semantic_benchmarks/fixtures/Token.prdts.in"
+    ],
+    "seed": 88,
+    "started_at": "2026-08-03T10:33:33.074677+00:00",
+    "timeout_seconds": 60.0
+  },
+  "records": [
+    {
+      "certificate_id": "parallel.pair.chsimu.Token::transfer_parallel(address,address,bigint).relay_site_2.relay_site_3.conflict",
+      "certificate_type": "CoEmissionIndependent",
+      "evidence": {
+        "cfg_fact_ids": [
+          "cfg::chsimu.Token::transfer_parallel(address,address,bigint)::2107::branch::2",
+          "cfg::chsimu.Token::transfer_parallel(address,address,bigint)::2180::basic::4",
+          "cfg::chsimu.Token::transfer_parallel(address,address,bigint)::2211::relay_emit::5",
+          "cfg::chsimu.Token::transfer_parallel(address,address,bigint)::2258::relay_emit::7",
+          "cfg_edge::chsimu.Token::transfer_parallel(address,address,bigint)::0",
+          "cfg_edge::chsimu.Token::transfer_parallel(address,address,bigint)::2",
+          "cfg_edge::chsimu.Token::transfer_parallel(address,address,bigint)::4",
+          "cfg_edge::chsimu.Token::transfer_parallel(address,address,bigint)::7",
+          "chsimu.Token::transfer_parallel(address,address,bigint)"
+        ],
+        "constraint_ids": [
+          "rpreda.constraint.target_relation.site.relay_site_2",
+          "rpreda.constraint.target_relation.site.relay_site_3"
+        ],
+        "solver_result_ids": [
+          "parallel.pair.chsimu.Token::transfer_parallel(address,address,bigint).relay_site_2.relay_site_3.mutual_exclusion",
+          "parallel.pair.chsimu.Token::transfer_parallel(address,address,bigint).relay_site_2.relay_site_3.target_independence"
+        ]
+      },
+      "evidence_ids": [
+        "parallel.pair.chsimu.Token::transfer_parallel(address,address,bigint).relay_site_2.relay_site_3.conflict",
+        "cfg::chsimu.Token::transfer_parallel(address,address,bigint)::2107::branch::2",
+        "cfg::chsimu.Token::transfer_parallel(address,address,bigint)::2180::basic::4",
+        "cfg::chsimu.Token::transfer_parallel(address,address,bigint)::2211::relay_emit::5",
+        "cfg::chsimu.Token::transfer_parallel(address,address,bigint)::2258::relay_emit::7",
+        "cfg_edge::chsimu.Token::transfer_parallel(address,address,bigint)::0",
+        "cfg_edge::chsimu.Token::transfer_parallel(address,address,bigint)::2",
+        "cfg_edge::chsimu.Token::transfer_parallel(address,address,bigint)::4",
+        "cfg_edge::chsimu.Token::transfer_parallel(address,address,bigint)::7",
+        "chsimu.Token::transfer_parallel(address,address,bigint)",
+        "rpreda.constraint.target_relation.site.relay_site_2",
+        "rpreda.constraint.target_relation.site.relay_site_3",
+        "parallel.pair.chsimu.Token::transfer_parallel(address,address,bigint).relay_site_2.relay_site_3.mutual_exclusion",
+        "parallel.pair.chsimu.Token::transfer_parallel(address,address,bigint).relay_site_2.relay_site_3.target_independence"
+      ],
+      "evidence_valid": true,
+      "expected_relation": "CoEmissionIndependent",
+      "mutation": {
+        "compile_status": "Compiled",
+        "contract": "Token",
+        "description": "force relay_site_3 to alias target of relay_site_2",
+        "detected": true,
+        "edits": [
+          {
+            "byte_end_offset": 2268,
+            "byte_start_offset": 2264,
+            "expected_original": "audit",
+            "replacement": "to"
+          }
+        ],
+        "expected_regression_matched": true,
+        "generation_status": "Generated",
+        "location": {
+          "byte_end_offset": 2268,
+          "byte_start_offset": 2264,
+          "column": 18,
+          "end_column": 23,
+          "end_line": 86,
+          "end_offset": 2268,
+          "line": 86,
+          "start_offset": 2264
+        },
+        "manifest_digest": "cc55be30b4ea8f24f6300a3dd5f9caa668f26e96c12855bbcab175329eb52dd8",
+        "mutated_code_path": "work/TokenParallel/generation/mutants/mut_IntroduceAlias_ff437ab3b801eeccebd37d73750e9ca1/Token.prd",
+        "mutated_fragment": "to",
+        "mutation_id": "mut_IntroduceAlias_ff437ab3b801eeccebd37d73750e9ca1",
+        "mutation_type": "IntroduceAlias",
+        "original_code_path": "work/TokenParallel/generation/mutants/mut_IntroduceAlias_ff437ab3b801eeccebd37d73750e9ca1/original.prd",
+        "original_fragment": "audit",
+        "reason": "",
+        "regressions": [
+          "lost proved CoEmissionIndependent guarantee for surviving sites relay_site_2->relay_site_2, relay_site_3->relay_site_3"
+        ],
+        "relay_site_ids": [
+          "relay_site_2",
+          "relay_site_3"
+        ],
+        "runtime_coverage": {
+          "covered": true,
+          "label": "mut_IntroduceAlias_ff437ab3b801eeccebd37d73750e9ca1",
+          "missing_function_ids": [],
+          "missing_relay_site_ids": [],
+          "observed_function_ids": [
+            "chsimu.Token::parallel_deposit(bigint)",
+            "chsimu.Token::parallel_record_audit(bigint,uint64)",
+            "chsimu.Token::transfer_parallel(address,address,bigint)"
+          ],
+          "observed_relay_site_ids": [
+            "relay_site_2",
+            "relay_site_3"
+          ],
+          "required_function_ids": [
+            "chsimu.Token::transfer_parallel(address,address,bigint)"
+          ],
+          "required_relay_site_ids": [
+            "relay_site_2",
+            "relay_site_3"
+          ],
+          "unresolved_relay_site_ids": []
+        },
+        "runtime_skipped_unsupported": 7,
+        "runtime_status": "Passed",
+        "source_function_id": "chsimu.Token::transfer_parallel(address,address,bigint)",
+        "status": "Detected"
+      },
+      "mutation_mapping": {
+        "expected_regression_contains": "lost proved CoEmissionIndependent",
+        "kind": "IntroduceAlias",
+        "sites": [
+          "recipient",
+          "audit"
+        ],
+        "validation_required": true
+      },
+      "pattern": "receiver_audit",
+      "raw_certificate_status": "Proved",
+      "reason": "joint path is satisfiable and Z3 proved distinct targets under it",
+      "record_id": "token.receiver_audit.independence",
+      "relation": "CoEmissionIndependent",
+      "relay_site_a": "relay_site_2",
+      "relay_site_b": "relay_site_3",
+      "source_function_id": "chsimu.Token::transfer_parallel(address,address,bigint)",
+      "source_function_signature": "transfer_parallel(address,address,bigint)",
+      "status": "Proved",
+      "validation_status": "Passed",
+      "workload": "TokenParallel"
+    },
+    {
+      "certificate_id": "parallel.pair.chsimu.Token::transfer_parallel(address,address,bigint).relay_site_2.relay_site_3.precedence",
+      "certificate_type": "MustPrecede",
+      "evidence": {
+        "cfg_fact_ids": [
+          "cfg::chsimu.Token::transfer_parallel(address,address,bigint)::2211::relay_emit::5",
+          "cfg::chsimu.Token::transfer_parallel(address,address,bigint)::2258::relay_emit::7",
+          "chsimu.Token::transfer_parallel(address,address,bigint)",
+          "region::handler::relay_handler_2",
+          "region::handler::relay_handler_3"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_ids": [
+        "parallel.pair.chsimu.Token::transfer_parallel(address,address,bigint).relay_site_2.relay_site_3.precedence",
+        "cfg::chsimu.Token::transfer_parallel(address,address,bigint)::2211::relay_emit::5",
+        "cfg::chsimu.Token::transfer_parallel(address,address,bigint)::2258::relay_emit::7",
+        "chsimu.Token::transfer_parallel(address,address,bigint)",
+        "region::handler::relay_handler_2",
+        "region::handler::relay_handler_3"
+      ],
+      "evidence_valid": true,
+      "expected_relation": "MustPrecedeAB",
+      "mutation": {
+        "compile_status": "Compiled",
+        "contract": "Token",
+        "description": "swap the source order of relay_site_2 and relay_site_3",
+        "detected": true,
+        "edits": [
+          {
+            "byte_end_offset": 2244,
+            "byte_start_offset": 2211,
+            "expected_original": "relay@to parallel_deposit(amount);",
+            "replacement": "relay@audit parallel_record_audit(amount, 1u64);"
+          },
+          {
+            "byte_end_offset": 2305,
+            "byte_start_offset": 2258,
+            "expected_original": "relay@audit parallel_record_audit(amount, 1u64);",
+            "replacement": "relay@to parallel_deposit(amount);"
+          }
+        ],
+        "expected_regression_matched": true,
+        "generation_status": "Generated",
+        "location": {
+          "byte_end_offset": 2244,
+          "byte_start_offset": 2211,
+          "column": 12,
+          "end_column": 46,
+          "end_line": 85,
+          "end_offset": 2244,
+          "line": 85,
+          "start_offset": 2211
+        },
+        "manifest_digest": "466a079bb91329d7f08b6e025e85268d1c4eef664f4816f7529057e1b6382a3c",
+        "mutated_code_path": "work/TokenParallel/generation/mutants/mut_RelayOrderSwap_fa77f55500eb31e95cf3ef55f2f38d46/Token.prd",
+        "mutated_fragment": "relay@audit parallel_record_audit(amount, 1u64);relay@to parallel_deposit(amount);",
+        "mutation_id": "mut_RelayOrderSwap_fa77f55500eb31e95cf3ef55f2f38d46",
+        "mutation_type": "RelayOrderSwap",
+        "original_code_path": "work/TokenParallel/generation/mutants/mut_RelayOrderSwap_fa77f55500eb31e95cf3ef55f2f38d46/original.prd",
+        "original_fragment": "relay@to parallel_deposit(amount);relay@audit parallel_record_audit(amount, 1u64);",
+        "reason": "",
+        "regressions": [
+          "proved precedence reversed for surviving sites relay_site_2->relay_site_3, relay_site_3->relay_site_2"
+        ],
+        "relay_site_ids": [
+          "relay_site_2",
+          "relay_site_3"
+        ],
+        "runtime_coverage": {
+          "covered": true,
+          "label": "mut_RelayOrderSwap_fa77f55500eb31e95cf3ef55f2f38d46",
+          "missing_function_ids": [],
+          "missing_relay_site_ids": [],
+          "observed_function_ids": [
+            "chsimu.Token::parallel_deposit(bigint)",
+            "chsimu.Token::parallel_record_audit(bigint,uint64)",
+            "chsimu.Token::transfer_parallel(address,address,bigint)"
+          ],
+          "observed_relay_site_ids": [
+            "relay_site_2",
+            "relay_site_3"
+          ],
+          "required_function_ids": [
+            "chsimu.Token::transfer_parallel(address,address,bigint)"
+          ],
+          "required_relay_site_ids": [
+            "relay_site_2",
+            "relay_site_3"
+          ],
+          "unresolved_relay_site_ids": []
+        },
+        "runtime_skipped_unsupported": 7,
+        "runtime_status": "Passed",
+        "source_function_id": "chsimu.Token::transfer_parallel(address,address,bigint)",
+        "status": "Detected"
+      },
+      "mutation_mapping": {
+        "expected_regression_contains": "precedence reversed",
+        "kind": "RelayOrderSwap",
+        "sites": [
+          "recipient",
+          "audit"
+        ],
+        "validation_required": true
+      },
+      "pattern": "receiver_audit",
+      "raw_certificate_status": "Proved",
+      "reason": "site A strictly dominates site B in the exact loop-free ICFG",
+      "record_id": "token.receiver_audit.precedence",
+      "relation": "MustPrecedeAB",
+      "relay_site_a": "relay_site_2",
+      "relay_site_b": "relay_site_3",
+      "source_function_id": "chsimu.Token::transfer_parallel(address,address,bigint)",
+      "source_function_signature": "transfer_parallel(address,address,bigint)",
+      "status": "Proved",
+      "validation_status": "Passed",
+      "workload": "TokenParallel"
+    },
+    {
+      "certificate_id": "parallel.pair.chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64).relay_site_0.relay_site_1.conflict",
+      "certificate_type": "CoEmissionIndependent",
+      "evidence": {
+        "cfg_fact_ids": [
+          "cfg::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::1814::branch::2",
+          "cfg::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::1857::relay_emit::4",
+          "cfg::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::1917::relay_emit::6",
+          "cfg_edge::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::0",
+          "cfg_edge::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::3",
+          "cfg_edge::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::4",
+          "chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)"
+        ],
+        "constraint_ids": [
+          "rpreda.constraint.target_relation.site.relay_site_0",
+          "rpreda.constraint.target_relation.site.relay_site_1"
+        ],
+        "solver_result_ids": [
+          "parallel.pair.chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64).relay_site_0.relay_site_1.mutual_exclusion",
+          "parallel.pair.chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64).relay_site_0.relay_site_1.target_independence"
+        ]
+      },
+      "evidence_ids": [
+        "parallel.pair.chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64).relay_site_0.relay_site_1.conflict",
+        "cfg::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::1814::branch::2",
+        "cfg::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::1857::relay_emit::4",
+        "cfg::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::1917::relay_emit::6",
+        "cfg_edge::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::0",
+        "cfg_edge::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::3",
+        "cfg_edge::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::4",
+        "chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)",
+        "rpreda.constraint.target_relation.site.relay_site_0",
+        "rpreda.constraint.target_relation.site.relay_site_1",
+        "parallel.pair.chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64).relay_site_0.relay_site_1.mutual_exclusion",
+        "parallel.pair.chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64).relay_site_0.relay_site_1.target_independence"
+      ],
+      "evidence_valid": true,
+      "expected_relation": "CoEmissionIndependent",
+      "mutation": {
+        "compile_status": "Compiled",
+        "contract": "Ballot",
+        "description": "force relay_site_1 to alias target of relay_site_0",
+        "detected": true,
+        "edits": [
+          {
+            "byte_end_offset": 1932,
+            "byte_start_offset": 1923,
+            "expected_original": "statistics",
+            "replacement": "voter"
+          }
+        ],
+        "expected_regression_matched": true,
+        "generation_status": "Generated",
+        "location": {
+          "byte_end_offset": 1932,
+          "byte_start_offset": 1923,
+          "column": 18,
+          "end_column": 28,
+          "end_line": 70,
+          "end_offset": 1932,
+          "line": 70,
+          "start_offset": 1923
+        },
+        "manifest_digest": "7c730cdccb0c33795ddbe01f29123c21a6bfb68e7f571ffeface1ca592a8846a",
+        "mutated_code_path": "work/BallotParallel/generation/mutants/mut_IntroduceAlias_118ed3a92672f37217ed417dfb289127/Ballot.prd",
+        "mutated_fragment": "voter",
+        "mutation_id": "mut_IntroduceAlias_118ed3a92672f37217ed417dfb289127",
+        "mutation_type": "IntroduceAlias",
+        "original_code_path": "work/BallotParallel/generation/mutants/mut_IntroduceAlias_118ed3a92672f37217ed417dfb289127/original.prd",
+        "original_fragment": "statistics",
+        "reason": "",
+        "regressions": [
+          "lost proved CoEmissionIndependent guarantee for surviving sites relay_site_0->relay_site_0, relay_site_1->relay_site_1"
+        ],
+        "relay_site_ids": [
+          "relay_site_0",
+          "relay_site_1"
+        ],
+        "runtime_coverage": {
+          "covered": true,
+          "label": "mut_IntroduceAlias_118ed3a92672f37217ed417dfb289127",
+          "missing_function_ids": [],
+          "missing_relay_site_ids": [],
+          "observed_function_ids": [
+            "chsimu.Ballot::parallel_update_no(uint64)",
+            "chsimu.Ballot::parallel_update_reputation(uint64)",
+            "chsimu.Ballot::parallel_update_statistics(uint64)",
+            "chsimu.Ballot::parallel_update_yes(uint64)",
+            "chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)"
+          ],
+          "observed_relay_site_ids": [
+            "relay_site_0",
+            "relay_site_1",
+            "relay_site_2",
+            "relay_site_3"
+          ],
+          "required_function_ids": [
+            "chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)"
+          ],
+          "required_relay_site_ids": [
+            "relay_site_0",
+            "relay_site_1"
+          ],
+          "unresolved_relay_site_ids": []
+        },
+        "runtime_skipped_unsupported": 20,
+        "runtime_status": "Passed",
+        "source_function_id": "chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)",
+        "status": "Detected"
+      },
+      "mutation_mapping": {
+        "expected_regression_contains": "lost proved CoEmissionIndependent",
+        "kind": "IntroduceAlias",
+        "sites": [
+          "voter",
+          "statistics"
+        ],
+        "validation_required": true
+      },
+      "pattern": "voter_statistics",
+      "raw_certificate_status": "Proved",
+      "reason": "joint path is satisfiable and Z3 proved distinct targets under it",
+      "record_id": "ballot.voter_statistics.independence",
+      "relation": "CoEmissionIndependent",
+      "relay_site_a": "relay_site_0",
+      "relay_site_b": "relay_site_1",
+      "source_function_id": "chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)",
+      "source_function_signature": "vote_parallel(bool,address,address,address,address,uint64)",
+      "status": "Proved",
+      "validation_status": "Passed",
+      "workload": "BallotParallel"
+    },
+    {
+      "certificate_id": "parallel.pair.chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64).relay_site_2.relay_site_3.exclusion",
+      "certificate_type": "MutualExclusive",
+      "evidence": {
+        "cfg_fact_ids": [
+          "cfg::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::1811::basic::3",
+          "cfg::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::1814::branch::2",
+          "cfg::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::1857::relay_emit::4",
+          "cfg::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::1917::relay_emit::6",
+          "cfg::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::1988::basic::9",
+          "cfg::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::1991::branch::8",
+          "cfg::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::2021::relay_emit::10",
+          "cfg::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::2091::branch::12",
+          "cfg::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::2122::relay_emit::14",
+          "cfg_edge::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::0",
+          "cfg_edge::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::10",
+          "cfg_edge::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::11",
+          "cfg_edge::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::12",
+          "cfg_edge::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::14",
+          "cfg_edge::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::3",
+          "cfg_edge::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::4",
+          "cfg_edge::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::5",
+          "cfg_edge::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::6",
+          "cfg_edge::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::7",
+          "cfg_edge::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::9",
+          "chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": [
+          "parallel.pair.chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64).relay_site_2.relay_site_3.mutual_exclusion"
+        ]
+      },
+      "evidence_ids": [
+        "parallel.pair.chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64).relay_site_2.relay_site_3.exclusion",
+        "cfg::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::1811::basic::3",
+        "cfg::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::1814::branch::2",
+        "cfg::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::1857::relay_emit::4",
+        "cfg::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::1917::relay_emit::6",
+        "cfg::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::1988::basic::9",
+        "cfg::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::1991::branch::8",
+        "cfg::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::2021::relay_emit::10",
+        "cfg::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::2091::branch::12",
+        "cfg::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::2122::relay_emit::14",
+        "cfg_edge::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::0",
+        "cfg_edge::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::10",
+        "cfg_edge::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::11",
+        "cfg_edge::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::12",
+        "cfg_edge::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::14",
+        "cfg_edge::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::3",
+        "cfg_edge::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::4",
+        "cfg_edge::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::5",
+        "cfg_edge::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::6",
+        "cfg_edge::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::7",
+        "cfg_edge::chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)::9",
+        "chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)",
+        "parallel.pair.chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64).relay_site_2.relay_site_3.mutual_exclusion"
+      ],
+      "evidence_valid": true,
+      "expected_relation": "MutuallyExclusive",
+      "mutation": {
+        "compile_status": "Compiled",
+        "contract": "Ballot",
+        "description": "negate enclosing branch guard 'choice'",
+        "detected": true,
+        "edits": [
+          {
+            "byte_end_offset": 1996,
+            "byte_start_offset": 1991,
+            "expected_original": "choice",
+            "replacement": "!(choice)"
+          }
+        ],
+        "expected_regression_matched": true,
+        "generation_status": "Generated",
+        "location": {
+          "byte_end_offset": 1996,
+          "byte_start_offset": 1991,
+          "column": 11,
+          "end_column": 17,
+          "end_line": 72,
+          "end_offset": 1996,
+          "line": 72,
+          "start_offset": 1991
+        },
+        "manifest_digest": "413fe3a21f89c6519b9d9d4db7d19835da291be83e76a4792f13f38dee645063",
+        "mutated_code_path": "work/BallotParallel/generation/mutants/mut_GuardNegate_9535c8930a919c04417a58dc76355955/Ballot.prd",
+        "mutated_fragment": "!(choice)",
+        "mutation_id": "mut_GuardNegate_9535c8930a919c04417a58dc76355955",
+        "mutation_type": "GuardNegate",
+        "original_code_path": "work/BallotParallel/generation/mutants/mut_GuardNegate_9535c8930a919c04417a58dc76355955/original.prd",
+        "original_fragment": "choice",
+        "reason": "",
+        "regressions": [
+          "lost proved MutuallyExclusive guarantee for surviving sites relay_site_2->relay_site_2, relay_site_3->relay_site_3"
+        ],
+        "relay_site_ids": [
+          "relay_site_2"
+        ],
+        "runtime_coverage": {
+          "covered": true,
+          "label": "mut_GuardNegate_9535c8930a919c04417a58dc76355955",
+          "missing_function_ids": [],
+          "missing_relay_site_ids": [],
+          "observed_function_ids": [
+            "chsimu.Ballot::parallel_update_no(uint64)",
+            "chsimu.Ballot::parallel_update_reputation(uint64)",
+            "chsimu.Ballot::parallel_update_statistics(uint64)",
+            "chsimu.Ballot::parallel_update_yes(uint64)",
+            "chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)"
+          ],
+          "observed_relay_site_ids": [
+            "relay_site_0",
+            "relay_site_1",
+            "relay_site_2",
+            "relay_site_3"
+          ],
+          "required_function_ids": [
+            "chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)"
+          ],
+          "required_relay_site_ids": [
+            "relay_site_2"
+          ],
+          "unresolved_relay_site_ids": []
+        },
+        "runtime_skipped_unsupported": 20,
+        "runtime_status": "Passed",
+        "source_function_id": "chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)",
+        "status": "Detected"
+      },
+      "mutation_mapping": {
+        "expected_regression_contains": "lost proved MutuallyExclusive",
+        "kind": "GuardNegate",
+        "sites": [
+          "yes"
+        ],
+        "validation_required": true
+      },
+      "pattern": "branch_specific_statistics",
+      "raw_certificate_status": "Proved",
+      "reason": "Z3 proved !(PathA && PathB) for exact acyclic CFG paths",
+      "record_id": "ballot.yes_no.mutual_exclusion",
+      "relation": "MutuallyExclusive",
+      "relay_site_a": "relay_site_2",
+      "relay_site_b": "relay_site_3",
+      "source_function_id": "chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)",
+      "source_function_signature": "vote_parallel(bool,address,address,address,address,uint64)",
+      "status": "Proved",
+      "validation_status": "Passed",
+      "workload": "BallotParallel"
+    },
+    {
+      "certificate_id": "parallel.pair.chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address).relay_site_1.relay_site_2.conflict",
+      "certificate_type": "CoEmissionIndependent",
+      "evidence": {
+        "cfg_fact_ids": [
+          "cfg::chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address)::1028::basic::3",
+          "cfg::chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address)::1042::basic::2",
+          "cfg::chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address)::1061::basic::5",
+          "cfg::chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address)::1075::basic::4",
+          "cfg::chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address)::1094::basic::6",
+          "cfg::chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address)::1145::branch::7",
+          "cfg::chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address)::1188::relay_emit::9",
+          "cfg::chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address)::1252::relay_emit::11",
+          "cfg_edge::chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address)::0",
+          "cfg_edge::chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address)::1",
+          "cfg_edge::chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address)::2",
+          "cfg_edge::chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address)::3",
+          "cfg_edge::chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address)::4",
+          "cfg_edge::chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address)::5",
+          "cfg_edge::chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address)::8",
+          "cfg_edge::chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address)::9",
+          "chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address)"
+        ],
+        "constraint_ids": [
+          "rpreda.constraint.target_relation.site.relay_site_1",
+          "rpreda.constraint.target_relation.site.relay_site_2"
+        ],
+        "solver_result_ids": [
+          "parallel.pair.chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address).relay_site_1.relay_site_2.mutual_exclusion",
+          "parallel.pair.chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address).relay_site_1.relay_site_2.target_independence"
+        ]
+      },
+      "evidence_ids": [
+        "parallel.pair.chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address).relay_site_1.relay_site_2.conflict",
+        "cfg::chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address)::1028::basic::3",
+        "cfg::chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address)::1042::basic::2",
+        "cfg::chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address)::1061::basic::5",
+        "cfg::chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address)::1075::basic::4",
+        "cfg::chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address)::1094::basic::6",
+        "cfg::chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address)::1145::branch::7",
+        "cfg::chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address)::1188::relay_emit::9",
+        "cfg::chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address)::1252::relay_emit::11",
+        "cfg_edge::chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address)::0",
+        "cfg_edge::chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address)::1",
+        "cfg_edge::chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address)::2",
+        "cfg_edge::chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address)::3",
+        "cfg_edge::chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address)::4",
+        "cfg_edge::chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address)::5",
+        "cfg_edge::chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address)::8",
+        "cfg_edge::chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address)::9",
+        "chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address)",
+        "rpreda.constraint.target_relation.site.relay_site_1",
+        "rpreda.constraint.target_relation.site.relay_site_2",
+        "parallel.pair.chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address).relay_site_1.relay_site_2.mutual_exclusion",
+        "parallel.pair.chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address).relay_site_1.relay_site_2.target_independence"
+      ],
+      "evidence_valid": true,
+      "expected_relation": "CoEmissionIndependent",
+      "mutation": {
+        "compile_status": "Compiled",
+        "contract": "MillionPixel",
+        "description": "force relay_site_2 to alias target of relay_site_1",
+        "detected": true,
+        "edits": [
+          {
+            "byte_end_offset": 1262,
+            "byte_start_offset": 1258,
+            "expected_original": "index",
+            "replacement": "ownerStatisticsKey"
+          }
+        ],
+        "expected_regression_matched": true,
+        "generation_status": "Generated",
+        "location": {
+          "byte_end_offset": 1262,
+          "byte_start_offset": 1258,
+          "column": 18,
+          "end_column": 23,
+          "end_line": 44,
+          "end_offset": 1262,
+          "line": 44,
+          "start_offset": 1258
+        },
+        "manifest_digest": "f9060f06575b08a9949f56906b3c782ca79a92c293ce53b9900aaada90fe2506",
+        "mutated_code_path": "work/MillionPixelParallel/generation/mutants/mut_IntroduceAlias_d534be5dd1980addd7e0be2a3a1d8e1a/MillionPixel.prd",
+        "mutated_fragment": "ownerStatisticsKey",
+        "mutation_id": "mut_IntroduceAlias_d534be5dd1980addd7e0be2a3a1d8e1a",
+        "mutation_type": "IntroduceAlias",
+        "original_code_path": "work/MillionPixelParallel/generation/mutants/mut_IntroduceAlias_d534be5dd1980addd7e0be2a3a1d8e1a/original.prd",
+        "original_fragment": "index",
+        "reason": "",
+        "regressions": [
+          "lost proved CoEmissionIndependent guarantee for surviving sites relay_site_1->relay_site_1, relay_site_2->relay_site_2"
+        ],
+        "relay_site_ids": [
+          "relay_site_1",
+          "relay_site_2"
+        ],
+        "runtime_coverage": {
+          "covered": true,
+          "label": "mut_IntroduceAlias_d534be5dd1980addd7e0be2a3a1d8e1a",
+          "missing_function_ids": [],
+          "missing_relay_site_ids": [],
+          "observed_function_ids": [
+            "chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address)",
+            "chsimu.MillionPixel::occupy_pixel_parallel(address)",
+            "chsimu.MillionPixel::update_owner_statistics()"
+          ],
+          "observed_relay_site_ids": [
+            "relay_site_1",
+            "relay_site_2"
+          ],
+          "required_function_ids": [
+            "chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address)"
+          ],
+          "required_relay_site_ids": [
+            "relay_site_1",
+            "relay_site_2"
+          ],
+          "unresolved_relay_site_ids": []
+        },
+        "runtime_skipped_unsupported": 7,
+        "runtime_status": "Passed",
+        "source_function_id": "chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address)",
+        "status": "Detected"
+      },
+      "mutation_mapping": {
+        "expected_regression_contains": "lost proved CoEmissionIndependent",
+        "kind": "IntroduceAlias",
+        "sites": [
+          "owner_stats",
+          "pixel"
+        ],
+        "validation_required": true
+      },
+      "pattern": "pixel_owner_statistics",
+      "raw_certificate_status": "Proved",
+      "reason": "joint path is satisfiable and Z3 proved distinct targets under it",
+      "record_id": "million_pixel.pixel_owner_stats.independence",
+      "relation": "CoEmissionIndependent",
+      "relay_site_a": "relay_site_1",
+      "relay_site_b": "relay_site_2",
+      "source_function_id": "chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address)",
+      "source_function_signature": "occupy_parallel(uint16,uint16,uint32,address)",
+      "status": "Proved",
+      "validation_status": "Passed",
+      "workload": "MillionPixelParallel"
+    },
+    {
+      "certificate_id": "parallel.pair.chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool).relay_site_1.relay_site_2.conflict",
+      "certificate_type": "CoEmissionIndependent",
+      "evidence": {
+        "cfg_fact_ids": [
+          "cfg::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::1240::branch::2",
+          "cfg::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::1354::relay_emit::4",
+          "cfg::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::1424::relay_emit::6",
+          "cfg_edge::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::0",
+          "cfg_edge::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::3",
+          "cfg_edge::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::6",
+          "chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)"
+        ],
+        "constraint_ids": [
+          "rpreda.constraint.target_relation.site.relay_site_1",
+          "rpreda.constraint.target_relation.site.relay_site_2"
+        ],
+        "solver_result_ids": [
+          "parallel.pair.chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool).relay_site_1.relay_site_2.mutual_exclusion",
+          "parallel.pair.chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool).relay_site_1.relay_site_2.target_independence"
+        ]
+      },
+      "evidence_ids": [
+        "parallel.pair.chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool).relay_site_1.relay_site_2.conflict",
+        "cfg::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::1240::branch::2",
+        "cfg::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::1354::relay_emit::4",
+        "cfg::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::1424::relay_emit::6",
+        "cfg_edge::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::0",
+        "cfg_edge::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::3",
+        "cfg_edge::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::6",
+        "chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)",
+        "rpreda.constraint.target_relation.site.relay_site_1",
+        "rpreda.constraint.target_relation.site.relay_site_2",
+        "parallel.pair.chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool).relay_site_1.relay_site_2.mutual_exclusion",
+        "parallel.pair.chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool).relay_site_1.relay_site_2.target_independence"
+      ],
+      "evidence_valid": true,
+      "expected_relation": "CoEmissionIndependent",
+      "mutation": {
+        "compile_status": "Compiled",
+        "contract": "KittyBreeding",
+        "description": "force relay_site_2 to alias target of relay_site_1",
+        "detected": true,
+        "edits": [
+          {
+            "byte_end_offset": 1436,
+            "byte_start_offset": 1430,
+            "expected_original": "parent1",
+            "replacement": "offspring"
+          }
+        ],
+        "expected_regression_matched": true,
+        "generation_status": "Generated",
+        "location": {
+          "byte_end_offset": 1436,
+          "byte_start_offset": 1430,
+          "column": 18,
+          "end_column": 25,
+          "end_line": 52,
+          "end_offset": 1436,
+          "line": 52,
+          "start_offset": 1430
+        },
+        "manifest_digest": "524bff6ee4c179eac1bc6c917d9dad46259afc5ac689f365f4c857e74bb4e89e",
+        "mutated_code_path": "work/KittyParallel/generation/mutants/mut_IntroduceAlias_f03d32bcbaecffef4632b1c1edf8b30a/Kitty.prd",
+        "mutated_fragment": "offspring",
+        "mutation_id": "mut_IntroduceAlias_f03d32bcbaecffef4632b1c1edf8b30a",
+        "mutation_type": "IntroduceAlias",
+        "original_code_path": "work/KittyParallel/generation/mutants/mut_IntroduceAlias_f03d32bcbaecffef4632b1c1edf8b30a/original.prd",
+        "original_fragment": "parent1",
+        "reason": "",
+        "regressions": [
+          "lost proved CoEmissionIndependent guarantee for surviving sites relay_site_1->relay_site_1, relay_site_2->relay_site_2"
+        ],
+        "relay_site_ids": [
+          "relay_site_1",
+          "relay_site_2"
+        ],
+        "runtime_coverage": {
+          "covered": true,
+          "label": "mut_IntroduceAlias_f03d32bcbaecffef4632b1c1edf8b30a",
+          "missing_function_ids": [],
+          "missing_relay_site_ids": [],
+          "observed_function_ids": [
+            "chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)",
+            "chsimu.KittyBreeding::parallel_create_offspring(bigint,bool)",
+            "chsimu.KittyBreeding::parallel_update_parent()"
+          ],
+          "observed_relay_site_ids": [
+            "relay_site_1",
+            "relay_site_2",
+            "relay_site_3"
+          ],
+          "required_function_ids": [
+            "chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)"
+          ],
+          "required_relay_site_ids": [
+            "relay_site_1",
+            "relay_site_2"
+          ],
+          "unresolved_relay_site_ids": []
+        },
+        "runtime_skipped_unsupported": 10,
+        "runtime_status": "Passed",
+        "source_function_id": "chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)",
+        "status": "Detected"
+      },
+      "mutation_mapping": {
+        "expected_regression_contains": "lost proved CoEmissionIndependent",
+        "kind": "IntroduceAlias",
+        "sites": [
+          "offspring",
+          "parent1"
+        ],
+        "validation_required": true
+      },
+      "pattern": "offspring_parent_updates",
+      "raw_certificate_status": "Proved",
+      "reason": "joint path is satisfiable and Z3 proved distinct targets under it",
+      "record_id": "kitty.offspring_parent1.independence",
+      "relation": "CoEmissionIndependent",
+      "relay_site_a": "relay_site_1",
+      "relay_site_b": "relay_site_2",
+      "source_function_id": "chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)",
+      "source_function_signature": "breed_parallel(address,address,address,bigint,bool)",
+      "status": "Proved",
+      "validation_status": "Passed",
+      "workload": "KittyParallel"
+    },
+    {
+      "certificate_id": "parallel.pair.chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool).relay_site_1.relay_site_3.conflict",
+      "certificate_type": "CoEmissionIndependent",
+      "evidence": {
+        "cfg_fact_ids": [
+          "cfg::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::1240::branch::2",
+          "cfg::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::1354::relay_emit::4",
+          "cfg::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::1424::relay_emit::6",
+          "cfg::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::1476::relay_emit::8",
+          "cfg_edge::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::0",
+          "cfg_edge::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::3",
+          "cfg_edge::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::5",
+          "cfg_edge::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::6",
+          "chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)"
+        ],
+        "constraint_ids": [
+          "rpreda.constraint.target_relation.site.relay_site_1",
+          "rpreda.constraint.target_relation.site.relay_site_3"
+        ],
+        "solver_result_ids": [
+          "parallel.pair.chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool).relay_site_1.relay_site_3.mutual_exclusion",
+          "parallel.pair.chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool).relay_site_1.relay_site_3.target_independence"
+        ]
+      },
+      "evidence_ids": [
+        "parallel.pair.chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool).relay_site_1.relay_site_3.conflict",
+        "cfg::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::1240::branch::2",
+        "cfg::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::1354::relay_emit::4",
+        "cfg::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::1424::relay_emit::6",
+        "cfg::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::1476::relay_emit::8",
+        "cfg_edge::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::0",
+        "cfg_edge::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::3",
+        "cfg_edge::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::5",
+        "cfg_edge::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::6",
+        "chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)",
+        "rpreda.constraint.target_relation.site.relay_site_1",
+        "rpreda.constraint.target_relation.site.relay_site_3",
+        "parallel.pair.chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool).relay_site_1.relay_site_3.mutual_exclusion",
+        "parallel.pair.chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool).relay_site_1.relay_site_3.target_independence"
+      ],
+      "evidence_valid": true,
+      "expected_relation": "CoEmissionIndependent",
+      "mutation": {
+        "compile_status": "Compiled",
+        "contract": "KittyBreeding",
+        "description": "force relay_site_3 to alias target of relay_site_1",
+        "detected": true,
+        "edits": [
+          {
+            "byte_end_offset": 1488,
+            "byte_start_offset": 1482,
+            "expected_original": "parent2",
+            "replacement": "offspring"
+          }
+        ],
+        "expected_regression_matched": true,
+        "generation_status": "Generated",
+        "location": {
+          "byte_end_offset": 1488,
+          "byte_start_offset": 1482,
+          "column": 18,
+          "end_column": 25,
+          "end_line": 53,
+          "end_offset": 1488,
+          "line": 53,
+          "start_offset": 1482
+        },
+        "manifest_digest": "69e371f83d306235e826a17fe2f5c56c8d461d967f2c997b6c995c37702c0bf0",
+        "mutated_code_path": "work/KittyParallel/generation/mutants/mut_IntroduceAlias_9fcd99536d56e1a87be28b0e146db665/Kitty.prd",
+        "mutated_fragment": "offspring",
+        "mutation_id": "mut_IntroduceAlias_9fcd99536d56e1a87be28b0e146db665",
+        "mutation_type": "IntroduceAlias",
+        "original_code_path": "work/KittyParallel/generation/mutants/mut_IntroduceAlias_9fcd99536d56e1a87be28b0e146db665/original.prd",
+        "original_fragment": "parent2",
+        "reason": "",
+        "regressions": [
+          "lost proved CoEmissionIndependent guarantee for surviving sites relay_site_1->relay_site_1, relay_site_3->relay_site_3"
+        ],
+        "relay_site_ids": [
+          "relay_site_1",
+          "relay_site_3"
+        ],
+        "runtime_coverage": {
+          "covered": true,
+          "label": "mut_IntroduceAlias_9fcd99536d56e1a87be28b0e146db665",
+          "missing_function_ids": [],
+          "missing_relay_site_ids": [],
+          "observed_function_ids": [
+            "chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)",
+            "chsimu.KittyBreeding::parallel_create_offspring(bigint,bool)",
+            "chsimu.KittyBreeding::parallel_update_parent()"
+          ],
+          "observed_relay_site_ids": [
+            "relay_site_1",
+            "relay_site_2",
+            "relay_site_3"
+          ],
+          "required_function_ids": [
+            "chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)"
+          ],
+          "required_relay_site_ids": [
+            "relay_site_1",
+            "relay_site_3"
+          ],
+          "unresolved_relay_site_ids": []
+        },
+        "runtime_skipped_unsupported": 10,
+        "runtime_status": "Passed",
+        "source_function_id": "chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)",
+        "status": "Detected"
+      },
+      "mutation_mapping": {
+        "expected_regression_contains": "lost proved CoEmissionIndependent",
+        "kind": "IntroduceAlias",
+        "sites": [
+          "offspring",
+          "parent2"
+        ],
+        "validation_required": true
+      },
+      "pattern": "offspring_parent_updates",
+      "raw_certificate_status": "Proved",
+      "reason": "joint path is satisfiable and Z3 proved distinct targets under it",
+      "record_id": "kitty.offspring_parent2.independence",
+      "relation": "CoEmissionIndependent",
+      "relay_site_a": "relay_site_1",
+      "relay_site_b": "relay_site_3",
+      "source_function_id": "chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)",
+      "source_function_signature": "breed_parallel(address,address,address,bigint,bool)",
+      "status": "Proved",
+      "validation_status": "Passed",
+      "workload": "KittyParallel"
+    },
+    {
+      "certificate_id": "parallel.pair.chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool).relay_site_2.relay_site_3.conflict",
+      "certificate_type": "CoEmissionIndependent",
+      "evidence": {
+        "cfg_fact_ids": [
+          "cfg::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::1240::branch::2",
+          "cfg::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::1354::relay_emit::4",
+          "cfg::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::1424::relay_emit::6",
+          "cfg::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::1476::relay_emit::8",
+          "cfg_edge::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::0",
+          "cfg_edge::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::3",
+          "cfg_edge::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::5",
+          "cfg_edge::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::6",
+          "chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)"
+        ],
+        "constraint_ids": [
+          "rpreda.constraint.target_relation.site.relay_site_2",
+          "rpreda.constraint.target_relation.site.relay_site_3"
+        ],
+        "solver_result_ids": [
+          "parallel.pair.chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool).relay_site_2.relay_site_3.mutual_exclusion",
+          "parallel.pair.chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool).relay_site_2.relay_site_3.target_independence"
+        ]
+      },
+      "evidence_ids": [
+        "parallel.pair.chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool).relay_site_2.relay_site_3.conflict",
+        "cfg::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::1240::branch::2",
+        "cfg::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::1354::relay_emit::4",
+        "cfg::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::1424::relay_emit::6",
+        "cfg::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::1476::relay_emit::8",
+        "cfg_edge::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::0",
+        "cfg_edge::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::3",
+        "cfg_edge::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::5",
+        "cfg_edge::chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)::6",
+        "chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)",
+        "rpreda.constraint.target_relation.site.relay_site_2",
+        "rpreda.constraint.target_relation.site.relay_site_3",
+        "parallel.pair.chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool).relay_site_2.relay_site_3.mutual_exclusion",
+        "parallel.pair.chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool).relay_site_2.relay_site_3.target_independence"
+      ],
+      "evidence_valid": true,
+      "expected_relation": "CoEmissionIndependent",
+      "mutation": {
+        "compile_status": "Compiled",
+        "contract": "KittyBreeding",
+        "description": "force relay_site_3 to alias target of relay_site_2",
+        "detected": true,
+        "edits": [
+          {
+            "byte_end_offset": 1488,
+            "byte_start_offset": 1482,
+            "expected_original": "parent2",
+            "replacement": "parent1"
+          }
+        ],
+        "expected_regression_matched": true,
+        "generation_status": "Generated",
+        "location": {
+          "byte_end_offset": 1488,
+          "byte_start_offset": 1482,
+          "column": 18,
+          "end_column": 25,
+          "end_line": 53,
+          "end_offset": 1488,
+          "line": 53,
+          "start_offset": 1482
+        },
+        "manifest_digest": "7c730e7883fc1a99d61c865eb3d8091fbda4d674bfff5a887b6f05fbe9de9782",
+        "mutated_code_path": "work/KittyParallel/generation/mutants/mut_IntroduceAlias_361e59c43917e1057b5b4ddf389229d0/Kitty.prd",
+        "mutated_fragment": "parent1",
+        "mutation_id": "mut_IntroduceAlias_361e59c43917e1057b5b4ddf389229d0",
+        "mutation_type": "IntroduceAlias",
+        "original_code_path": "work/KittyParallel/generation/mutants/mut_IntroduceAlias_361e59c43917e1057b5b4ddf389229d0/original.prd",
+        "original_fragment": "parent2",
+        "reason": "",
+        "regressions": [
+          "lost proved CoEmissionIndependent guarantee for surviving sites relay_site_2->relay_site_2, relay_site_3->relay_site_3"
+        ],
+        "relay_site_ids": [
+          "relay_site_2",
+          "relay_site_3"
+        ],
+        "runtime_coverage": {
+          "covered": true,
+          "label": "mut_IntroduceAlias_361e59c43917e1057b5b4ddf389229d0",
+          "missing_function_ids": [],
+          "missing_relay_site_ids": [],
+          "observed_function_ids": [
+            "chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)",
+            "chsimu.KittyBreeding::parallel_create_offspring(bigint,bool)",
+            "chsimu.KittyBreeding::parallel_update_parent()"
+          ],
+          "observed_relay_site_ids": [
+            "relay_site_1",
+            "relay_site_2",
+            "relay_site_3"
+          ],
+          "required_function_ids": [
+            "chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)"
+          ],
+          "required_relay_site_ids": [
+            "relay_site_2",
+            "relay_site_3"
+          ],
+          "unresolved_relay_site_ids": []
+        },
+        "runtime_skipped_unsupported": 10,
+        "runtime_status": "Passed",
+        "source_function_id": "chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)",
+        "status": "Detected"
+      },
+      "mutation_mapping": {
+        "expected_regression_contains": "lost proved CoEmissionIndependent",
+        "kind": "IntroduceAlias",
+        "sites": [
+          "parent1",
+          "parent2"
+        ],
+        "validation_required": true
+      },
+      "pattern": "offspring_parent_updates",
+      "raw_certificate_status": "Proved",
+      "reason": "joint path is satisfiable and Z3 proved distinct targets under it",
+      "record_id": "kitty.parent1_parent2.independence",
+      "relation": "CoEmissionIndependent",
+      "relay_site_a": "relay_site_2",
+      "relay_site_b": "relay_site_3",
+      "source_function_id": "chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)",
+      "source_function_signature": "breed_parallel(address,address,address,bigint,bool)",
+      "status": "Proved",
+      "validation_status": "Passed",
+      "workload": "KittyParallel"
+    },
+    {
+      "bound_field": "direct_logical_work",
+      "certificate_id": "parallel.bound.chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool).direct_logical_work",
+      "certificate_type": "WorkBound",
+      "evidence_ids": [
+        "parallel.bound.chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool).direct_logical_work",
+        "chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)"
+      ],
+      "evidence_valid": true,
+      "expected_upper_bound": 3,
+      "mutation": {
+        "compile_status": "Compiled",
+        "contract": "KittyBreeding",
+        "description": "duplicate relay site relay_site_1",
+        "detected": true,
+        "edits": [
+          {
+            "byte_end_offset": 1410,
+            "byte_start_offset": 1411,
+            "expected_original": "",
+            "replacement": "\n            relay@offspring parallel_create_offspring(genes, gender);"
+          }
+        ],
+        "expected_regression_matched": true,
+        "generation_status": "Generated",
+        "location": {
+          "byte_end_offset": 1410,
+          "byte_start_offset": 1354,
+          "column": 12,
+          "end_column": 69,
+          "end_line": 51,
+          "end_offset": 1410,
+          "line": 51,
+          "start_offset": 1354
+        },
+        "manifest_digest": "b450c8c2f341e4ce76bc172de28a3d0870e40484ee38f3af45e8708d0142d4e6",
+        "mutated_code_path": "work/KittyParallel/generation/mutants/mut_RelayDuplicate_3f212d5413be83ecebfef74188f2ca83/Kitty.prd",
+        "mutated_fragment": "\n            relay@offspring parallel_create_offspring(genes, gender);",
+        "mutation_id": "mut_RelayDuplicate_3f212d5413be83ecebfef74188f2ca83",
+        "mutation_type": "RelayDuplicate",
+        "original_code_path": "work/KittyParallel/generation/mutants/mut_RelayDuplicate_3f212d5413be83ecebfef74188f2ca83/original.prd",
+        "original_fragment": "",
+        "reason": "",
+        "regressions": [
+          "certificate bound increased for ('chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)', 'direct_logical_work'): (3, 0) -> (4, 0)",
+          "certificate bound increased for ('chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)', 'physical_route_work'): (3, 0) -> (4, 0)",
+          "certificate bound increased for ('chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)', 'transitive_logical_work'): (3, 0) -> (4, 0)"
+        ],
+        "relay_site_ids": [
+          "relay_site_1"
+        ],
+        "runtime_coverage": {
+          "covered": true,
+          "label": "mut_RelayDuplicate_3f212d5413be83ecebfef74188f2ca83",
+          "missing_function_ids": [],
+          "missing_relay_site_ids": [],
+          "observed_function_ids": [
+            "chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)",
+            "chsimu.KittyBreeding::parallel_create_offspring(bigint,bool)",
+            "chsimu.KittyBreeding::parallel_update_parent()"
+          ],
+          "observed_relay_site_ids": [
+            "relay_site_1",
+            "relay_site_2",
+            "relay_site_3",
+            "relay_site_4"
+          ],
+          "required_function_ids": [
+            "chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)"
+          ],
+          "required_relay_site_ids": [
+            "relay_site_1",
+            "relay_site_2"
+          ],
+          "unresolved_relay_site_ids": []
+        },
+        "runtime_skipped_unsupported": 13,
+        "runtime_status": "Passed",
+        "source_function_id": "chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)",
+        "status": "Detected"
+      },
+      "mutation_mapping": {
+        "expected_regression_contains": "certificate bound increased",
+        "kind": "RelayDuplicate",
+        "sites": [
+          "offspring"
+        ],
+        "validation_required": true
+      },
+      "observed_upper_bound": 3,
+      "pattern": "offspring_parent_updates",
+      "raw_certificate_status": "Conservative",
+      "reason": "CFG contains an early-exit, failure, or unknown path that may bypass a relay",
+      "record_id": "kitty.direct_work.bound",
+      "relay_site_a": "",
+      "relay_site_b": "",
+      "source_function_id": "chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)",
+      "source_function_signature": "breed_parallel(address,address,address,bigint,bool)",
+      "status": "Proved",
+      "validation_status": "Passed",
+      "workload": "KittyParallel"
+    },
+    {
+      "bound_field": "transitive_logical_work",
+      "certificate_id": "parallel.bound.chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool).transitive_logical_work",
+      "certificate_type": "WorkBound",
+      "evidence_ids": [
+        "parallel.bound.chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool).transitive_logical_work",
+        "chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)",
+        "chsimu.KittyBreeding::parallel_create_offspring(bigint,bool)",
+        "chsimu.KittyBreeding::parallel_update_parent()"
+      ],
+      "evidence_valid": true,
+      "expected_upper_bound": 3,
+      "mutation": {
+        "detected": null,
+        "mutation_type": "PositiveOnly",
+        "reason": "The RelayDuplicate validation is owned by the direct-work record; this record is retained as positive bound evidence.",
+        "status": "NotRunPositiveOnly"
+      },
+      "mutation_mapping": {
+        "kind": "PositiveOnly",
+        "reason": "The RelayDuplicate validation is owned by the direct-work record; this record is retained as positive bound evidence.",
+        "validation_required": false
+      },
+      "observed_upper_bound": 3,
+      "pattern": "offspring_parent_updates",
+      "raw_certificate_status": "Conservative",
+      "reason": "finite async relay-tree logical work upper bound",
+      "record_id": "kitty.transitive_work.bound",
+      "relay_site_a": "",
+      "relay_site_b": "",
+      "source_function_id": "chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)",
+      "source_function_signature": "breed_parallel(address,address,address,bigint,bool)",
+      "status": "Proved",
+      "validation_status": "Passed",
+      "workload": "KittyParallel"
+    },
+    {
+      "bound_field": "physical_route_work",
+      "certificate_id": "parallel.bound.chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool).physical_route_work",
+      "certificate_type": "WorkBound",
+      "evidence_ids": [
+        "parallel.bound.chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool).physical_route_work",
+        "chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)",
+        "chsimu.KittyBreeding::parallel_create_offspring(bigint,bool)",
+        "chsimu.KittyBreeding::parallel_update_parent()"
+      ],
+      "evidence_valid": true,
+      "expected_upper_bound": 3,
+      "mutation": {
+        "detected": null,
+        "mutation_type": "PositiveOnly",
+        "reason": "The RelayDuplicate validation is owned by the direct-work record; this record is retained as positive bound evidence.",
+        "status": "NotRunPositiveOnly"
+      },
+      "mutation_mapping": {
+        "kind": "PositiveOnly",
+        "reason": "The RelayDuplicate validation is owned by the direct-work record; this record is retained as positive bound evidence.",
+        "validation_required": false
+      },
+      "observed_upper_bound": 3,
+      "pattern": "offspring_parent_updates",
+      "raw_certificate_status": "Conservative",
+      "reason": "whole relay-tree physical route upper bound",
+      "record_id": "kitty.physical_work.bound",
+      "relay_site_a": "",
+      "relay_site_b": "",
+      "source_function_id": "chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)",
+      "source_function_signature": "breed_parallel(address,address,address,bigint,bool)",
+      "status": "Proved",
+      "validation_status": "Passed",
+      "workload": "KittyParallel"
+    },
+    {
+      "bound_field": "relay_tree_depth",
+      "certificate_id": "parallel.bound.chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool).relay_tree_depth",
+      "certificate_type": "DepthBound",
+      "evidence_ids": [
+        "parallel.bound.chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool).relay_tree_depth",
+        "chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)"
+      ],
+      "evidence_valid": true,
+      "expected_upper_bound": 1,
+      "mutation": {
+        "detected": null,
+        "mutation_type": "PositiveOnly",
+        "reason": "RelayDuplicate changes work but does not increase sibling relay-tree depth, so no false depth violation is claimed.",
+        "status": "NotRunPositiveOnly"
+      },
+      "mutation_mapping": {
+        "kind": "PositiveOnly",
+        "reason": "RelayDuplicate changes work but does not increase sibling relay-tree depth, so no false depth violation is claimed.",
+        "validation_required": false
+      },
+      "observed_upper_bound": 1,
+      "pattern": "offspring_parent_updates",
+      "raw_certificate_status": "Conservative",
+      "reason": "finite relay-tree depth upper bound over composed handlers",
+      "record_id": "kitty.depth.bound",
+      "relay_site_a": "",
+      "relay_site_b": "",
+      "source_function_id": "chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)",
+      "source_function_signature": "breed_parallel(address,address,address,bigint,bool)",
+      "status": "Proved",
+      "validation_status": "Passed",
+      "workload": "KittyParallel"
+    },
+    {
+      "certificate_id": "parallel.pair.chsimu.Token::transfer_n_parallel(address,bigint,address,bigint,address,bigint,address).relay_site_6.relay_site_7.precedence",
+      "certificate_type": "MustPrecede",
+      "evidence": {
+        "cfg_fact_ids": [
+          "cfg::chsimu.Token::transfer_n_parallel(address,bigint,address,bigint,address,bigint,address)::3076::relay_emit::10",
+          "cfg::chsimu.Token::transfer_n_parallel(address,bigint,address,bigint,address,bigint,address)::3132::relay_emit::12",
+          "chsimu.Token::transfer_n_parallel(address,bigint,address,bigint,address,bigint,address)",
+          "region::handler::relay_handler_2",
+          "region::handler::relay_handler_3"
+        ],
+        "constraint_ids": [],
+        "solver_result_ids": []
+      },
+      "evidence_ids": [
+        "parallel.pair.chsimu.Token::transfer_n_parallel(address,bigint,address,bigint,address,bigint,address).relay_site_6.relay_site_7.precedence",
+        "cfg::chsimu.Token::transfer_n_parallel(address,bigint,address,bigint,address,bigint,address)::3076::relay_emit::10",
+        "cfg::chsimu.Token::transfer_n_parallel(address,bigint,address,bigint,address,bigint,address)::3132::relay_emit::12",
+        "chsimu.Token::transfer_n_parallel(address,bigint,address,bigint,address,bigint,address)",
+        "region::handler::relay_handler_2",
+        "region::handler::relay_handler_3"
+      ],
+      "evidence_valid": true,
+      "expected_relation": "MustPrecedeAB",
+      "mutation": {
+        "compile_status": "Compiled",
+        "contract": "Token",
+        "description": "swap the source order of relay_site_6 and relay_site_7",
+        "detected": true,
+        "edits": [
+          {
+            "byte_end_offset": 3118,
+            "byte_start_offset": 3076,
+            "expected_original": "relay@recipient2 parallel_deposit(amount2);",
+            "replacement": "relay@summary parallel_record_audit(total, 3u64);"
+          },
+          {
+            "byte_end_offset": 3180,
+            "byte_start_offset": 3132,
+            "expected_original": "relay@summary parallel_record_audit(total, 3u64);",
+            "replacement": "relay@recipient2 parallel_deposit(amount2);"
+          }
+        ],
+        "expected_regression_matched": true,
+        "generation_status": "Generated",
+        "location": {
+          "byte_end_offset": 3118,
+          "byte_start_offset": 3076,
+          "column": 12,
+          "end_column": 55,
+          "end_line": 111,
+          "end_offset": 3118,
+          "line": 111,
+          "start_offset": 3076
+        },
+        "manifest_digest": "71e2aba7333c5977277559d99e14eb791f5f064f3520c14c9a82d6e55d1c8e57",
+        "mutated_code_path": "work/AirDropParallel/generation/mutants/mut_RelayOrderSwap_3813adccd1011ac8e67f4beaaeeda80f/Token.prd",
+        "mutated_fragment": "relay@summary parallel_record_audit(total, 3u64);relay@recipient2 parallel_deposit(amount2);",
+        "mutation_id": "mut_RelayOrderSwap_3813adccd1011ac8e67f4beaaeeda80f",
+        "mutation_type": "RelayOrderSwap",
+        "original_code_path": "work/AirDropParallel/generation/mutants/mut_RelayOrderSwap_3813adccd1011ac8e67f4beaaeeda80f/original.prd",
+        "original_fragment": "relay@recipient2 parallel_deposit(amount2);relay@summary parallel_record_audit(total, 3u64);",
+        "reason": "",
+        "regressions": [
+          "proved precedence reversed for surviving sites relay_site_6->relay_site_7, relay_site_7->relay_site_6"
+        ],
+        "relay_site_ids": [
+          "relay_site_6",
+          "relay_site_7"
+        ],
+        "runtime_coverage": {
+          "covered": true,
+          "label": "mut_RelayOrderSwap_3813adccd1011ac8e67f4beaaeeda80f",
+          "missing_function_ids": [],
+          "missing_relay_site_ids": [],
+          "observed_function_ids": [
+            "chsimu.Token::parallel_deposit(bigint)",
+            "chsimu.Token::parallel_record_audit(bigint,uint64)",
+            "chsimu.Token::transfer_n_parallel(address,bigint,address,bigint,address,bigint,address)"
+          ],
+          "observed_relay_site_ids": [
+            "relay_site_4",
+            "relay_site_5",
+            "relay_site_6",
+            "relay_site_7"
+          ],
+          "required_function_ids": [
+            "chsimu.Token::transfer_n_parallel(address,bigint,address,bigint,address,bigint,address)"
+          ],
+          "required_relay_site_ids": [
+            "relay_site_6",
+            "relay_site_7"
+          ],
+          "unresolved_relay_site_ids": []
+        },
+        "runtime_skipped_unsupported": 13,
+        "runtime_status": "Passed",
+        "source_function_id": "chsimu.Token::transfer_n_parallel(address,bigint,address,bigint,address,bigint,address)",
+        "status": "Detected"
+      },
+      "mutation_mapping": {
+        "expected_regression_contains": "precedence reversed",
+        "kind": "RelayOrderSwap",
+        "sites": [
+          "recipient2",
+          "summary"
+        ],
+        "validation_required": true
+      },
+      "pattern": "distribution_then_summary",
+      "raw_certificate_status": "Proved",
+      "reason": "site A strictly dominates site B in the exact loop-free ICFG",
+      "record_id": "airdrop.distribution_summary.precedence",
+      "relation": "MustPrecedeAB",
+      "relay_site_a": "relay_site_6",
+      "relay_site_b": "relay_site_7",
+      "source_function_id": "chsimu.Token::transfer_n_parallel(address,bigint,address,bigint,address,bigint,address)",
+      "source_function_signature": "transfer_n_parallel(address,bigint,address,bigint,address,bigint,address)",
+      "status": "Proved",
+      "validation_status": "Passed",
+      "workload": "AirDropParallel"
+    },
+    {
+      "bound_field": "direct_logical_work",
+      "certificate_id": "parallel.bound.chsimu.Token::transfer_n_parallel(address,bigint,address,bigint,address,bigint,address).direct_logical_work",
+      "certificate_type": "WorkBound",
+      "evidence_ids": [
+        "parallel.bound.chsimu.Token::transfer_n_parallel(address,bigint,address,bigint,address,bigint,address).direct_logical_work",
+        "chsimu.Token::transfer_n_parallel(address,bigint,address,bigint,address,bigint,address)"
+      ],
+      "evidence_valid": true,
+      "expected_upper_bound": 4,
+      "mutation": {
+        "detected": null,
+        "mutation_type": "PositiveOnly",
+        "reason": "RelayOrderSwap preserves relay cardinality; the finite work bound is reported as positive evidence only.",
+        "status": "NotRunPositiveOnly"
+      },
+      "mutation_mapping": {
+        "kind": "PositiveOnly",
+        "reason": "RelayOrderSwap preserves relay cardinality; the finite work bound is reported as positive evidence only.",
+        "validation_required": false
+      },
+      "observed_upper_bound": 4,
+      "pattern": "distribution_then_summary",
+      "raw_certificate_status": "Conservative",
+      "reason": "CFG contains an early-exit, failure, or unknown path that may bypass a relay",
+      "record_id": "airdrop.direct_work.bound",
+      "relay_site_a": "",
+      "relay_site_b": "",
+      "source_function_id": "chsimu.Token::transfer_n_parallel(address,bigint,address,bigint,address,bigint,address)",
+      "source_function_signature": "transfer_n_parallel(address,bigint,address,bigint,address,bigint,address)",
+      "status": "Proved",
+      "validation_status": "Passed",
+      "workload": "AirDropParallel"
+    }
+  ],
+  "schema_version": 1,
+  "study": "parallel_certificate_extension",
+  "summary": {
+    "certificate_records": 14,
+    "certificate_type_counts": {
+      "CoEmissionIndependent": 6,
+      "DepthBound": 1,
+      "MustPrecede": 2,
+      "MutualExclusive": 1,
+      "WorkBound": 4
+    },
+    "completed_workloads": 5,
+    "configured_workloads": 5,
+    "failures": [],
+    "passed_certificate_records": 14,
+    "status": "Passed",
+    "status_counts": {
+      "Proved": 14
+    }
+  },
+  "workloads": [
+    {
+      "baseline": {
+        "compile_status": "Compiled",
+        "runtime_coverage": {
+          "covered": true,
+          "label": "TokenParallel",
+          "missing_function_ids": [],
+          "missing_relay_site_ids": [],
+          "observed_function_ids": [
+            "chsimu.Token::parallel_deposit(bigint)",
+            "chsimu.Token::parallel_record_audit(bigint,uint64)",
+            "chsimu.Token::transfer_parallel(address,address,bigint)"
+          ],
+          "observed_relay_site_ids": [
+            "relay_site_2",
+            "relay_site_3"
+          ],
+          "required_function_ids": [
+            "chsimu.Token::transfer_parallel(address,address,bigint)"
+          ],
+          "required_relay_site_ids": [
+            "relay_site_2",
+            "relay_site_3"
+          ],
+          "unresolved_relay_site_ids": []
+        },
+        "runtime_infrastructure_failures": [],
+        "runtime_passed_checks": 35,
+        "runtime_skipped_unsupported": 7,
+        "runtime_status": "Passed"
+      },
+      "baseline_manifest_digest": "201f0567a78a6ec407028acee2ab24436a0253c8f340affe731cd5272af56b4b",
+      "certificate_record_ids": [
+        "token.receiver_audit.independence",
+        "token.receiver_audit.precedence"
+      ],
+      "function_id": "chsimu.Token::transfer_parallel(address,address,bigint)",
+      "function_signature": "transfer_parallel(address,address,bigint)",
+      "manifest_validation": {
+        "binding_complete": true,
+        "contract": "Token",
+        "module_hash": "ekm55926e1xzj67drtwrrk4mvg8h29a4adek3vztxvwrhtsznztg",
+        "pair_relation_count": 14,
+        "relay_site_count": 8,
+        "schema_version": 5
+      },
+      "mutation_generation": {
+        "diagnostics": [],
+        "elapsed_seconds": 0.12785798904951662,
+        "kinds": [
+          "IntroduceAlias",
+          "RelayOrderSwap"
+        ],
+        "launch_error": "",
+        "operator_counts": {
+          "IntroduceAlias": 1,
+          "RelayOrderSwap": 4
+        },
+        "returncode": 0,
+        "timed_out": false
+      },
+      "resolved_sites": {
+        "audit": {
+          "location": {
+            "column": 12,
+            "end_column": 60,
+            "end_line": 86,
+            "end_offset": 2305,
+            "line": 86,
+            "start_offset": 2258
+          },
+          "relay_kind": "custom_scope",
+          "relay_site_id": "relay_site_3",
+          "target_function": "parallel_record_audit",
+          "target_scope": "address",
+          "target_text": "audit"
+        },
+        "recipient": {
+          "location": {
+            "column": 12,
+            "end_column": 46,
+            "end_line": 85,
+            "end_offset": 2244,
+            "line": 85,
+            "start_offset": 2211
+          },
+          "relay_kind": "custom_scope",
+          "relay_site_id": "relay_site_2",
+          "target_function": "parallel_deposit",
+          "target_scope": "address",
+          "target_text": "to"
+        }
+      },
+      "runtime_template": "external/TokenParallel.prdts.in",
+      "runtime_template_sha256": "da27d1dc8ddb1705241715455512922cb0bdc6ccf0fbb72c5bf1640c582ce6c2",
+      "source": "oxd_preda/simulator/contracts/Token.prd",
+      "source_sha256": "e0efaad5bc9a918abee15b62ad6711f8f535ad0988610e557b9d4b3ba78ed0ca",
+      "status": "Passed",
+      "workload": "TokenParallel"
+    },
+    {
+      "baseline": {
+        "compile_status": "Compiled",
+        "runtime_coverage": {
+          "covered": true,
+          "label": "BallotParallel",
+          "missing_function_ids": [],
+          "missing_relay_site_ids": [],
+          "observed_function_ids": [
+            "chsimu.Ballot::parallel_update_no(uint64)",
+            "chsimu.Ballot::parallel_update_reputation(uint64)",
+            "chsimu.Ballot::parallel_update_statistics(uint64)",
+            "chsimu.Ballot::parallel_update_yes(uint64)",
+            "chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)"
+          ],
+          "observed_relay_site_ids": [
+            "relay_site_0",
+            "relay_site_1",
+            "relay_site_2",
+            "relay_site_3"
+          ],
+          "required_function_ids": [
+            "chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)"
+          ],
+          "required_relay_site_ids": [
+            "relay_site_0",
+            "relay_site_1",
+            "relay_site_2",
+            "relay_site_3"
+          ],
+          "unresolved_relay_site_ids": []
+        },
+        "runtime_infrastructure_failures": [],
+        "runtime_passed_checks": 97,
+        "runtime_skipped_unsupported": 20,
+        "runtime_status": "Passed"
+      },
+      "baseline_manifest_digest": "da513d877c2ec005664f43d94b314822ceaa217568f36880ef2dcbfdae745716",
+      "certificate_record_ids": [
+        "ballot.voter_statistics.independence",
+        "ballot.yes_no.mutual_exclusion"
+      ],
+      "function_id": "chsimu.Ballot::vote_parallel(bool,address,address,address,address,uint64)",
+      "function_signature": "vote_parallel(bool,address,address,address,address,uint64)",
+      "manifest_validation": {
+        "binding_complete": true,
+        "contract": "Ballot",
+        "module_hash": "cf7tggr8nkc6ebx7794feqt9yd9tqhd3hq649ykezg1jandb6cd0",
+        "pair_relation_count": 7,
+        "relay_site_count": 8,
+        "schema_version": 5
+      },
+      "mutation_generation": {
+        "diagnostics": [],
+        "elapsed_seconds": 0.0982902399264276,
+        "kinds": [
+          "GuardNegate",
+          "IntroduceAlias"
+        ],
+        "launch_error": "",
+        "operator_counts": {
+          "GuardNegate": 3,
+          "IntroduceAlias": 1
+        },
+        "returncode": 0,
+        "timed_out": false
+      },
+      "resolved_sites": {
+        "no": {
+          "location": {
+            "column": 12,
+            "end_column": 58,
+            "end_line": 78,
+            "end_offset": 2167,
+            "line": 78,
+            "start_offset": 2122
+          },
+          "relay_kind": "custom_scope",
+          "relay_site_id": "relay_site_3",
+          "target_function": "parallel_update_no",
+          "target_scope": "address",
+          "target_text": "noStatistics"
+        },
+        "statistics": {
+          "location": {
+            "column": 12,
+            "end_column": 64,
+            "end_line": 70,
+            "end_offset": 1968,
+            "line": 70,
+            "start_offset": 1917
+          },
+          "relay_kind": "custom_scope",
+          "relay_site_id": "relay_site_1",
+          "target_function": "parallel_update_statistics",
+          "target_scope": "address",
+          "target_text": "statistics"
+        },
+        "voter": {
+          "location": {
+            "column": 12,
+            "end_column": 59,
+            "end_line": 69,
+            "end_offset": 1903,
+            "line": 69,
+            "start_offset": 1857
+          },
+          "relay_kind": "custom_scope",
+          "relay_site_id": "relay_site_0",
+          "target_function": "parallel_update_reputation",
+          "target_scope": "address",
+          "target_text": "voter"
+        },
+        "yes": {
+          "location": {
+            "column": 12,
+            "end_column": 60,
+            "end_line": 74,
+            "end_offset": 2068,
+            "line": 74,
+            "start_offset": 2021
+          },
+          "relay_kind": "custom_scope",
+          "relay_site_id": "relay_site_2",
+          "target_function": "parallel_update_yes",
+          "target_scope": "address",
+          "target_text": "yesStatistics"
+        }
+      },
+      "runtime_template": "external/BallotParallel.prdts.in",
+      "runtime_template_sha256": "e2e67265a2e9524a9aa795983870b09565c5b70d0c8beb6981cfdd3f78e71218",
+      "source": "oxd_preda/simulator/contracts/Ballot.prd",
+      "source_sha256": "ddf02eb2d90077bac5e10ff7533367a59c8a515fdae8c93f2fd940921abe6f5b",
+      "status": "Passed",
+      "workload": "BallotParallel"
+    },
+    {
+      "baseline": {
+        "compile_status": "Compiled",
+        "runtime_coverage": {
+          "covered": true,
+          "label": "MillionPixelParallel",
+          "missing_function_ids": [],
+          "missing_relay_site_ids": [],
+          "observed_function_ids": [
+            "chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address)",
+            "chsimu.MillionPixel::occupy_pixel_parallel(address)",
+            "chsimu.MillionPixel::update_owner_statistics()"
+          ],
+          "observed_relay_site_ids": [
+            "relay_site_1",
+            "relay_site_2"
+          ],
+          "required_function_ids": [
+            "chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address)"
+          ],
+          "required_relay_site_ids": [
+            "relay_site_1",
+            "relay_site_2"
+          ],
+          "unresolved_relay_site_ids": []
+        },
+        "runtime_infrastructure_failures": [],
+        "runtime_passed_checks": 35,
+        "runtime_skipped_unsupported": 7,
+        "runtime_status": "Passed"
+      },
+      "baseline_manifest_digest": "71f9963bd6c6c6421f6d55cac6955332575b957c7b580fed3d272dafd8685348",
+      "certificate_record_ids": [
+        "million_pixel.pixel_owner_stats.independence"
+      ],
+      "function_id": "chsimu.MillionPixel::occupy_parallel(uint16,uint16,uint32,address)",
+      "function_signature": "occupy_parallel(uint16,uint16,uint32,address)",
+      "manifest_validation": {
+        "binding_complete": true,
+        "contract": "MillionPixel",
+        "module_hash": "tp3maq4xm1qfmf3gwapchpvkf6s0wz7j1dytxcd3ef56ktbeqey0",
+        "pair_relation_count": 2,
+        "relay_site_count": 3,
+        "schema_version": 5
+      },
+      "mutation_generation": {
+        "diagnostics": [],
+        "elapsed_seconds": 0.031137179932557046,
+        "kinds": [
+          "IntroduceAlias"
+        ],
+        "launch_error": "",
+        "operator_counts": {
+          "IntroduceAlias": 1
+        },
+        "returncode": 0,
+        "timed_out": false
+      },
+      "resolved_sites": {
+        "owner_stats": {
+          "location": {
+            "column": 12,
+            "end_column": 63,
+            "end_line": 43,
+            "end_offset": 1238,
+            "line": 43,
+            "start_offset": 1188
+          },
+          "relay_kind": "custom_scope",
+          "relay_site_id": "relay_site_1",
+          "target_function": "update_owner_statistics",
+          "target_scope": "uint32",
+          "target_text": "ownerStatisticsKey"
+        },
+        "pixel": {
+          "location": {
+            "column": 12,
+            "end_column": 54,
+            "end_line": 44,
+            "end_offset": 1293,
+            "line": 44,
+            "start_offset": 1252
+          },
+          "relay_kind": "custom_scope",
+          "relay_site_id": "relay_site_2",
+          "target_function": "occupy_pixel_parallel",
+          "target_scope": "uint32",
+          "target_text": "index"
+        }
+      },
+      "runtime_template": "external/MillionPixelParallel.prdts.in",
+      "runtime_template_sha256": "997eb29fc60c415d4181905c0b140edbbb561ac804199e5e360c08ed4265fea8",
+      "source": "oxd_preda/simulator/contracts/MillionPixel.prd",
+      "source_sha256": "491edf3b95a3d3333a53c4d420abd73179592a5a0f4279bf16967c087647f3fd",
+      "status": "Passed",
+      "workload": "MillionPixelParallel"
+    },
+    {
+      "baseline": {
+        "compile_status": "Compiled",
+        "runtime_coverage": {
+          "covered": true,
+          "label": "KittyParallel",
+          "missing_function_ids": [],
+          "missing_relay_site_ids": [],
+          "observed_function_ids": [
+            "chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)",
+            "chsimu.KittyBreeding::parallel_create_offspring(bigint,bool)",
+            "chsimu.KittyBreeding::parallel_update_parent()"
+          ],
+          "observed_relay_site_ids": [
+            "relay_site_1",
+            "relay_site_2",
+            "relay_site_3"
+          ],
+          "required_function_ids": [
+            "chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)"
+          ],
+          "required_relay_site_ids": [
+            "relay_site_1",
+            "relay_site_2",
+            "relay_site_3"
+          ],
+          "unresolved_relay_site_ids": []
+        },
+        "runtime_infrastructure_failures": [],
+        "runtime_passed_checks": 52,
+        "runtime_skipped_unsupported": 10,
+        "runtime_status": "Passed"
+      },
+      "baseline_manifest_digest": "7a860da4fc21a8601b13b1a2fb001a7e97c4d01af7a81af9ba91114248b57cb1",
+      "certificate_record_ids": [
+        "kitty.offspring_parent1.independence",
+        "kitty.offspring_parent2.independence",
+        "kitty.parent1_parent2.independence",
+        "kitty.direct_work.bound",
+        "kitty.transitive_work.bound",
+        "kitty.physical_work.bound",
+        "kitty.depth.bound"
+      ],
+      "function_id": "chsimu.KittyBreeding::breed_parallel(address,address,address,bigint,bool)",
+      "function_signature": "breed_parallel(address,address,address,bigint,bool)",
+      "manifest_validation": {
+        "binding_complete": true,
+        "contract": "KittyBreeding",
+        "module_hash": "00k44sa70g8q3t7sf54bfkeey7b7061f2fa7rngq21a34b9k43eg",
+        "pair_relation_count": 6,
+        "relay_site_count": 9,
+        "schema_version": 5
+      },
+      "mutation_generation": {
+        "diagnostics": [],
+        "elapsed_seconds": 0.09398329700343311,
+        "kinds": [
+          "IntroduceAlias",
+          "RelayDuplicate"
+        ],
+        "launch_error": "",
+        "operator_counts": {
+          "IntroduceAlias": 3,
+          "RelayDuplicate": 9
+        },
+        "returncode": 0,
+        "timed_out": false
+      },
+      "resolved_sites": {
+        "offspring": {
+          "location": {
+            "column": 12,
+            "end_column": 69,
+            "end_line": 51,
+            "end_offset": 1410,
+            "line": 51,
+            "start_offset": 1354
+          },
+          "relay_kind": "custom_scope",
+          "relay_site_id": "relay_site_1",
+          "target_function": "parallel_create_offspring",
+          "target_scope": "address",
+          "target_text": "offspring"
+        },
+        "parent1": {
+          "location": {
+            "column": 12,
+            "end_column": 51,
+            "end_line": 52,
+            "end_offset": 1462,
+            "line": 52,
+            "start_offset": 1424
+          },
+          "relay_kind": "custom_scope",
+          "relay_site_id": "relay_site_2",
+          "target_function": "parallel_update_parent",
+          "target_scope": "address",
+          "target_text": "parent1"
+        },
+        "parent2": {
+          "location": {
+            "column": 12,
+            "end_column": 51,
+            "end_line": 53,
+            "end_offset": 1514,
+            "line": 53,
+            "start_offset": 1476
+          },
+          "relay_kind": "custom_scope",
+          "relay_site_id": "relay_site_3",
+          "target_function": "parallel_update_parent",
+          "target_scope": "address",
+          "target_text": "parent2"
+        }
+      },
+      "runtime_template": "external/KittyParallel.prdts.in",
+      "runtime_template_sha256": "fc9b4ffa45a47b293aee2a6078be75058c33be2c82d78dc717be2714eaaba860",
+      "source": "oxd_preda/simulator/contracts/Kitty.prd",
+      "source_sha256": "f0ea2a1d5b6475bedbdcb7b740b52f1bcc7db0074932ff7f9f750cd3f06c1903",
+      "status": "Passed",
+      "workload": "KittyParallel"
+    },
+    {
+      "baseline": {
+        "compile_status": "Compiled",
+        "runtime_coverage": {
+          "covered": true,
+          "label": "AirDropParallel",
+          "missing_function_ids": [],
+          "missing_relay_site_ids": [],
+          "observed_function_ids": [
+            "chsimu.Token::parallel_deposit(bigint)",
+            "chsimu.Token::parallel_record_audit(bigint,uint64)",
+            "chsimu.Token::transfer_n_parallel(address,bigint,address,bigint,address,bigint,address)"
+          ],
+          "observed_relay_site_ids": [
+            "relay_site_4",
+            "relay_site_5",
+            "relay_site_6",
+            "relay_site_7"
+          ],
+          "required_function_ids": [
+            "chsimu.Token::transfer_n_parallel(address,bigint,address,bigint,address,bigint,address)"
+          ],
+          "required_relay_site_ids": [
+            "relay_site_4",
+            "relay_site_5",
+            "relay_site_6",
+            "relay_site_7"
+          ],
+          "unresolved_relay_site_ids": []
+        },
+        "runtime_infrastructure_failures": [],
+        "runtime_passed_checks": 65,
+        "runtime_skipped_unsupported": 13,
+        "runtime_status": "Passed"
+      },
+      "baseline_manifest_digest": "697721ffd241be0b2dd8e3993a4a091d63ef09c185a764744e1e7c77eb64ae47",
+      "certificate_record_ids": [
+        "airdrop.distribution_summary.precedence",
+        "airdrop.direct_work.bound"
+      ],
+      "function_id": "chsimu.Token::transfer_n_parallel(address,bigint,address,bigint,address,bigint,address)",
+      "function_signature": "transfer_n_parallel(address,bigint,address,bigint,address,bigint,address)",
+      "manifest_validation": {
+        "binding_complete": true,
+        "contract": "Token",
+        "module_hash": "ekm55926e1xzj67drtwrrk4mvg8h29a4adek3vztxvwrhtsznztg",
+        "pair_relation_count": 14,
+        "relay_site_count": 8,
+        "schema_version": 5
+      },
+      "mutation_generation": {
+        "diagnostics": [],
+        "elapsed_seconds": 0.12072929402347654,
+        "kinds": [
+          "RelayOrderSwap"
+        ],
+        "launch_error": "",
+        "operator_counts": {
+          "RelayOrderSwap": 4
+        },
+        "returncode": 0,
+        "timed_out": false
+      },
+      "resolved_sites": {
+        "recipient0": {
+          "location": {
+            "column": 12,
+            "end_column": 55,
+            "end_line": 109,
+            "end_offset": 3006,
+            "line": 109,
+            "start_offset": 2964
+          },
+          "relay_kind": "custom_scope",
+          "relay_site_id": "relay_site_4",
+          "target_function": "parallel_deposit",
+          "target_scope": "address",
+          "target_text": "recipient0"
+        },
+        "recipient1": {
+          "location": {
+            "column": 12,
+            "end_column": 55,
+            "end_line": 110,
+            "end_offset": 3062,
+            "line": 110,
+            "start_offset": 3020
+          },
+          "relay_kind": "custom_scope",
+          "relay_site_id": "relay_site_5",
+          "target_function": "parallel_deposit",
+          "target_scope": "address",
+          "target_text": "recipient1"
+        },
+        "recipient2": {
+          "location": {
+            "column": 12,
+            "end_column": 55,
+            "end_line": 111,
+            "end_offset": 3118,
+            "line": 111,
+            "start_offset": 3076
+          },
+          "relay_kind": "custom_scope",
+          "relay_site_id": "relay_site_6",
+          "target_function": "parallel_deposit",
+          "target_scope": "address",
+          "target_text": "recipient2"
+        },
+        "summary": {
+          "location": {
+            "column": 12,
+            "end_column": 61,
+            "end_line": 112,
+            "end_offset": 3180,
+            "line": 112,
+            "start_offset": 3132
+          },
+          "relay_kind": "custom_scope",
+          "relay_site_id": "relay_site_7",
+          "target_function": "parallel_record_audit",
+          "target_scope": "address",
+          "target_text": "summary"
+        }
+      },
+      "runtime_template": "external/AirDropParallel.prdts.in",
+      "runtime_template_sha256": "8438a65186c8e23ba718393561814ee6e8dc96648eb57a89eeb79acc197e6f98",
+      "source": "oxd_preda/simulator/contracts/Token.prd",
+      "source_sha256": "e0efaad5bc9a918abee15b62ad6711f8f535ad0988610e557b9d4b3ba78ed0ca",
+      "status": "Passed",
+      "workload": "AirDropParallel"
+    }
+  ]
+}

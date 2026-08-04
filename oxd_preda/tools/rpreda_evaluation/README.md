@@ -46,6 +46,37 @@ The checked outputs are:
 - `results/certificate/certificate_quality.{json,csv}` and two SVG figures;
 - `results/scalability/scalability.{json,csv}` and the scalability SVG.
 
+## Parallel-certificate extension
+
+The `certificate_extension` subdirectory contains a separate experiment for
+pair-wise `CoEmissionIndependent`, `MustPrecede`, and `MutuallyExclusive`
+certificates, plus finite work/depth bounds.  Per the benchmark integration
+decision, its five logical workloads add exported entry points to the four
+existing contract sources; Token and AirDrop both use `Token.prd`.  Existing
+entry points remain available, while the extension results are never merged
+into the original coverage aggregate.
+
+Run the full compile, strict-runtime, certificate, and mutation matrix with a
+trace- and Z3-enabled build:
+
+```bash
+python3 oxd_preda/tools/rpreda_evaluation/certificate_extension/ParallelCertificateBenchmarkRunner.py \
+  --config oxd_preda/tools/rpreda_evaluation/certificate_extension/parallel_certificate_benchmarks.json \
+  --repo-root . \
+  --library-path /path/to/z3/lib \
+  --library-path /path/to/compiler/runtime/lib \
+  --path-prefix /path/to/supported/compiler/bin
+```
+
+The publication artifacts are written independently to:
+
+- `results/certificate_extension/certificate_extension.json`;
+- `results/certificate_extension/certificate_extension.csv`.
+
+Relay sites are resolved from source function, target expression, handler, and
+scope metadata in each fresh manifest.  The runner never relies on collector
+ordinals, which can drift when the original source files gain new relay sites.
+
 For a fast audit of already-retained raw traces, pass
 `--reuse-artifacts <semantic-run-root>`. Such a run is marked `Reused` in the
 per-benchmark provenance and should not be presented as newly executed data.

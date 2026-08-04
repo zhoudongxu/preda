@@ -4,7 +4,7 @@ allocate.address $~addresses$
 chain.gaslimit 256
 
 chain.deploy @1 {{SOURCE}}
-state.set Ballot.address @all { weight:1, voted_case:0 }
+state.set Ballot.address @all { weight:1, voted_case:0, parallelReputation:0, parallelStatistics:0, parallelYesStatistics:0, parallelNoStatistics:0 }
 
 txn_init = Ballot.init @0 { names:["Spring", "Yarn", "Combat"] }
 chain.run

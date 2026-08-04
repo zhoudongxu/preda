@@ -11,6 +11,15 @@ if(BUILD_TESTING)
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
       ENVIRONMENT "PYTHONDONTWRITEBYTECODE=1;RPREDA_REPO_ROOT=${CMAKE_SOURCE_DIR}"
     )
+
+    add_test(
+      NAME rpreda_parallel_certificate_benchmark_python_tests
+      COMMAND ${Python3_EXECUTABLE} -m unittest -v
+              test_parallel_certificate_benchmarks.py
+    )
+    set_tests_properties(rpreda_parallel_certificate_benchmark_python_tests PROPERTIES
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/certificate_extension
+      ENVIRONMENT "PYTHONDONTWRITEBYTECODE=1;RPREDA_REPO_ROOT=${CMAKE_SOURCE_DIR}"
+    )
   endif()
 endif()
-

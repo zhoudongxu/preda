@@ -1,5 +1,18 @@
 contract Token {
     @address bigint balance;
+    @address uint64 auditTransfers;
+    @address bigint auditVolume;
+
+    @address function parallel_deposit(bigint amount)
+    {
+        balance += amount;
+    }
+
+    @address function parallel_record_audit(bigint amount, uint64 count)
+    {
+        auditTransfers += count;
+        auditVolume += amount;
+    }
     
     @address function bool transfer(address to, bigint amount) export
     {
@@ -29,7 +42,7 @@ contract Token {
         bigint      amount;
     }
 
-    @address function bool transfer_n(array<payment> recipients) export 
+    @address function bool transfer_n(array<payment> recipients) export
 	{
         bigint total = 0ib;
         for (uint32 i = 0u; i<recipients.length(); i++)
@@ -55,6 +68,50 @@ contract Token {
             return true;
         }
 
+        return false;
+    }
+
+    // Parallel-certificate workload: the recipient credit and audit record
+    // are two ordered relays to provably distinct address scopes.
+    @address function bool transfer_parallel(
+        address to,
+        address audit,
+        bigint amount
+    ) export
+    {
+        if(amount >= 0ib && balance >= amount && to != audit)
+        {
+            balance -= amount;
+            relay@to parallel_deposit(amount);
+            relay@audit parallel_record_audit(amount, 1u64);
+            return true;
+        }
+        return false;
+    }
+
+    // Fixed-cardinality AirDrop extension.  It preserves the original
+    // transfer_n behavior for three recipients and adds one summary relay.
+    @address function bool transfer_n_parallel(
+        address recipient0,
+        bigint amount0,
+        address recipient1,
+        bigint amount1,
+        address recipient2,
+        bigint amount2,
+        address summary
+    ) export
+    {
+        bigint total = amount0 + amount1 + amount2;
+        if(amount0 >= 0ib && amount1 >= 0ib && amount2 >= 0ib &&
+            total <= balance)
+        {
+            balance -= total;
+            relay@recipient0 parallel_deposit(amount0);
+            relay@recipient1 parallel_deposit(amount1);
+            relay@recipient2 parallel_deposit(amount2);
+            relay@summary parallel_record_audit(total, 3u64);
+            return true;
+        }
         return false;
     }
 }

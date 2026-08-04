@@ -5,6 +5,18 @@ contract MillionPixel {
     }
 
     @uint32 Land land;
+    @uint32 uint64 ownerOccupations;
+    @uint32 address parallelPixelOwner;
+
+    @uint32 function update_owner_statistics()
+    {
+        ownerOccupations += 1u64;
+    }
+
+    @uint32 function occupy_pixel_parallel(address sender)
+    {
+        parallelPixelOwner = sender;
+    }
 
     @address function occupy(uint16 x, uint16 y) export {
         uint32 index = uint32(x) * 65536u32 + uint32(y);
@@ -13,6 +25,23 @@ contract MillionPixel {
                 land.occupied = true;
                 land.owner = sender;
             }
+        }
+    }
+
+    // The owner statistics partition uses a uint32 application key so that
+    // it can be proved disjoint from the pixel's uint32 scope key.
+    @address function occupy_parallel(
+        uint16 x,
+        uint16 y,
+        uint32 ownerStatisticsKey,
+        address sender
+    ) export {
+        uint32 xKey = uint32(x);
+        uint32 yKey = uint32(y);
+        uint32 index = xKey * 65536u32 + yKey;
+        if (ownerStatisticsKey != index) {
+            relay@ownerStatisticsKey update_owner_statistics();
+            relay@index occupy_pixel_parallel(sender);
         }
     }
 }

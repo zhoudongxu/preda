@@ -1,0 +1,21 @@
+random.reseed $~seed$
+allocate.address $~addresses$
+chain.gaslimit 65536
+
+chain.deploy @1 {{SOURCE}}
+state.set Token.address @all {
+    balance:"1000", auditTransfers:0, auditVolume:"0"
+}
+
+txn_airdrop_parallel = Token.transfer_n_parallel @0 {
+    recipient0:"$@1$", amount0:"100",
+    recipient1:"$@2$", amount1:"200",
+    recipient2:"$@3$", amount2:"300",
+    summary:"$@4$"
+}
+
+chain.run
+chain.info
+
+viz.addr @all Token
+viz.block #all

@@ -148,14 +148,14 @@ Runtime integration is in:
 Build with trace support:
 
 ```bash
-/home/zhoudongxu/miniconda3/envs/preda-build/bin/cmake \
+cmake \
   -S . -B build-gcc12 -G Ninja \
   -DDOWNLOAD_3RDPARTY=OFF \
   -DDOWNLOAD_IPP=OFF \
   -DRPREDA_ENABLE_Z3=OFF \
   -DRPREDA_ENABLE_RUNTIME_TRACE=ON
 
-/home/zhoudongxu/miniconda3/envs/preda-build/bin/cmake \
+cmake \
   --build build-gcc12 -j2
 ```
 
@@ -186,7 +186,7 @@ Conda GCC toolchain:
 
 ```bash
 env \
-  PATH=/home/zhoudongxu/miniconda3/envs/preda-build/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+  PATH="$PREDA_BUILD_BIN:$PATH" \
   HOME=/tmp/rpreda-run \
   ./chsimu ...
 ```
@@ -828,21 +828,21 @@ event dump is not required.
 Trace tests:
 
 ```bash
-/home/zhoudongxu/miniconda3/envs/preda-build/bin/ctest \
+ctest \
   --test-dir build-gcc12 --output-on-failure
 ```
 
 Real workload example:
 
 ```bash
-cd /home/zhoudongxu/preda/bin/bin_release
+cd "$PREDA_REPO_ROOT/bin/bin_release"
 mkdir -p /tmp/rpreda-ballot
 
 env \
   HOME=/tmp/rpreda-ballot \
-  PATH=/home/zhoudongxu/miniconda3/envs/preda-build/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+  PATH="$PREDA_BUILD_BIN:$PATH" \
   ./chsimu \
-  /home/zhoudongxu/preda/oxd_preda/simulator/contracts/Ballot.prdts \
+  "$PREDA_REPO_ROOT/oxd_preda/simulator/contracts/Ballot.prdts" \
   -count:16 \
   -order:2 \
   -rpreda_trace:observe \
@@ -853,18 +853,18 @@ env \
 Deterministic A/B:
 
 ```bash
-cd /home/zhoudongxu/preda/bin/bin_release
+cd "$PREDA_REPO_ROOT/bin/bin_release"
 
 env HOME=/tmp/rpreda-ab/off PATH="$PREDA_GCC_PATH" \
   ./chsimu \
-  /home/zhoudongxu/preda/oxd_preda/simulator/contracts/MillionPixelTraceInvariance.prdts \
+  "$PREDA_REPO_ROOT/oxd_preda/simulator/contracts/MillionPixelTraceInvariance.prdts" \
   -count:64 -order:0 -rpreda_trace:off \
   -viz:/tmp/rpreda-ab/off/viz.html \
   -viz_templ:/tmp/rpreda-viz-template.html
 
 env HOME=/tmp/rpreda-ab/observe PATH="$PREDA_GCC_PATH" \
   ./chsimu \
-  /home/zhoudongxu/preda/oxd_preda/simulator/contracts/MillionPixelTraceInvariance.prdts \
+  "$PREDA_REPO_ROOT/oxd_preda/simulator/contracts/MillionPixelTraceInvariance.prdts" \
   -count:64 -order:0 -rpreda_trace:observe \
   -rpreda_trace_report:/tmp/rpreda-ab/observe/trace.json \
   -viz:/tmp/rpreda-ab/observe/viz.html \

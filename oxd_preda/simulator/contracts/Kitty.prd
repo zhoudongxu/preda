@@ -19,6 +19,40 @@ contract KittyBreeding {
     }
     
     @address map<uint32, Kitty> myKitties;
+    @address uint64 parallelOffspringCreates;
+    @address uint64 parallelParentUpdates;
+    @address bigint parallelLastGenes;
+
+    @address function parallel_create_offspring(bigint genes, bool gender)
+    {
+        parallelOffspringCreates += 1u64;
+        parallelLastGenes = gender ? genes : 0ib;
+    }
+
+    @address function parallel_update_parent()
+    {
+        parallelParentUpdates += 1u64;
+    }
+
+    // A bounded, one-level breeding extension.  Explicit non-alias guards
+    // make the offspring and two parent address partitions independent.
+    @address function breed_parallel(
+        address offspring,
+        address parent1,
+        address parent2,
+        bigint genes,
+        bool gender
+    ) export
+    {
+        if(offspring != parent1 &&
+            offspring != parent2 &&
+            parent1 != parent2)
+        {
+            relay@offspring parallel_create_offspring(genes, gender);
+            relay@parent1 parallel_update_parent();
+            relay@parent2 parallel_update_parent();
+        }
+    }
 
     @global function uint32 create(bool gender, address owner)
     {

@@ -1,0 +1,16 @@
+random.reseed $~seed$
+allocate.address $~addresses$
+chain.gaslimit 65536
+
+chain.deploy @1 {{SOURCE}}
+
+txn_parallel = KittyBreeding.breed_parallel @0 {
+    offspring:"$@1$", parent1:"$@2$", parent2:"$@3$",
+    genes:"123456789", gender:false
+}
+
+chain.run
+chain.info
+
+viz.addr @all KittyBreeding
+viz.block #all
