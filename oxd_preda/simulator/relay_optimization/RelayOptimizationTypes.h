@@ -1,5 +1,7 @@
 #pragma once
 
+#include "RelayScheduler.h"
+
 #include <cstdint>
 #include <string>
 
@@ -36,6 +38,7 @@ struct OptimizationConfig
 {
 	OptimizationMode mode = OptimizationMode::Baseline;
 	OptimizationAblation ablation = OptimizationAblation::Baseline;
+	RelaySchedulerMode schedulerMode = RelaySchedulerMode::FIFO;
 	uint64_t maxRelayReserve = 1000000;
 	AuditSampleRate auditSampleRate;
 	std::string reportPath;
@@ -80,7 +83,8 @@ bool ParseUnsignedDecimal(
 bool ValidateOptimizationConfig(
 	OptimizationConfig &config,
 	bool ablationWasExplicit,
-	std::string &error);
+	std::string &error,
+	bool schedulerWasExplicit = false);
 
 } // namespace relay_optimization
 } // namespace oxd

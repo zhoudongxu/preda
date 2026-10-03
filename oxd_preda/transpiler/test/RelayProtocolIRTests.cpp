@@ -2312,6 +2312,22 @@ void TestRefinementBooleanGuardAndArrayLength(
 		"array length target equality");
 }
 
+const Json& RequireUniqueRelaySiteForSignature(
+	const Json& manifest,
+	const std::string& signature)
+{
+	const Json* match = nullptr;
+	for (const Json& site : RequireArray(manifest, "relay_sites"))
+	{
+		if (RequireString(site, "source_function_signature") != signature)
+			continue;
+		CHECK_DETAIL(match == nullptr, "multiple relay sites in " + signature);
+		match = &site;
+	}
+	CHECK_DETAIL(match != nullptr, "missing relay site in " + signature);
+	return *match;
+}
+
 void TestRefinementMillionPixel(
 	const std::string& fixtureDirectory)
 {
@@ -2319,10 +2335,10 @@ void TestRefinementMillionPixel(
 		fixtureDirectory + "/../../../simulator/contracts",
 		"MillionPixel.prd");
 	CheckTopLevel(result, "MillionPixel");
-	const Json& sites =
-		RequireArray(result.manifest, "relay_sites");
-	CHECK(sites.size() == 1);
-	const Json& site = sites.front();
+	// Additional exported workloads may add relay sites to this contract.
+	// Keep testing the original coordinate-to-index formula in occupy().
+	const Json& site = RequireUniqueRelaySiteForSignature(
+		result.manifest, "occupy(uint16,uint16)");
 	CHECK(Compact(
 		RequireString(
 			RequireField(site, "target"),
@@ -4218,8 +4234,8 @@ void TestZ3MillionPixelFormulaEquality(
 		fixtureDirectory + "/../../../simulator/contracts",
 		"MillionPixel.prd");
 	CheckTopLevel(result, "MillionPixel");
-	const Json& site =
-		RequireArray(result.manifest, "relay_sites").front();
+	const Json& site = RequireUniqueRelaySiteForSignature(
+		result.manifest, "occupy(uint16,uint16)");
 	const Json* targetRelation = FindConstraint(
 		RequireRefinement(result.manifest),
 		"RelayTargetRelation",

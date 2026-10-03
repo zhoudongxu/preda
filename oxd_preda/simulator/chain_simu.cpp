@@ -63,6 +63,7 @@ bool ChainSimulator::Init(const os::CommandLine& cmd)
 		}
 	}
 	if(cmd.HasOption("rpreda_opt_ablation") ||
+		cmd.HasOption("rpreda_scheduler") ||
 		cmd.HasOption("rpreda_opt_report") ||
 		cmd.HasOption("rpreda_audit_sample_rate") ||
 		cmd.HasOption("rpreda_max_relay_reserve"))
@@ -166,6 +167,20 @@ bool ChainSimulator::_InitRelayOptimization(
 		return false;
 	}
 
+	const bool schedulerWasExplicit =
+		cmd.HasOption("rpreda_scheduler");
+	if(schedulerWasExplicit &&
+		!ParseRelaySchedulerMode(
+			_RPredaString(cmd.GetOption("rpreda_scheduler")),
+			m_relayOptimizationConfig.schedulerMode,
+			error))
+	{
+		_LOG_ERROR(
+			"[R-PREDA optimization]: invalid "
+			"-rpreda_scheduler: " << error);
+		return false;
+	}
+
 	const bool ablationWasExplicit =
 		cmd.HasOption("rpreda_opt_ablation");
 	if(ablationWasExplicit &&
@@ -222,7 +237,8 @@ bool ChainSimulator::_InitRelayOptimization(
 	if(!ValidateOptimizationConfig(
 		m_relayOptimizationConfig,
 		ablationWasExplicit,
-		error))
+		error,
+		schedulerWasExplicit))
 	{
 		_LOG_ERROR(
 			"[R-PREDA optimization]: invalid configuration: " <<
@@ -263,6 +279,8 @@ bool ChainSimulator::_InitRelayOptimization(
 		ToString(m_relayOptimizationConfig.mode) <<
 		", ablation=" <<
 		ToString(m_relayOptimizationConfig.ablation) <<
+		", scheduler=" <<
+		ToString(m_relayOptimizationConfig.schedulerMode) <<
 		", max_relay_reserve=" <<
 		m_relayOptimizationConfig.maxRelayReserve);
 	return true;
@@ -359,6 +377,16 @@ ChainSimulator::LookupRelayPlan(
 	expected.requireModuleHash = true;
 	expected.trustedManifestHash = expected.identity.manifestHash;
 	return m_relayPlanRegistry->Lookup(expected, opcode);
+}
+
+relay_plan::RelayPlanLookupResult
+ChainSimulator::LookupRelayPlan(
+	const std::string& moduleIdentity,
+	uint32_t opcode)
+{
+	if(!m_relayPlanRegistry || moduleIdentity.empty())
+		return {};
+	return m_relayPlanRegistry->Lookup(moduleIdentity, opcode);
 }
 #endif
 

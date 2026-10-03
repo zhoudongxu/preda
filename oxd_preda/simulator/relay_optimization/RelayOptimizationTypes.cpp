@@ -177,7 +177,8 @@ bool ParseUnsignedDecimal(
 bool ValidateOptimizationConfig(
 	OptimizationConfig &config,
 	bool ablationWasExplicit,
-	std::string &error)
+	std::string &error,
+	bool schedulerWasExplicit)
 {
 	if(config.mode == OptimizationMode::Baseline)
 	{
@@ -188,7 +189,15 @@ bool ValidateOptimizationConfig(
 				"baseline mode cannot enable an optimization ablation";
 			return false;
 		}
+		if(schedulerWasExplicit &&
+			config.schedulerMode != RelaySchedulerMode::FIFO)
+		{
+			error =
+				"baseline mode cannot enable a non-FIFO scheduler";
+			return false;
+		}
 		config.ablation = OptimizationAblation::Baseline;
+		config.schedulerMode = RelaySchedulerMode::FIFO;
 		return true;
 	}
 

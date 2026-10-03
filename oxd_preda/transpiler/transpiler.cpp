@@ -47,6 +47,15 @@ public:
 			{
 				if (option == "disabledebugprint")
 					m_options.bDisableDebugPrint = true;
+				else if (option.rfind("relay-analysis=", 0) == 0)
+				{
+					const std::string mode = option.substr(15);
+					using Mode = transpiler::PredaTranspilerOptions::RelayAnalysisMode;
+					if (mode == "site_scan") m_options.relayAnalysisMode = Mode::SiteScan;
+					else if (mode == "cfg_icfg") m_options.relayAnalysisMode = Mode::CfgIcfg;
+					else if (mode == "formula_smt") m_options.relayAnalysisMode = Mode::FormulaSmt;
+					else if (mode == "full") m_options.relayAnalysisMode = Mode::Full;
+				}
 			}
 		}
 		m_listener.SetOptions(&m_options);

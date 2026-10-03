@@ -1563,6 +1563,15 @@ bool CContractDatabase::LinkContract(const std::string &source_code, const std::
 #else
 	constexpr const char* relayTraceCompilerDefine = "";
 #endif
+#ifdef RPREDA_ENABLE_BOUND_RELAY_MANIFEST
+	// Contract sources are compiled in a separate invocation from this
+	// engine.  Propagate the manifest ABI switch so optimization-only
+	// generated relay_with_site calls are visible to that invocation.
+	constexpr const char* relayManifestCompilerDefine =
+		" -DRPREDA_ENABLE_BOUND_RELAY_MANIFEST=1";
+#else
+	constexpr const char* relayManifestCompilerDefine = "";
+#endif
 
 	char s[30];
 #ifdef _WIN32

@@ -23,6 +23,7 @@ from CoverageScalabilityRunner import (
     _distribution,
     _sample_metrics,
     _timing_stability_control,
+    _validate_synthetic,
 )
 
 
@@ -138,6 +139,31 @@ def minimal_manifest():
 
 
 class EvaluationTests(unittest.TestCase):
+    def test_site_scan_sync_depth_is_unavailable_not_zero(self):
+        manifest = minimal_manifest()
+        manifest["control_flow"]["functions"] = []
+        metadata = {"requested": {}, "derived": {
+            "functions": 2, "relay_sites": 1, "relay_width": 1,
+            "relay_depth": 0, "branch_depth": 0, "loop_depth": 0,
+            "sync_call_depth": 8, "arguments_per_relay": 0,
+            "target_expression_terms": 0,
+        }}
+        result = _validate_synthetic(manifest, metadata, "site_scan")
+        self.assertTrue(result["valid"])
+        self.assertIsNone(result["actual"]["sync_call_depth"])
+        self.assertIn("sync_call_depth", result["unavailable"])
+        # Removing a real relay site still fails in the scan-only mode.
+        manifest["relay_sites"] = []
+        self.assertFalse(_validate_synthetic(manifest, metadata, "site_scan")["valid"])
+
+    def test_cfg_mode_does_not_hide_missing_graph(self):
+        manifest = minimal_manifest()
+        manifest["control_flow"]["functions"] = []
+        metadata = {"requested": {"functions": 2, "sync_call_depth": 8}, "derived": {}}
+        result = _validate_synthetic(manifest, metadata, "cfg_icfg")
+        self.assertIn("functions", result["mismatches"])
+        self.assertIn("sync_call_depth", result["mismatches"])
+
     def test_round_major_schedule_is_deterministic_and_complete(self):
         case_ids = ["a", "b", "c", "d"]
         first = _build_round_schedule(case_ids, 1, 3, 88)
@@ -210,6 +236,47 @@ class EvaluationTests(unittest.TestCase):
                 path.write_text(json.dumps(value), encoding="utf-8")
             with self.assertRaisesRegex(EvaluationError, "build-feature mismatch"):
                 _sample_metrics(*paths)
+
+    def test_partial_ablation_requires_selected_mode_and_z3_build(self):
+        manifest = minimal_manifest()
+        manifest.pop("artifact_binding")
+        profile = {
+            "schema_version": 1, "status": "Compiled", "profiling_enabled": True,
+            "phase_times_ms": {name: 0.0 for name in ANALYSIS_PHASES},
+            "total_analysis_ms": 0.0, "analysis_mode": "full",
+            "build_features": dict(REQUIRED_SCALABILITY_BUILD_FEATURES),
+        }
+        process = {"schema_version": 1, "returncode": 0, "timed_out": False,
+                   "launch_error": "", "peak_rss_kib": 1, "wall_time_ms": 0.0}
+        with tempfile.TemporaryDirectory() as raw:
+            paths = [pathlib.Path(raw) / name for name in ("manifest.json", "metrics.json", "process.json")]
+            for path, value in zip(paths, (manifest, profile, process)):
+                path.write_text(json.dumps(value), encoding="utf-8")
+            with self.assertRaisesRegex(EvaluationError, "analysis mode mismatch"):
+                _sample_metrics(*paths, analysis_mode="site_scan")
+            profile["analysis_mode"] = "site_scan"
+            profile["build_features"]["z3"] = False
+            paths[1].write_text(json.dumps(profile), encoding="utf-8")
+            with self.assertRaisesRegex(EvaluationError, "build-feature mismatch"):
+                _sample_metrics(*paths, analysis_mode="site_scan")
+
+    def test_ablation_audit_preserves_timeout_variation(self):
+        from AblationReport import variation_details
+        first = minimal_manifest()
+        first["refinement"]["proof_obligations"][0]["solver_result"] = {"status": "Disproved"}
+        second = copy.deepcopy(first)
+        second["refinement"]["proof_obligations"][0]["solver_result"] = {"status": "Unknown", "reason": "timeout"}
+        with tempfile.TemporaryDirectory() as raw:
+            paths = [pathlib.Path(raw) / name for name in ("first.json", "second.json")]
+            for path, value in zip(paths, (first, second)):
+                path.write_text(json.dumps(value), encoding="utf-8")
+            result = variation_details(paths)
+            self.assertTrue(result["proof_input_structure_stable"])
+            self.assertFalse(result["normalized_output_stable"])
+            self.assertEqual(result["solver_status_samples"][1]["Unknown"], 1)
+            second["refinement"]["proof_obligations"][0]["goal"]["literal_value"] = "false"
+            paths[1].write_text(json.dumps(second), encoding="utf-8")
+            self.assertFalse(variation_details(paths)["proof_input_structure_stable"])
 
     def covered_trace(self, occurrences=1, mismatch=False):
         validations = [{

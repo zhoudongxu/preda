@@ -1,11 +1,11 @@
 #pragma once
 #include <vector>
+#include <utility>
 #include "common.h"
 #include "address_blob_hash_types.h"
 #include "gascost.h"
 #if defined(RPREDA_ENABLE_RUNTIME_TRACE)
-#include <utility>
-#include "relay_trace.h"
+	#include "relay_trace.h"
 #endif
 
 namespace prlrt {
@@ -128,6 +128,51 @@ namespace prlrt {
 			preda_exception::throw_exception("relay@next error", prlrt::ExceptionType::RelayError);
 	}
 
+	// Optimization builds carry the relay-site ordinal through a tiny optional
+	// runtime hook. This keeps the stock relay ABI and target semantics intact
+	// while making the source identity available at child allocation time.
+	template<typename TScope, typename ...Args>
+	void relay_with_site(
+		uint32_t siteOrdinal,
+		const TScope &scope_key,
+		uint32_t scope_type,
+		uint32_t opCode,
+		Args&& ...args)
+	{
+		PREDA_CALL(SetRelayOriginMetadata, siteOrdinal);
+		relay(scope_key, scope_type, opCode, std::forward<Args>(args)...);
+	}
+
+	template<typename ...Args>
+	void relay_shards_with_site(
+		uint32_t siteOrdinal,
+		uint32_t opCode,
+		Args&& ...args)
+	{
+		PREDA_CALL(SetRelayOriginMetadata, siteOrdinal);
+		relay_shards(opCode, std::forward<Args>(args)...);
+	}
+
+	template<typename ...Args>
+	void relay_global_with_site(
+		uint32_t siteOrdinal,
+		uint32_t opCode,
+		Args&& ...args)
+	{
+		PREDA_CALL(SetRelayOriginMetadata, siteOrdinal);
+		relay_global(opCode, std::forward<Args>(args)...);
+	}
+
+	template<typename ...Args>
+	void relay_next_with_site(
+		uint32_t siteOrdinal,
+		uint32_t opCode,
+		Args&& ...args)
+	{
+		PREDA_CALL(SetRelayOriginMetadata, siteOrdinal);
+		relay_next(opCode, std::forward<Args>(args)...);
+	}
+
 #if defined(RPREDA_ENABLE_RUNTIME_TRACE)
 	template<typename TScope, typename ...Args>
 	void relay_traced(
@@ -137,6 +182,7 @@ namespace prlrt {
 		uint32_t opCode,
 		Args&& ...args)
 	{
+		PREDA_CALL(SetRelayOriginMetadata, ordinal);
 		RelayTraceSiteGuard guard(ordinal);
 		relay(
 			scope_key,
@@ -151,6 +197,7 @@ namespace prlrt {
 		uint32_t opCode,
 		Args&& ...args)
 	{
+		PREDA_CALL(SetRelayOriginMetadata, ordinal);
 		RelayTraceSiteGuard guard(ordinal);
 		relay_shards(opCode, std::forward<Args>(args)...);
 	}
@@ -161,6 +208,7 @@ namespace prlrt {
 		uint32_t opCode,
 		Args&& ...args)
 	{
+		PREDA_CALL(SetRelayOriginMetadata, ordinal);
 		RelayTraceSiteGuard guard(ordinal);
 		relay_global(opCode, std::forward<Args>(args)...);
 	}
@@ -171,6 +219,7 @@ namespace prlrt {
 		uint32_t opCode,
 		Args&& ...args)
 	{
+		PREDA_CALL(SetRelayOriginMetadata, ordinal);
 		RelayTraceSiteGuard guard(ordinal);
 		relay_next(opCode, std::forward<Args>(args)...);
 	}

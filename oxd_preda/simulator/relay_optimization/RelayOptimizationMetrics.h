@@ -34,6 +34,11 @@ struct OptimizationMetricsSnapshot
 	uint64_t queueNotifications = 0;
 	uint64_t maximumBatchSize = 0;
 	uint64_t queueBatchFallbacks = 0;
+	uint64_t schedulerSelectionCalls = 0;
+	uint64_t schedulerPrioritySelections = 0;
+	uint64_t schedulerReorders = 0;
+	uint64_t schedulerCertificateUses = 0;
+	uint64_t schedulerFallbacks = 0;
 
 	uint64_t logicalRelayEmissions = 0;
 	uint64_t physicalRelayRoutes = 0;
@@ -46,6 +51,7 @@ struct OptimizationMetricsSnapshot
 	uint64_t routingTimeNs = 0;
 	uint64_t dispatchTimeNs = 0;
 	uint64_t queuePushTimeNs = 0;
+	uint64_t schedulerDecisionTimeNs = 0;
 
 	uint64_t auditSamples = 0;
 	uint64_t auditPassed = 0;
@@ -111,6 +117,14 @@ struct OptimizationMetrics
 	std::atomic<uint64_t> maximumBatchSize{0};
 	std::atomic<uint64_t> queueBatchFallbacks{0};
 
+	// Scheduler counters are reported separately from queue counters so the
+	// experiment can measure policy overhead and conservative fallback use.
+	std::atomic<uint64_t> schedulerSelectionCalls{0};
+	std::atomic<uint64_t> schedulerPrioritySelections{0};
+	std::atomic<uint64_t> schedulerReorders{0};
+	std::atomic<uint64_t> schedulerCertificateUses{0};
+	std::atomic<uint64_t> schedulerFallbacks{0};
+
 	std::atomic<uint64_t> logicalRelayEmissions{0};
 	std::atomic<uint64_t> physicalRelayRoutes{0};
 	std::atomic<uint64_t> relayExecutions{0};
@@ -122,6 +136,7 @@ struct OptimizationMetrics
 	std::atomic<uint64_t> routingTimeNs{0};
 	std::atomic<uint64_t> dispatchTimeNs{0};
 	std::atomic<uint64_t> queuePushTimeNs{0};
+	std::atomic<uint64_t> schedulerDecisionTimeNs{0};
 
 	std::atomic<uint64_t> auditSamples{0};
 	std::atomic<uint64_t> auditPassed{0};
@@ -159,6 +174,11 @@ struct OptimizationMetrics
 		RPREDA_SNAPSHOT_COUNTER(queueNotifications);
 		RPREDA_SNAPSHOT_COUNTER(maximumBatchSize);
 		RPREDA_SNAPSHOT_COUNTER(queueBatchFallbacks);
+		RPREDA_SNAPSHOT_COUNTER(schedulerSelectionCalls);
+		RPREDA_SNAPSHOT_COUNTER(schedulerPrioritySelections);
+		RPREDA_SNAPSHOT_COUNTER(schedulerReorders);
+		RPREDA_SNAPSHOT_COUNTER(schedulerCertificateUses);
+		RPREDA_SNAPSHOT_COUNTER(schedulerFallbacks);
 		RPREDA_SNAPSHOT_COUNTER(logicalRelayEmissions);
 		RPREDA_SNAPSHOT_COUNTER(physicalRelayRoutes);
 		RPREDA_SNAPSHOT_COUNTER(relayExecutions);
@@ -169,6 +189,7 @@ struct OptimizationMetrics
 		RPREDA_SNAPSHOT_COUNTER(routingTimeNs);
 		RPREDA_SNAPSHOT_COUNTER(dispatchTimeNs);
 		RPREDA_SNAPSHOT_COUNTER(queuePushTimeNs);
+		RPREDA_SNAPSHOT_COUNTER(schedulerDecisionTimeNs);
 		RPREDA_SNAPSHOT_COUNTER(auditSamples);
 		RPREDA_SNAPSHOT_COUNTER(auditPassed);
 		RPREDA_SNAPSHOT_COUNTER(auditFailed);
@@ -302,6 +323,11 @@ private:
 		RPREDA_DIFFERENCE_COUNTER(queueLockAcquisitions);
 		RPREDA_DIFFERENCE_COUNTER(queueNotifications);
 		RPREDA_DIFFERENCE_COUNTER(queueBatchFallbacks);
+		RPREDA_DIFFERENCE_COUNTER(schedulerSelectionCalls);
+		RPREDA_DIFFERENCE_COUNTER(schedulerPrioritySelections);
+		RPREDA_DIFFERENCE_COUNTER(schedulerReorders);
+		RPREDA_DIFFERENCE_COUNTER(schedulerCertificateUses);
+		RPREDA_DIFFERENCE_COUNTER(schedulerFallbacks);
 		RPREDA_DIFFERENCE_COUNTER(logicalRelayEmissions);
 		RPREDA_DIFFERENCE_COUNTER(physicalRelayRoutes);
 		RPREDA_DIFFERENCE_COUNTER(relayExecutions);
@@ -312,6 +338,7 @@ private:
 		RPREDA_DIFFERENCE_COUNTER(routingTimeNs);
 		RPREDA_DIFFERENCE_COUNTER(dispatchTimeNs);
 		RPREDA_DIFFERENCE_COUNTER(queuePushTimeNs);
+		RPREDA_DIFFERENCE_COUNTER(schedulerDecisionTimeNs);
 		RPREDA_DIFFERENCE_COUNTER(auditSamples);
 		RPREDA_DIFFERENCE_COUNTER(auditPassed);
 		RPREDA_DIFFERENCE_COUNTER(auditFailed);

@@ -58,7 +58,6 @@ public:
 				return result.type.baseConcreteType->inputName;
 			});
 	}
-
 	transpiler::PredaTranspilerContext m_transpilerCtx;
 	transpiler::relay_protocol::RelayProtocolCollector m_relayProtocolCollector;
 
@@ -182,6 +181,10 @@ public:
 	{
 		m_pOptions = pOptions;
 		m_expressionParser.SetOptions(pOptions);
+		m_relayProtocolCollector.SetAnalysisMode(
+			pOptions == nullptr
+				? transpiler::PredaTranspilerOptions::RelayAnalysisMode::Full
+				: pOptions->relayAnalysisMode);
 	}
 
 	transpiler::IContractSymbolDatabase *m_pContractSymbolDatabase;

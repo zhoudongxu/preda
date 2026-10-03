@@ -1,5 +1,6 @@
 #include "RelayOptimizationAudit.h"
 #include "RelayOptimizationReport.h"
+#include "RelayScheduler.h"
 #include "RelayOptimizationTypes.h"
 #include "RelayReservePlanner.h"
 
@@ -69,6 +70,16 @@ void TestConfig()
 		ParseOptimizationMode("OPTIMIZE_AUDIT", mode, error) &&
 			mode == OptimizationMode::OptimizeAudit,
 		"optimize_audit mode parsing");
+	RelaySchedulerMode scheduler{};
+	Require(
+		ParseRelaySchedulerMode(
+			"certificate_guided_priority", scheduler, error) &&
+			scheduler == RelaySchedulerMode::CertificateGuidedPriority,
+		"certificate-guided scheduler mode parsing");
+	Require(
+		ParseRelaySchedulerMode("blind_priority", scheduler, error) &&
+			scheduler == RelaySchedulerMode::CertificateBlindPriority,
+		"certificate-blind scheduler mode alias parsing");
 	Require(
 		ParseOptimizationAblation(
 			"verified_reserve_plus_batch",
@@ -112,6 +123,158 @@ void TestConfig()
 	Require(
 		!ValidateOptimizationConfig(config, true, error),
 		"baseline with optimization ablation rejection");
+	config = OptimizationConfig{};
+	config.mode = OptimizationMode::Baseline;
+	config.schedulerMode =
+		RelaySchedulerMode::CertificateGuidedPriority;
+	Require(
+		!ValidateOptimizationConfig(config, false, error, true),
+		"baseline with non-FIFO scheduler rejection");
+	config = OptimizationConfig{};
+	config.mode = OptimizationMode::Optimize;
+	config.schedulerMode =
+		RelaySchedulerMode::CertificateGuidedPriority;
+	Require(
+		ValidateOptimizationConfig(config, false, error, true) &&
+			config.schedulerMode ==
+				RelaySchedulerMode::CertificateGuidedPriority,
+		"optimized scheduler mode accepted");
+}
+
+RelaySchedulerTask SchedulerTask(
+	const char *site,
+	const char *stable,
+	const char *target,
+	uint32_t depth,
+	uint64_t work)
+{
+	RelaySchedulerTask task;
+	task.functionId = "f";
+	task.relaySiteId = site;
+	task.stableId = stable;
+	task.targetScopeKey = target;
+	task.targetKnown = true;
+	task.remainingDepth = depth;
+	task.estimatedWork = work;
+	return task;
+}
+
+void TestRelayScheduler()
+{
+	RelaySchedulerMode parsed{};
+	std::string error;
+	Require(
+		ParseRelaySchedulerMode(
+			"certificate_guided_priority", parsed, error) &&
+			parsed == RelaySchedulerMode::CertificateGuidedPriority,
+		"certificate-guided scheduler mode parsing");
+	Require(
+		ParseRelaySchedulerMode("blind_priority", parsed, error) &&
+			parsed == RelaySchedulerMode::CertificateBlindPriority,
+		"certificate-blind scheduler mode alias parsing");
+
+	const auto first = SchedulerTask("site-a", "a", "scope-a", 1, 1);
+	const auto second = SchedulerTask("site-b", "b", "scope-b", 4, 3);
+	const auto aliased = SchedulerTask("site-c", "c", "scope-a", 9, 9);
+	const std::vector<RelaySchedulerTask> ready = {first, second};
+	RelaySchedulerCertificateView trusted;
+	RelayScheduler fifo(RelaySchedulerMode::FIFO);
+	Require(
+		fifo.Choose(ready, trusted).selectedIndex == 0,
+		"FIFO keeps the queue head");
+	RelayScheduler blind(RelaySchedulerMode::CertificateBlindPriority);
+	const auto blindDecision = blind.Choose(ready, trusted);
+	Require(
+		blindDecision.selectedIndex == 1 && blindDecision.reordered &&
+		blindDecision.reason == RelaySchedulerDecisionReason::Priority,
+		"blind priority moves a distinct known target");
+	Require(
+		blind.Choose({first, aliased}, trusted).selectedIndex == 0,
+		"blind priority does not cross a target alias");
+
+	relay_plan::ManifestFunctionParallelCertificate certificate;
+	certificate.sourceFunctionId = "f";
+	relay_plan::ManifestRelayPairCertificate independent;
+	independent.siteA = "site-a";
+	independent.siteB = "site-b";
+	independent.relation =
+		relay_plan::RelayPairCertificateRelation::CoEmissionIndependent;
+	independent.status = relay_plan::ParallelCertificateStatus::Proved;
+	certificate.pairRelations.push_back(independent);
+	trusted.function = &certificate;
+	trusted.bindingTrusted = true;
+	trusted.functionOpcodeTrusted = true;
+	trusted.optimizationEligible = true;
+	RelayScheduler guided(RelaySchedulerMode::CertificateGuidedPriority);
+	const auto guidedDecision = guided.Choose(ready, trusted);
+	Require(
+		guidedDecision.selectedIndex == 1 &&
+		guidedDecision.certificateUsed,
+		"guided priority uses a proved independent pair");
+	Require(
+		ClassifyRelayPair(first, second, trusted).kind ==
+			RelayPairDecisionKind::Independent,
+		"independent pair classification");
+
+	relay_plan::ManifestRelayPairCertificate order;
+	order.siteA = "site-a";
+	order.siteB = "site-b";
+	order.relation =
+		relay_plan::RelayPairCertificateRelation::MustPrecedeAB;
+	order.status = relay_plan::ParallelCertificateStatus::Proved;
+	certificate.pairRelations.clear();
+	certificate.pairRelations.push_back(order);
+	Require(
+		ClassifyRelayPair(first, second, trusted).leftMustPrecede,
+		"MustPrecedeAB orientation");
+	Require(
+		guided.Choose({first, second}, trusted).selectedIndex == 0,
+		"guided priority preserves MustPrecede");
+	const auto reversed = guided.Choose({second, first}, trusted);
+	Require(
+		reversed.selectedIndex == 0,
+		"guided priority cannot move a MustPrecede predecessor behind");
+	order.relation =
+		relay_plan::RelayPairCertificateRelation::MustPrecedeBA;
+	certificate.pairRelations.clear();
+	certificate.pairRelations.push_back(order);
+	const auto ba = ClassifyRelayPair(first, second, trusted);
+	Require(
+		ba.rightMustPrecede,
+		"MustPrecedeBA orientation");
+	order.relation =
+		relay_plan::RelayPairCertificateRelation::MutuallyExclusive;
+	certificate.pairRelations.clear();
+	certificate.pairRelations.push_back(order);
+	Require(
+		ClassifyRelayPair(first, second, trusted).kind ==
+			RelayPairDecisionKind::MutuallyExclusive &&
+			guided.Choose({first, second}, trusted).selectedIndex == 0,
+		"mutually exclusive pair stays on the conservative path");
+
+	certificate.pairRelations.clear();
+	certificate.pairRelations.push_back(independent);
+	const auto sameTarget = ClassifyRelayPair(first, aliased, trusted);
+	Require(
+		sameTarget.kind == RelayPairDecisionKind::Conflict,
+		"independent certificate still checks runtime target alias");
+	Require(
+		guided.Choose({first, aliased}, trusted).selectedIndex == 0,
+		"guided priority falls back on runtime target alias");
+
+	RelaySchedulerTask global = second;
+	global.globalRelay = true;
+	Require(
+		guided.Choose({first, global}, trusted).selectedIndex == 0,
+		"global relay remains on FIFO path");
+
+	trusted.bindingTrusted = false;
+	const auto untrusted = guided.Choose(ready, trusted);
+	Require(
+		untrusted.selectedIndex == 0 &&
+		untrusted.reason ==
+			RelaySchedulerDecisionReason::UntrustedCertificate,
+		"untrusted certificate falls back to FIFO");
 }
 
 void TestReserve()
@@ -887,9 +1050,16 @@ void TestReport()
 	config.mode = OptimizationMode::Optimize;
 	config.ablation =
 		OptimizationAblation::VerifiedReservePlusBatch;
+	config.schedulerMode =
+		RelaySchedulerMode::CertificateGuidedPriority;
 	OptimizationMetrics metrics;
 	metrics.queueBatchPushCalls.store(2);
 	metrics.queueBatchElements.store(7);
+	metrics.schedulerSelectionCalls.store(9);
+	metrics.schedulerReorders.store(2);
+	metrics.schedulerCertificateUses.store(0);
+	metrics.schedulerFallbacks.store(7);
+	metrics.schedulerDecisionTimeNs.store(1234);
 	RelayOptimizationReport report;
 	const auto parsed =
 		nlohmann::json::parse(report.BuildJson(
@@ -900,11 +1070,24 @@ void TestReport()
 		parsed["config"]["mode"] == "optimize",
 		"report mode");
 	Require(
+		parsed["config"]["scheduler"] ==
+			"certificate_guided_priority",
+		"report scheduler mode");
+	Require(
 		parsed["derived"]["average_batch_size_numerator"] == 7,
 		"report batch numerator");
 	Require(
 		parsed["derived"]["average_batch_size_denominator"] == 2,
 		"report batch denominator");
+	Require(
+		parsed["counters"]["scheduler_selection_calls"] == 9 &&
+			parsed["counters"]["scheduler_reorders"] == 2 &&
+			parsed["counters"]["scheduler_certificate_uses"] == 0 &&
+			parsed["counters"]["scheduler_fallbacks"] == 7,
+		"report scheduler counters");
+	Require(
+		parsed["timings_ns"]["scheduler_decision_time_ns"] == 1234,
+		"report scheduler timing");
 
 	const auto unique = std::chrono::steady_clock::now()
 		.time_since_epoch().count();
@@ -977,6 +1160,7 @@ void TestReport()
 int main()
 {
 	TestConfig();
+	TestRelayScheduler();
 	TestReserve();
 	TestAuditPassAndLineage();
 	TestAuditRootOccurrenceIdentity();

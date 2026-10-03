@@ -85,7 +85,7 @@ if(BUILD_TESTING)
         ${CMAKE_CURRENT_SOURCE_DIR}/test_analysis_driver.py
         --driver $<TARGET_FILE:rpreda_analysis_driver>
         --fixture
-          ${CMAKE_CURRENT_SOURCE_DIR}/../../transpiler/testcase/relay_protocol/named_address.prd
+          ${CMAKE_CURRENT_SOURCE_DIR}/../../simulator/contracts/Token.prd
         --runtime-trace-enabled $<BOOL:${RPREDA_ENABLE_RUNTIME_TRACE}>
         --runtime-optimization-enabled
           $<BOOL:${RPREDA_ENABLE_RUNTIME_OPTIMIZATION}>

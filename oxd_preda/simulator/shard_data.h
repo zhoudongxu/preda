@@ -1,5 +1,8 @@
 #pragma once
+#include <algorithm>
+#include <cstddef>
 #include <deque>
+#include <utility>
 #include <vector>
 #ifndef __APPLE__
 #include <memory_resource>
@@ -140,6 +143,14 @@ struct ScopeTarget
 
 struct SimuTxn
 {
+	// Relay origin metadata is populated once, at the relay allocation point,
+	// when runtime trace instrumentation is enabled. Fixed-size buffers keep
+	// SimuTxn trivially copyable so Clone() and pool allocation remain valid.
+	// An absent or truncated record is treated as opaque by the scheduler.
+	static constexpr size_t RelayOriginModuleCapacity = 256;
+	static constexpr size_t RelayOriginFunctionCapacity = 256;
+	static constexpr size_t RelayOriginSiteCapacity = 256;
+
 	rvm::HashValue			Hash;
 	rvm::InvokeContextType	Type;
 	ScopeTarget				Target;			// available if GetScope() is not global or shard
@@ -162,6 +173,15 @@ struct SimuTxn
 	rvm::ContractInvokeId	Contract;  // Contract with scope
 	rvm::OpCode				Op;
 	SimuTxnFlag				Flag;
+	uint32_t				RelayOriginOpcode;
+	uint32_t				RelayOriginSiteOrdinal;
+	uint16_t				RelayOriginModuleSize;
+	uint16_t				RelayOriginFunctionSize;
+	uint16_t				RelayOriginSiteSize;
+	uint8_t				RelayOriginMetadataValid;
+	char					RelayOriginModule[RelayOriginModuleCapacity];
+	char					RelayOriginFunction[RelayOriginFunctionCapacity];
+	char					RelayOriginSite[RelayOriginSiteCapacity];
 
 #ifdef VERIFY_SIG
 	uint8_t 				pk[32];
@@ -327,6 +347,29 @@ public:
 					PendingBatchAuditObservation* audit = nullptr) noexcept;
 	bool		Push_Front(SimuTxn* txn);					// push a txn to the front of the queue, returns true if queue was empty
 	SimuTxn*	Pop();										// pop a txn from the front of the queue
+
+	// Select one transaction from a bounded ready prefix while holding the
+	// queue lock. Returning an out-of-range index keeps the FIFO head.
+	template<typename Selector>
+	SimuTxn* PopSelected(Selector&& selector, size_t max_candidates = 16)
+	{
+		std::lock_guard<std::mutex> lock(_Mutex);
+		if(_Queue.empty())
+			return nullptr;
+
+		const size_t count = std::min(max_candidates, _Queue.size());
+		std::vector<SimuTxn*> ready;
+		ready.reserve(count);
+		for(size_t i = 0; i < count; ++i)
+			ready.push_back(_Queue[i]);
+
+		const size_t selected = static_cast<size_t>(selector(ready));
+		const size_t index = selected < count ? selected : 0;
+		auto it = _Queue.begin() + static_cast<std::ptrdiff_t>(index);
+		SimuTxn* result = *it;
+		_Queue.erase(it);
+		return result;
+	}
 #ifdef RPREDA_PENDING_TXNS_BATCH_TESTING
 	static void	FailNextPushBatchForTesting() noexcept;
 #endif

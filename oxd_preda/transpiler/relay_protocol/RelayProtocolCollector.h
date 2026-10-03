@@ -1,6 +1,7 @@
 #pragma once
 
 #include "RelayProtocolIR.h"
+#include "../transpiler/PredaTranspiler.h"
 #include "analysis/RelayDependencyAnalyzer.h"
 #include "refinement/RelayConstraintGenerator.h"
 #include "refinement/RelayFormulaBuilder.h"
@@ -63,6 +64,11 @@ class RelayProtocolCollector
 {
 public:
 	explicit RelayProtocolCollector(PredaTranspilerContext &context);
+	void SetAnalysisMode(
+		transpiler::PredaTranspilerOptions::RelayAnalysisMode mode)
+	{
+		m_analysisMode = mode;
+	}
 
 	void SetExpressionTypeResolver(
 		std::function<std::string(
@@ -156,6 +162,10 @@ private:
 	std::map<std::string, size_t> m_namedHandlers;
 	std::map<std::string, int64_t> m_exportedFunctionOpcodes;
 	bool m_finalized = false;
+	transpiler::PredaTranspilerOptions::RelayAnalysisMode m_analysisMode =
+		transpiler::PredaTranspilerOptions::RelayAnalysisMode::Full;
+	bool AnalysisAtLeast(
+		transpiler::PredaTranspilerOptions::RelayAnalysisMode mode) const;
 
 	RelayExprIR BuildSourceExpression(
 		antlr4::ParserRuleContext *sourceContext,

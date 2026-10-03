@@ -32,13 +32,30 @@ DEFAULT_CONFIG = HERE / "workloads.json"
 DEFAULT_BINARY = REPO_ROOT / "bin" / "bin_release" / "chsimu"
 VIZ_TEMPLATE = HERE / "viz_template.html"
 
-VARIANTS: Mapping[str, Tuple[str, Optional[str]]] = {
-    "baseline": ("baseline", None),
-    "generic_batch_only": ("optimize", "generic_batch_only"),
-    "verified_reserve_only": ("optimize", "verified_reserve_only"),
+VARIANTS: Mapping[str, Tuple[str, Optional[str], Optional[str]]] = {
+    "baseline": ("baseline", None, None),
+    "generic_batch_only": ("optimize", "generic_batch_only", None),
+    "verified_reserve_only": ("optimize", "verified_reserve_only", None),
     "verified_reserve_plus_batch": (
         "optimize",
         "verified_reserve_plus_batch",
+    ),
+    # These variants keep the same optimization-enabled Native Engine and
+    # differ only in relay admission/order policy.
+    "scheduler_fifo": (
+        "optimize",
+        "verified_reserve_plus_batch",
+        "fifo",
+    ),
+    "scheduler_blind_priority": (
+        "optimize",
+        "verified_reserve_plus_batch",
+        "certificate_blind_priority",
+    ),
+    "scheduler_guided_priority": (
+        "optimize",
+        "verified_reserve_plus_batch",
+        "certificate_guided_priority",
     ),
 }
 
@@ -74,6 +91,12 @@ PERFORMANCE_FIELDS = (
     "optimization_fallback_lookups",
     "optimization_eligible_invocations",
     "optimization_fallback_invocations",
+    "scheduler_selection_calls",
+    "scheduler_priority_selections",
+    "scheduler_reorders",
+    "scheduler_certificate_uses",
+    "scheduler_fallbacks",
+    "scheduler_decision_time_ns",
     "relay_buffer_reserve_calls",
     "relay_buffer_reserved_elements",
     "relay_buffer_reserve_skipped_unknown",
@@ -318,6 +341,22 @@ def load_workloads(
         correctness_fixture = (
             config_path.parent / source["correctness_fixture"]
         ).resolve()
+        source_contract_value = source.get("source_contract")
+        source_contract = None
+        if source_contract_value is not None:
+            if not isinstance(source_contract_value, str) or not source_contract_value:
+                raise HarnessError(
+                    "{}.source_contract must be a non-empty string".format(
+                        canonical_name
+                    )
+                )
+            source_contract = (config_path.parent / source_contract_value).resolve()
+            if not source_contract.is_file():
+                raise HarnessError(
+                    "missing source contract for {}: {}".format(
+                        canonical_name, source_contract
+                    )
+                )
         for fixture in (performance_fixture, correctness_fixture):
             if not fixture.is_file():
                 raise HarnessError("missing fixture: {}".format(fixture))
@@ -400,6 +439,9 @@ def load_workloads(
         workloads.append(
             {
                 "name": canonical_name,
+                "dataset": source.get("dataset", canonical_name),
+                "case": source.get("case", "original"),
+                "source_contract": source_contract,
                 "performance_fixture": performance_fixture,
                 "performance_fixture_sha256": sha256_file(performance_fixture),
                 "correctness_fixture": correctness_fixture,
@@ -414,7 +456,12 @@ def load_workloads(
 
 
 def select_variants(requested: Sequence[str]) -> List[str]:
-    names = list(requested) or list(VARIANTS.keys())
+    names = list(requested) or [
+        "baseline",
+        "generic_batch_only",
+        "verified_reserve_only",
+        "verified_reserve_plus_batch",
+    ]
     result: List[str] = []
     for name in names:
         normalized = name.lower()
@@ -422,16 +469,20 @@ def select_variants(requested: Sequence[str]) -> List[str]:
             raise HarnessError("unknown variant: {}".format(name))
         if normalized not in result:
             result.append(normalized)
-    if "baseline" not in result:
-        raise HarnessError("correctness comparison requires the baseline variant")
+    if "baseline" not in result and "scheduler_fifo" not in result:
+        raise HarnessError(
+            "correctness comparison requires baseline or scheduler_fifo"
+        )
     return result
 
 
 def variant_options(variant: str) -> List[str]:
-    mode, ablation = VARIANTS[variant]
+    mode, ablation, scheduler = VARIANTS[variant]
     options = ["-rpreda_opt:{}".format(mode)]
     if ablation is not None:
         options.append("-rpreda_opt_ablation:{}".format(ablation))
+    if scheduler is not None:
+        options.append("-rpreda_scheduler:{}".format(scheduler))
     return options
 
 
@@ -665,10 +716,16 @@ def validate_variant_activity(
     uses_plan = variant in {
         "verified_reserve_only",
         "verified_reserve_plus_batch",
+        "scheduler_fifo",
+        "scheduler_blind_priority",
+        "scheduler_guided_priority",
     }
     uses_batch = variant in {
         "generic_batch_only",
         "verified_reserve_plus_batch",
+        "scheduler_fifo",
+        "scheduler_blind_priority",
+        "scheduler_guided_priority",
     }
 
     if uses_plan:
@@ -739,9 +796,13 @@ def measurement_window_validation(
         )
     window = optimization_report.get("measurement_window")
     if not isinstance(window, Mapping):
+        if not require_completed_schema_v2:
+            return True, "not_started", None
         return False, "missing", "schema-v2 measurement_window is missing"
     status = str(window.get("status", "<missing>"))
     if status != "completed" or window.get("metrics_available") is not True:
+        if not require_completed_schema_v2:
+            return True, status, None
         return (
             False,
             status,
@@ -803,7 +864,21 @@ def execute_run(
 
     fixture_key = "correctness_fixture" if collect_viz else "performance_fixture"
     fixture_hash_key = fixture_key + "_sha256"
-    fixture = workload[fixture_key]
+    fixture_template = workload[fixture_key]
+    fixture = fixture_template
+    if workload.get("source_contract") is not None:
+        template_text = fixture_template.read_text(encoding="utf-8")
+        if "{{SOURCE}}" in template_text:
+            fixture = run_directory / "runtime_fixture.prdts"
+            source_path = pathlib.Path(
+                os.path.relpath(
+                    str(workload["source_contract"]), str(fixture.parent)
+                )
+            ).as_posix()
+            fixture.write_text(
+                template_text.replace("{{SOURCE}}", source_path),
+                encoding="utf-8",
+            )
     command = command_for_run(
         args.binary,
         fixture,
@@ -839,6 +914,9 @@ def execute_run(
     )
     runtime_library_path = str(args.binary.parent)
     library_paths = [runtime_library_path]
+    z3_runtime_path = REPO_ROOT / "build" / "deps" / "z3-4.12.1.0" / "lib"
+    if z3_runtime_path.is_dir():
+        library_paths.append(str(z3_runtime_path))
     if args.toolchain_bin is not None:
         environment["PATH"] = str(args.toolchain_bin) + os.pathsep + environment.get(
             "PATH", ""
@@ -895,7 +973,7 @@ def execute_run(
         resources["max_rss_kib"] = sampled_peak_rss_kib
     optimization_report = read_json(report_path) if report_path.is_file() else None
     report_config = optimization_report.get("config", {}) if optimization_report else {}
-    expected_mode, expected_ablation = VARIANTS[variant]
+    expected_mode, expected_ablation, expected_scheduler = VARIANTS[variant]
     configured_measured_source_transactions = int(parameters["count"]) + workload[
         "measured_source_transaction_offset"
     ]
@@ -914,6 +992,8 @@ def execute_run(
         and report_config.get("mode") == expected_mode
         and report_config.get("ablation")
         == (expected_ablation if expected_ablation is not None else "baseline")
+        and report_config.get("scheduler", "fifo")
+        == (expected_scheduler if expected_scheduler is not None else "fifo")
     )
     require_completed_measurement_window = phase != "correctness"
     (
@@ -939,14 +1019,24 @@ def execute_run(
         and feature_activation_passed
         and measurement_window_valid
         and not fatal_diagnostics
-        and parsed_stdout["stopwatch_elapsed_ms"] is not None
+        and (
+            phase == "correctness"
+            or parsed_stdout["stopwatch_elapsed_ms"] is not None
+        )
         and "Run script successfully" in stdout_text
-        and source_tps_matches_configured
+        and (phase == "correctness" or source_tps_matches_configured)
         and (not collect_viz or (viz_path is not None and viz_path.is_file()))
     )
     record: Dict[str, Any] = {
         "schema_version": 1,
         "workload": workload["name"],
+        "dataset": workload.get("dataset", workload["name"]),
+        "case": workload.get("case", "original"),
+        "source_contract": (
+            str(workload["source_contract"])
+            if workload.get("source_contract") is not None
+            else None
+        ),
         "variant": variant,
         "phase": phase,
         "index": index,
@@ -957,6 +1047,7 @@ def execute_run(
         "expected_source_tps": expected_source_tps,
         "source_tps_matches_configured": source_tps_matches_configured,
         "fixture": str(fixture),
+        "fixture_template": str(fixture_template),
         "fixture_sha256": workload[fixture_hash_key],
         "command": command,
         "wrapped_command": wrapped_command,
@@ -1391,9 +1482,16 @@ def failed_correctness_projection(
 def compare_correctness(
     workload: str, variant_invariants: Mapping[str, Mapping[str, Any]]
 ) -> Dict[str, Any]:
-    baseline = variant_invariants.get("baseline")
+    reference_variant = (
+        "baseline"
+        if "baseline" in variant_invariants
+        else "scheduler_fifo"
+    )
+    baseline = variant_invariants.get(reference_variant)
     if baseline is None:
-        raise HarnessError("{} correctness has no baseline".format(workload))
+        raise HarnessError(
+            "{} correctness has no reference variant".format(workload)
+        )
     comparisons: Dict[str, Any] = {}
     overall = True
     for variant, actual in variant_invariants.items():
@@ -1415,7 +1513,7 @@ def compare_correctness(
     return {
         "workload": workload,
         "passed": overall,
-        "reference_variant": "baseline",
+        "reference_variant": reference_variant,
         "compared_fields": list(CORRECTNESS_FIELDS),
         "invariants": dict(variant_invariants),
         "comparisons": comparisons,
@@ -1462,6 +1560,14 @@ def flatten_performance_record(record: Mapping[str, Any]) -> Dict[str, Any]:
         "optimization_fallback_invocations": counters.get(
             "optimization_fallback_invocations"
         ),
+        "scheduler_selection_calls": counters.get("scheduler_selection_calls"),
+        "scheduler_priority_selections": counters.get(
+            "scheduler_priority_selections"
+        ),
+        "scheduler_reorders": counters.get("scheduler_reorders"),
+        "scheduler_certificate_uses": counters.get("scheduler_certificate_uses"),
+        "scheduler_fallbacks": counters.get("scheduler_fallbacks"),
+        "scheduler_decision_time_ns": timings.get("scheduler_decision_time_ns"),
         "relay_buffer_reserve_calls": counters.get(
             "relay_buffer_reserve_calls"
         ),
@@ -1768,6 +1874,9 @@ def print_dry_run(
     print("variants:", ", ".join(variants))
     for workload in workloads:
         print("{}:".format(workload["name"]))
+        print("  dataset/case:", workload.get("dataset"), workload.get("case"))
+        if workload.get("source_contract"):
+            print("  source contract:", workload["source_contract"])
         print("  correctness fixture:", workload["correctness_fixture"])
         print("  performance fixture:", workload["performance_fixture"])
         print("  correctness:", workload["correctness_parameters"])

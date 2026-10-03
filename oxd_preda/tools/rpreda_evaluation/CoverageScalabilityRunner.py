@@ -746,7 +746,7 @@ def _longest_graph_depth(manifest: Mapping[str, Any], edge_kind: str, root_fragm
     return max(visit(root, set()) for root in roots)
 
 
-def _validate_synthetic(manifest: Mapping[str, Any], metadata: Mapping[str, Any]) -> Mapping[str, Any]:
+def _validate_synthetic(manifest: Mapping[str, Any], metadata: Mapping[str, Any], analysis_mode: str = "full") -> Mapping[str, Any]:
     requested, derived = metadata["requested"], metadata["derived"]
     sites = [value for value in manifest.get("relay_sites", []) if isinstance(value, Mapping)]
     widths = collections.Counter(str(value.get("source_function_id", "")) for value in sites)
@@ -763,8 +763,11 @@ def _validate_synthetic(manifest: Mapping[str, Any], metadata: Mapping[str, Any]
 
     argument_counts = {len(value.get("arguments", [])) for value in sites}
     target_term_counts = {additive_terms(value.get("target")) for value in sites}
+    function_collection = manifest.get("control_flow", {}).get("functions", [])
+    if analysis_mode == "site_scan":
+        function_collection = manifest.get("functions", [])
     actual = {
-        "functions": len(manifest.get("control_flow", {}).get("functions", [])),
+        "functions": len(function_collection),
         "relay_sites": len(sites),
         "relay_width": max(widths.values()) if widths else 0,
         "relay_depth": _longest_graph_depth(manifest, "relay", "::root("),
@@ -775,8 +778,19 @@ def _validate_synthetic(manifest: Mapping[str, Any], metadata: Mapping[str, Any]
         "target_expression_terms": next(iter(target_term_counts)) if len(target_term_counts) == 1 else -1,
     }
     expected = {key: int(derived.get(key, requested.get(key, 0))) for key in actual}
-    mismatches = {key: {"expected": expected[key], "actual": actual[key]} for key in actual if expected[key] != actual[key]}
-    return {"valid": not mismatches, "expected": expected, "actual": actual, "mismatches": mismatches}
+    # Site-scan deliberately omits CFG/ICFG construction.  Its manifest has
+    # no synchronous call graph.  Mark depth unavailable instead of reporting
+    # zero (which would falsely claim that the source contains no calls).
+    unavailable = {}
+    if analysis_mode == "site_scan":
+        actual["sync_call_depth"] = None
+        unavailable["sync_call_depth"] = "synchronous call graph disabled in site_scan"
+    mismatches = {
+        key: {"expected": expected[key], "actual": actual[key]}
+        for key in actual if key not in unavailable and expected[key] != actual[key]
+    }
+    return {"valid": not mismatches, "expected": expected, "actual": actual,
+            "mismatches": mismatches, "unavailable": unavailable}
 
 
 def _percentile(values: Sequence[float], percentile: float) -> float:
@@ -909,13 +923,19 @@ def _timing_stability_control(samples: Sequence[Mapping[str, Any]]) -> Mapping[s
     }
 
 
-def _sample_metrics(manifest_path: pathlib.Path, metrics_path: pathlib.Path, process_path: pathlib.Path) -> Mapping[str, Any]:
+def _sample_metrics(manifest_path: pathlib.Path, metrics_path: pathlib.Path, process_path: pathlib.Path, analysis_mode: str = "full") -> Mapping[str, Any]:
     manifest = load_json(manifest_path)
     # The standalone driver intentionally stops at the transpiler boundary.
     # A trustworthy artifact binding requires Native-engine module and
     # intermediate hashes, so never fabricate one for timing-only manifests.
     # Real benchmark manifests still use strict binding validation.
-    validate_manifest(manifest, require_artifact_binding=False)
+    if analysis_mode == "full":
+        validate_manifest(manifest, require_artifact_binding=False)
+    else:
+        # Partial ablation manifests intentionally omit downstream objects.
+        # Validate only the common schema and keep all omitted stages explicit.
+        if type(manifest.get("schema_version")) is not int:
+            raise ManifestValidationError("partial ablation manifest has no schema_version")
     if "artifact_binding" in manifest:
         raise EvaluationError(
             "standalone transpiler driver unexpectedly emitted artifact_binding; "
@@ -934,13 +954,19 @@ def _sample_metrics(manifest_path: pathlib.Path, metrics_path: pathlib.Path, pro
     build_features = profile.get("build_features")
     if not isinstance(build_features, Mapping):
         raise EvaluationError("analysis metrics omit compiler build_features")
+    required_features = dict(REQUIRED_SCALABILITY_BUILD_FEATURES)
     normalized_features = {
-        key: build_features.get(key) for key in REQUIRED_SCALABILITY_BUILD_FEATURES
+        key: build_features.get(key) for key in required_features
     }
-    if normalized_features != REQUIRED_SCALABILITY_BUILD_FEATURES:
+    if normalized_features != required_features:
         raise EvaluationError(
             "scalability driver build-feature mismatch: expected %s, got %s"
-            % (REQUIRED_SCALABILITY_BUILD_FEATURES, normalized_features)
+            % (required_features, normalized_features)
+        )
+    if profile.get("analysis_mode") != analysis_mode:
+        raise EvaluationError(
+            "analysis mode mismatch: expected %s, got %s"
+            % (analysis_mode, profile.get("analysis_mode"))
         )
     if int(process.get("schema_version", 0)) != 1:
         raise EvaluationError("process metrics schema_version must be 1")
@@ -1039,6 +1065,7 @@ def run_scalability(
     analysis_driver: pathlib.Path,
     warmups: Optional[int],
     repetitions: Optional[int],
+    analysis_mode: str = "full",
 ) -> Mapping[str, Any]:
     defaults = config.get("defaults", {}) if isinstance(config.get("defaults"), Mapping) else {}
     sample_timeout = float(defaults.get("timeout_seconds", 60))
@@ -1113,7 +1140,7 @@ def run_scalability(
             command = [
                 sys.executable, str(worker), "--cwd", str(analysis_driver.parent), "--output", str(process_path),
                 "--timeout-seconds", str(sample_timeout), "--",
-                str(analysis_driver), "--source", str(state["source_path"]), "--manifest", str(manifest_path), "--metrics", str(metrics_path),
+                str(analysis_driver), "--source", str(state["source_path"]), "--manifest", str(manifest_path), "--metrics", str(metrics_path), "--analysis-mode", analysis_mode,
             ]
             completed = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             if completed.returncode != 0 or not manifest_path.is_file() or not metrics_path.is_file() or not process_path.is_file():
@@ -1129,9 +1156,9 @@ def run_scalability(
                     completed.returncode, completed.stderr[-500:], process_reason
                 )
                 continue
-            sample = _sample_metrics(manifest_path, metrics_path, process_path)
+            sample = _sample_metrics(manifest_path, metrics_path, process_path, analysis_mode)
             validation = _validate_synthetic(
-                sample["manifest"], state["generator_metadata"]
+                sample["manifest"], state["generator_metadata"], analysis_mode
             )
             if not validation["valid"]:
                 state["failure_reason"] = (
@@ -1306,6 +1333,7 @@ def run_scalability(
             "normalized_manifest_sha256": samples[0]["normalized_manifest_sha256"],
             "formula_ir_sha256": samples[0]["formula_ir_sha256"],
             "driver_build_features": samples[0]["driver_build_features"],
+            "driver_build_features_sha256": samples[0]["driver_build_features_sha256"],
             "formula_ast_nodes": samples[0]["formula_ast_nodes"],
             "cfg_node_count": samples[0]["cfg_node_count"],
             "phase_time_median_ms": {name: round(statistics.median(sample["phase_times_ms"].get(name, 0.0) for sample in samples), 6) for name in phase_names},
@@ -1326,6 +1354,7 @@ def run_scalability(
         "metadata": {
             "generated_at": _utc_now(), "config": _portable(config_path), "config_sha256": _sha256(config_path),
             "analysis_driver": _portable(analysis_driver), "analysis_driver_sha256": _sha256(analysis_driver),
+            "analysis_mode": analysis_mode,
             "linked_transpiler_library": _portable(transpiler_library) if transpiler_library.is_file() else "",
             "linked_transpiler_library_sha256": _sha256(transpiler_library) if transpiler_library.is_file() else "",
             "warmup_repetitions": warmup_count, "measured_repetitions": measured_count,
@@ -1384,7 +1413,7 @@ def run_scalability(
 
 def main(argv: Sequence[str] = ()) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("real", "scalability", "all"))
+    parser.add_argument("mode", choices=("real", "scalability", "ablation", "all"))
     parser.add_argument("--config", type=pathlib.Path, default=DEFAULT_CONFIG)
     parser.add_argument("--output-root", type=pathlib.Path, default=REPO_ROOT / "results")
     parser.add_argument("--work-root", type=pathlib.Path, default=pathlib.Path("/tmp/rpreda-coverage-scalability"))
@@ -1395,6 +1424,7 @@ def main(argv: Sequence[str] = ()) -> int:
     parser.add_argument("--reuse-artifacts", type=pathlib.Path)
     parser.add_argument("--warmups", type=int)
     parser.add_argument("--repetitions", type=int)
+    parser.add_argument("--analysis-mode", choices=("site_scan", "cfg_icfg", "formula_smt", "full"), default="full")
     args = parser.parse_args(list(argv) if argv else None)
     config_path = args.config.expanduser().resolve()
     config = _load_config(config_path)
@@ -1403,8 +1433,8 @@ def main(argv: Sequence[str] = ()) -> int:
     try:
         if args.mode in ("real", "all"):
             run_real_world(config, config_path, args.output_root.resolve(), args.work_root.resolve() / "real", args.chsimu.expanduser().resolve(), args.library_path, args.path_prefix, args.reuse_artifacts.expanduser().resolve() if args.reuse_artifacts else None)
-        if args.mode in ("scalability", "all"):
-            run_scalability(config, config_path, args.output_root.resolve(), args.work_root.resolve() / "scalability", args.analysis_driver.expanduser().resolve(), args.warmups, args.repetitions)
+        if args.mode in ("scalability", "ablation", "all"):
+            run_scalability(config, config_path, args.output_root.resolve(), args.work_root.resolve() / ("ablation" if args.mode == "ablation" else "scalability"), args.analysis_driver.expanduser().resolve(), args.warmups, args.repetitions, args.analysis_mode)
     except (EvaluationError, ManifestValidationError, GeneratorConfigurationError, OSError, ValueError) as exc:
         print("R-PREDA evaluation failed: %s" % exc, file=sys.stderr)
         return 2

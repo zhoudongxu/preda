@@ -258,6 +258,10 @@ protected:
 						LookupRelayPlan(
 							const rvm::ContractModuleID& moduleId,
 							uint32_t opcode);
+	relay_plan::RelayPlanLookupResult
+						LookupRelayPlan(
+							const std::string& moduleIdentity,
+							uint32_t opcode);
 #endif
 
 	void				OnTxnPushed(){ if(os::AtomicIncrement(&m_runtimeInfo.pendingTxnCount) < 2) m_chainIdle.Reset(); }

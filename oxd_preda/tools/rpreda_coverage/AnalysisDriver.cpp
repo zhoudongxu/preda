@@ -73,6 +73,7 @@ struct Options
 	std::filesystem::path metrics;
 	std::filesystem::path generatedCpp;
 	std::string dapp = "RPredaScalability";
+	std::string analysisMode = "full";
 	bool profiling = true;
 };
 
@@ -191,6 +192,7 @@ void Usage(std::ostream &output)
 	output
 		<< "Usage: rpreda_analysis_driver --source FILE --manifest FILE "
 			"--metrics FILE [--dapp NAME] [--generated-cpp FILE] "
+			"[--analysis-mode site_scan|cfg_icfg|formula_smt|full] "
 			"[--profile on|off]\n";
 }
 
@@ -218,6 +220,13 @@ Options ParseOptions(int argc, char **argv)
 			options.generatedCpp = value;
 		else if (argument == "--dapp")
 			options.dapp = value;
+		else if (argument == "--analysis-mode")
+		{
+			if (value != "site_scan" && value != "cfg_icfg" &&
+				value != "formula_smt" && value != "full")
+				throw std::runtime_error("invalid --analysis-mode: " + value);
+			options.analysisMode = value;
+		}
 		else if (argument == "--profile")
 		{
 			if (value == "on")
@@ -289,6 +298,7 @@ Json BaseMetrics(
 		 compiler == nullptr || compiler->GetVersion() == nullptr
 			 ? std::string()
 			 : std::string(compiler->GetVersion())},
+		{"analysis_mode", options.analysisMode},
 		{"driver_timings", Json{
 			{"parse_time_ns", parseNs},
 			{"precompile_time_ns", precompileNs},
@@ -307,7 +317,9 @@ int Run(const Options &options)
 	const std::string source = ReadFile(options.source);
 	RelayAnalysisProfiler::Reset(options.profiling);
 	const Clock::time_point pipelineStart = Clock::now();
-	TranspilerPtr compiler(CreateTranspilerInstance(nullptr));
+	const std::string transpilerOptions =
+		"disabledebugprint relay-analysis=" + options.analysisMode;
+	TranspilerPtr compiler(CreateTranspilerInstance(transpilerOptions.c_str()));
 	if (!compiler)
 		throw std::runtime_error("CreateTranspilerInstance returned null");
 

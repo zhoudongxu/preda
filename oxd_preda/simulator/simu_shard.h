@@ -117,6 +117,8 @@ protected:
 #endif
 	// current transaction being executing
 	SimuTxn*					_pTxn = nullptr;
+	mutable uint32_t		_RelayOriginSiteOrdinal = 0;
+	mutable bool			_RelayOriginMetadataPending = false;
 	rt::BufferEx<uint8_t>		_ReturnVal;
 	rt::BufferEx<SimuTxn*>		_RelayEmitted;  // all be dispatched and cleared once txn execution is done
 	bool						_IsAddressScope() const { return _pTxn&&_pTxn->GetScope() == rvm::Scope::Address; }
@@ -126,8 +128,9 @@ protected:
 	SimuTxn*					_CreateRelayTxn(rvm::ContractInvokeId ciid, rvm::OpCode opcode, const rvm::ConstData* args_serialized, uint32_t gas_redistribution_weight) const;
 #ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
 	void						_AppendRelayEmission(
-									SimuTxn* txn,
-									uint64_t generationBeginNs);
+											SimuTxn* txn,
+											uint64_t generationBeginNs);
+	SimuTxn*					_PopRelayTxn();
 #endif
 
 #ifdef RPREDA_ENABLE_RUNTIME_TRACE
@@ -215,6 +218,7 @@ protected:
 	virtual bool					EmitRelayToGlobal(rvm::ContractInvokeId cid, rvm::OpCode opcode, const rvm::ConstData* args_serialized, uint32_t gas_redistribution_weight) override;
 	virtual bool					EmitRelayDeferred(rvm::ContractInvokeId cid, rvm::OpCode opcode, const rvm::ConstData* args_serialized, uint32_t gas_redistribution_weight) override;
 	virtual bool					EmitBroadcastToShards(rvm::ContractInvokeId cid, rvm::OpCode opcode, const rvm::ConstData* args_serialized, uint32_t gas_redistribution_weight) override;
+	virtual void					SetRelayOriginMetadata(uint32_t siteOrdinal) override;
 
 #ifdef RPREDA_ENABLE_RUNTIME_TRACE
 	virtual void					PushRelayTraceSite(

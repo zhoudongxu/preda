@@ -94,6 +94,81 @@
         "verified_reserve": false
       },
       "measured_source_transaction_offset": 0
+    },
+    "TokenParallel": {
+      "dataset": "Token",
+      "case": "parallel",
+      "source_contract": "../../contracts/Token.prd",
+      "performance_fixture": "fixtures/TokenParallelPerformance.prdts",
+      "correctness_fixture": "../../../tools/rpreda_evaluation/certificate_extension/fixtures/TokenParallel.prdts.in",
+      "performance_parameters": {"count": 100, "addresses": 128},
+      "correctness_parameters": {"count": 1, "addresses": 8},
+      "expected_runtime_features": {
+        "relay_activity": true,
+        "generic_batch": true,
+        "verified_reserve": true
+      },
+      "measured_source_transaction_offset": 0
+    },
+    "BallotParallel": {
+      "dataset": "Ballot",
+      "case": "parallel",
+      "source_contract": "../../contracts/Ballot.prd",
+      "performance_fixture": "fixtures/BallotParallelPerformance.prdts",
+      "correctness_fixture": "fixtures/BallotParallelDeterministic.prdts",
+      "performance_parameters": {"count": 100, "addresses": 128},
+      "correctness_parameters": {"count": 2, "addresses": 8},
+      "expected_runtime_features": {
+        "relay_activity": true,
+        "generic_batch": true,
+        "verified_reserve": true
+      },
+      "measured_source_transaction_offset": 0
+    },
+    "MillionPixelParallel": {
+      "dataset": "MillionPixel",
+      "case": "parallel",
+      "source_contract": "../../contracts/MillionPixel.prd",
+      "performance_fixture": "fixtures/MillionPixelParallelPerformance.prdts",
+      "correctness_fixture": "../../../tools/rpreda_evaluation/certificate_extension/fixtures/MillionPixelParallel.prdts.in",
+      "performance_parameters": {"count": 100, "addresses": 128},
+      "correctness_parameters": {"count": 1, "addresses": 8},
+      "expected_runtime_features": {
+        "relay_activity": true,
+        "generic_batch": true,
+        "verified_reserve": true
+      },
+      "measured_source_transaction_offset": 0
+    },
+    "KittyParallel": {
+      "dataset": "Kitty",
+      "case": "parallel",
+      "source_contract": "../../contracts/Kitty.prd",
+      "performance_fixture": "fixtures/KittyParallelPerformance.prdts",
+      "correctness_fixture": "../../../tools/rpreda_evaluation/certificate_extension/fixtures/KittyParallel.prdts.in",
+      "performance_parameters": {"count": 100, "addresses": 128},
+      "correctness_parameters": {"count": 1, "addresses": 8},
+      "expected_runtime_features": {
+        "relay_activity": true,
+        "generic_batch": true,
+        "verified_reserve": true
+      },
+      "measured_source_transaction_offset": 0
+    },
+    "AirDropParallel": {
+      "dataset": "AirDrop",
+      "case": "parallel",
+      "source_contract": "../../contracts/Token.prd",
+      "performance_fixture": "fixtures/AirDropParallelPerformance.prdts",
+      "correctness_fixture": "../../../tools/rpreda_evaluation/certificate_extension/fixtures/AirDropParallel.prdts.in",
+      "performance_parameters": {"count": 100, "addresses": 128},
+      "correctness_parameters": {"count": 1, "addresses": 8},
+      "expected_runtime_features": {
+        "relay_activity": true,
+        "generic_batch": true,
+        "verified_reserve": true
+      },
+      "measured_source_transaction_offset": 0
     }
   }
 }

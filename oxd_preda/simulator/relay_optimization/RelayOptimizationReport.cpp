@@ -96,6 +96,13 @@ Json CountersJson(
 		{"queue_notifications", metrics.queueNotifications},
 		{"maximum_batch_size", metrics.maximumBatchSize},
 		{"queue_batch_fallbacks", metrics.queueBatchFallbacks},
+		{"scheduler_selection_calls", metrics.schedulerSelectionCalls},
+		{"scheduler_priority_selections",
+		 metrics.schedulerPrioritySelections},
+		{"scheduler_reorders", metrics.schedulerReorders},
+		{"scheduler_certificate_uses",
+		 metrics.schedulerCertificateUses},
+		{"scheduler_fallbacks", metrics.schedulerFallbacks},
 		{"logical_relay_emissions", metrics.logicalRelayEmissions},
 		{"physical_relay_routes", metrics.physicalRelayRoutes},
 		{"relay_executions", metrics.relayExecutions},
@@ -119,6 +126,7 @@ Json TimingJson(const OptimizationMetricsSnapshot &metrics)
 		{"routing_time_ns", metrics.routingTimeNs},
 		{"dispatch_time_ns", metrics.dispatchTimeNs},
 		{"queue_push_time_ns", metrics.queuePushTimeNs},
+		{"scheduler_decision_time_ns", metrics.schedulerDecisionTimeNs},
 	};
 }
 
@@ -211,6 +219,7 @@ std::string RelayOptimizationReport::BuildJson(
 		{"config", Json{
 			{"mode", ToString(config.mode)},
 			{"ablation", ToString(config.ablation)},
+			{"scheduler", ToString(config.schedulerMode)},
 			{"max_relay_reserve", config.maxRelayReserve},
 			{"audit_sample_rate", Json{
 				{"numerator", config.auditSampleRate.numerator},

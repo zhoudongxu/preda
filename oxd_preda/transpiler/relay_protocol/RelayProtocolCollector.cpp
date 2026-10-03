@@ -319,6 +319,13 @@ RelayProtocolCollector::RelayProtocolCollector(PredaTranspilerContext &context)
 {
 }
 
+bool RelayProtocolCollector::AnalysisAtLeast(
+	transpiler::PredaTranspilerOptions::RelayAnalysisMode mode) const
+{
+	return static_cast<uint32_t>(m_analysisMode) >=
+		static_cast<uint32_t>(mode);
+}
+
 void RelayProtocolCollector::SetExpressionTypeResolver(
 	std::function<std::string(
 		PredaParser::ExpressionContext *)> resolver)
@@ -526,7 +533,10 @@ void RelayProtocolCollector::DeclareLocalDependency(
 	}
 	const RelayExprIR expression = BuildExpression(initializer, type);
 	const refinement::FormulaExpr formula =
-		BuildRefinementFormula(expression);
+		AnalysisAtLeast(PredaTranspilerOptions::RelayAnalysisMode::FormulaSmt)
+			? BuildRefinementFormula(expression)
+			: refinement::FormulaExpr::Unknown(
+				expression.text, expression.location, "formula layer not run");
 	m_dependencyAnalyzer.DeclareLocal(name, &expression);
 	if (!m_currentRefinementFunctionId.empty())
 	{
@@ -539,13 +549,15 @@ void RelayProtocolCollector::DeclareLocalDependency(
 				sourceContext == nullptr
 					? static_cast<antlr4::ParserRuleContext *>(initializer)
 					: sourceContext));
-		m_expressionFormulaSnapshots[
-			RefinementSnapshotKey(
-				m_currentRefinementFunctionId,
-				expression)] = formula;
+		if (AnalysisAtLeast(PredaTranspilerOptions::RelayAnalysisMode::FormulaSmt))
+			m_expressionFormulaSnapshots[
+				RefinementSnapshotKey(
+					m_currentRefinementFunctionId,
+					expression)] = formula;
 	}
 	m_dependencyAnalyzer.RecordExpressionEffects(expression);
-	RecordRefinementExpressionEffects(expression);
+	if (AnalysisAtLeast(PredaTranspilerOptions::RelayAnalysisMode::FormulaSmt))
+		RecordRefinementExpressionEffects(expression);
 }
 
 void RelayProtocolCollector::DeclareLoopVariableDependency(
@@ -564,7 +576,8 @@ void RelayProtocolCollector::DeclareLoopVariableDependency(
 			BuildExpression(initializer, type);
 		m_dependencyAnalyzer.DeclareLoopVariable(name, &expression);
 	}
-	if (!m_currentRefinementFunctionId.empty())
+	if (!m_currentRefinementFunctionId.empty() &&
+		AnalysisAtLeast(PredaTranspilerOptions::RelayAnalysisMode::FormulaSmt))
 	{
 		m_refinementSymbols.EnsureLoopVariable(
 			m_currentRefinementFunctionId,
@@ -606,7 +619,8 @@ void RelayProtocolCollector::RecordExpressionEffects(
 		return;
 	const RelayExprIR owningExpression =
 		BuildExpression(expression);
-	if (!m_currentRefinementFunctionId.empty())
+	if (!m_currentRefinementFunctionId.empty() &&
+		AnalysisAtLeast(PredaTranspilerOptions::RelayAnalysisMode::FormulaSmt))
 	{
 		m_expressionFormulaSnapshots[
 			RefinementSnapshotKey(
@@ -1368,7 +1382,10 @@ std::string RelayProtocolCollector::CollectRelay(
 			input.context == nullptr ? nullptr : input.context->relayType());
 	}
 	site.refinementTargetFormula =
-		BuildRefinementFormula(site.target);
+		AnalysisAtLeast(PredaTranspilerOptions::RelayAnalysisMode::FormulaSmt)
+			? BuildRefinementFormula(site.target)
+			: refinement::FormulaExpr::Unknown(
+				site.target.text, site.target.location, "formula layer not run");
 	site.targetDependency =
 		m_dependencyAnalyzer.Analyze(site.target);
 	for (const RelayArgumentInput &argumentInput : input.arguments)
@@ -1383,7 +1400,12 @@ std::string RelayProtocolCollector::CollectRelay(
 		argument.dependency =
 			m_dependencyAnalyzer.Analyze(argument.expression);
 		argument.refinementFormula =
-			BuildRefinementFormula(argument.expression);
+			AnalysisAtLeast(PredaTranspilerOptions::RelayAnalysisMode::FormulaSmt)
+				? BuildRefinementFormula(argument.expression)
+				: refinement::FormulaExpr::Unknown(
+					argument.expression.text,
+					argument.expression.location,
+					"formula layer not run");
 		site.arguments.push_back(std::move(argument));
 	}
 	site.branches = CollectBranches(input.context);
@@ -1394,9 +1416,14 @@ std::string RelayProtocolCollector::CollectRelay(
 				m_currentRefinementFunctionId,
 				branch.condition));
 		branch.refinementFormula =
-			snapshot == m_expressionFormulaSnapshots.end()
-				? BuildRefinementFormula(branch.condition)
-				: snapshot->second;
+			!AnalysisAtLeast(PredaTranspilerOptions::RelayAnalysisMode::FormulaSmt)
+				? refinement::FormulaExpr::Unknown(
+					branch.condition.text,
+					branch.condition.location,
+					"formula layer not run")
+				: snapshot == m_expressionFormulaSnapshots.end()
+					? BuildRefinementFormula(branch.condition)
+					: snapshot->second;
 	}
 	site.loops = CollectLoops(input.context);
 	// Assignment expressions are valid PREDA expressions. Freeze the facts
@@ -1405,11 +1432,13 @@ std::string RelayProtocolCollector::CollectRelay(
 	// handles evaluation-order interactions among this relay's target and
 	// arguments without changing generated code.
 	m_dependencyAnalyzer.RecordExpressionEffects(site.target);
-	RecordRefinementExpressionEffects(site.target);
+	if (AnalysisAtLeast(PredaTranspilerOptions::RelayAnalysisMode::FormulaSmt))
+		RecordRefinementExpressionEffects(site.target);
 	for (const RelayArgument &argument : site.arguments)
 	{
 		m_dependencyAnalyzer.RecordExpressionEffects(argument.expression);
-		RecordRefinementExpressionEffects(argument.expression);
+		if (AnalysisAtLeast(PredaTranspilerOptions::RelayAnalysisMode::FormulaSmt))
+			RecordRefinementExpressionEffects(argument.expression);
 	}
 	site.targetDependency =
 		analysis::RelayDependencyAnalyzer::Union(

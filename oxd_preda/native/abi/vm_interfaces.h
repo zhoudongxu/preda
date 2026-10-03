@@ -184,6 +184,10 @@ struct ExecutionState: public ChainStates
 struct ExecutionContext: public ExecutionState
 {
 	virtual void					Randomize(uint8_t* fill, uint32_t size) = 0;
+	// Optional source-site metadata hook. Older runtimes may ignore it; the
+	// PREDA Native simulator uses it to attach bound relay certificates to the
+	// allocated child transaction without changing relay semantics.
+	virtual void					SetRelayOriginMetadata(uint32_t siteOrdinal) {}
 
 	// returns null if the state doesn't exist
 	virtual uint8_t*				AllocateStateMemory(uint32_t dataSize) = 0;

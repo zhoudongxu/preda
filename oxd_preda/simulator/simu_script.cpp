@@ -27,6 +27,7 @@ int SimulatorMain(const os::CommandLine& cmd)
 	const bool relayOptimizationRequested =
 		cmd.HasOption("rpreda_opt") ||
 		cmd.HasOption("rpreda_opt_ablation") ||
+		cmd.HasOption("rpreda_scheduler") ||
 		cmd.HasOption("rpreda_opt_report") ||
 		cmd.HasOption("rpreda_audit_sample_rate") ||
 		cmd.HasOption("rpreda_max_relay_reserve");

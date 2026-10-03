@@ -1597,6 +1597,11 @@ void PredaRealListener::enterRelayStatement(PredaParser::RelayStatementContext *
 			"prlrt::relay_next_traced(" +
 			std::to_string(protocolSiteOrdinal) + ", " +
 			std::to_string(opCode) + argumentsString + ");");
+#elif defined(RPREDA_ENABLE_BOUND_RELAY_MANIFEST)
+		codeSerializer.AddLine(
+			"prlrt::relay_next_with_site(" +
+			std::to_string(protocolSiteOrdinal) + ", " +
+			std::to_string(opCode) + argumentsString + ");");
 #else
 		codeSerializer.AddLine("prlrt::relay_next(" + std::to_string(opCode) + argumentsString + ");");
 #endif
@@ -1613,6 +1618,13 @@ void PredaRealListener::enterRelayStatement(PredaParser::RelayStatementContext *
 				targetScopeExpRes.text + ", " +
 				std::to_string(uint32_t(expectedfuncScope)) + ", " +
 				std::to_string(opCode) + argumentsString + ");");
+#elif defined(RPREDA_ENABLE_BOUND_RELAY_MANIFEST)
+			codeSerializer.AddLine(
+				"prlrt::relay_with_site(" +
+				std::to_string(protocolSiteOrdinal) + ", " +
+				targetScopeExpRes.text + ", " +
+				std::to_string(uint32_t(expectedfuncScope)) + ", " +
+				std::to_string(opCode) + argumentsString + ");");
 #else
 			codeSerializer.AddLine("prlrt::relay(" + targetScopeExpRes.text + ", " + std::to_string(uint32_t(expectedfuncScope)) + ", " + std::to_string(opCode) + argumentsString + ");");
 #endif
@@ -1623,6 +1635,11 @@ void PredaRealListener::enterRelayStatement(PredaParser::RelayStatementContext *
 				"prlrt::relay_shards_traced(" +
 				std::to_string(protocolSiteOrdinal) + ", " +
 				std::to_string(opCode) + argumentsString + ");");
+#elif defined(RPREDA_ENABLE_BOUND_RELAY_MANIFEST)
+			codeSerializer.AddLine(
+				"prlrt::relay_shards_with_site(" +
+				std::to_string(protocolSiteOrdinal) + ", " +
+				std::to_string(opCode) + argumentsString + ");");
 #else
 			codeSerializer.AddLine("prlrt::relay_shards(" + std::to_string(opCode) + argumentsString + ");");
 #endif
@@ -1631,6 +1648,11 @@ void PredaRealListener::enterRelayStatement(PredaParser::RelayStatementContext *
 #ifdef RPREDA_ENABLE_RUNTIME_TRACE
 			codeSerializer.AddLine(
 				"prlrt::relay_global_traced(" +
+				std::to_string(protocolSiteOrdinal) + ", " +
+				std::to_string(opCode) + argumentsString + ");");
+#elif defined(RPREDA_ENABLE_BOUND_RELAY_MANIFEST)
+			codeSerializer.AddLine(
+				"prlrt::relay_global_with_site(" +
 				std::to_string(protocolSiteOrdinal) + ", " +
 				std::to_string(opCode) + argumentsString + ");");
 #else
@@ -3657,10 +3679,20 @@ void PredaRealListener::exitContractDefinition(PredaParser::ContractDefinitionCo
 		AUTO_POP_THIS_PTR_STACK;
 
 		DefinePendingRelayLambdas();
-		transpiler::relay_protocol::metrics::ScopedRelayAnalysisPhase
-			analysisTimer(
-				transpiler::relay_protocol::metrics::
-					RelayAnalysisPhase::AnalysisTotal);
+		const auto analysisMode = m_pOptions == nullptr
+			? transpiler::PredaTranspilerOptions::RelayAnalysisMode::Full
+			: m_pOptions->relayAnalysisMode;
+		std::unique_ptr<
+			transpiler::relay_protocol::metrics::ScopedRelayAnalysisPhase>
+			analysisTimer;
+		if (analysisMode >=
+			transpiler::PredaTranspilerOptions::RelayAnalysisMode::CfgIcfg)
+		{
+			analysisTimer.reset(new
+				transpiler::relay_protocol::metrics::ScopedRelayAnalysisPhase(
+					transpiler::relay_protocol::metrics::
+						RelayAnalysisPhase::AnalysisTotal));
+		}
 
 		// Phase A-D analysis is finalized while the PREDA parse tree and exact
 		// semantic FunctionRef objects are both still alive.  The builder copies
@@ -3853,7 +3885,11 @@ void PredaRealListener::exitContractDefinition(PredaParser::ContractDefinitionCo
 			}
 			cfgInput.identifierUses.push_back(std::move(fact));
 		}
-		m_relayProtocolCollector.BuildControlFlow(std::move(cfgInput));
+		if (analysisMode >=
+			transpiler::PredaTranspilerOptions::RelayAnalysisMode::CfgIcfg)
+		{
+			m_relayProtocolCollector.BuildControlFlow(std::move(cfgInput));
+		}
 		m_relayProtocolCollector.Finalize();
 
 		PropagateFunctionFlagAcrossCallingGraph();
@@ -3905,17 +3941,28 @@ void PredaRealListener::exitContractDefinition(PredaParser::ContractDefinitionCo
 					uint32_t(transpiler::FunctionFlags::HasAnyRelayStatement)) != 0,
 				hasUnmodeledRelayReachableCall);
 		};
-		for (const ForwardDeclaredContractFunction &function :
-			m_forwardDeclaredFunctions)
+		if (analysisMode >=
+			transpiler::PredaTranspilerOptions::RelayAnalysisMode::CfgIcfg)
 		{
-			recordFunctionRelayReachability(function.declaredFunc);
+			for (const ForwardDeclaredContractFunction &function :
+				m_forwardDeclaredFunctions)
+			{
+				recordFunctionRelayReachability(function.declaredFunc);
+			}
+			for (const transpiler::FunctionRef &function : m_exportedFunctions)
+				recordFunctionRelayReachability(function);
 		}
-		for (const transpiler::FunctionRef &function : m_exportedFunctions)
-			recordFunctionRelayReachability(function);
+		if (analysisMode >=
+			transpiler::PredaTranspilerOptions::RelayAnalysisMode::CfgIcfg)
 			m_relayProtocolCollector.BuildSummaries();
+		if (analysisMode >=
+			transpiler::PredaTranspilerOptions::RelayAnalysisMode::FormulaSmt)
 			m_relayProtocolCollector.BuildRefinement();
+		if (analysisMode ==
+			transpiler::PredaTranspilerOptions::RelayAnalysisMode::Full)
 			m_relayProtocolCollector.BuildParallelCertificate();
-		analysisTimer.Stop();
+		if (analysisTimer)
+			analysisTimer.reset();
 
 		// check for entropy and relay coexist error in user-defined functions
 		for (auto &itor : m_forwardDeclaredFunctions)

@@ -1,0 +1,18 @@
+random.reseed $~seed$
+allocate.address $~addresses$
+chain.gaslimit 65536
+
+chain.deploy @1 ../../../contracts/Token.prd
+state.set Token.address @all {
+    balance:"1000", auditTransfers:0, auditVolume:"0"
+}
+
+txn_parallel[] = Token.transfer_parallel*$~count$ @random {
+    to:"$@1$", audit:"$@2$", amount:"100"
+}
+
+chain.run
+chain.info
+
+viz.addr @all Token
+viz.block #all

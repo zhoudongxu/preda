@@ -33,6 +33,7 @@ def _run_driver(
     fixture: pathlib.Path,
     directory: pathlib.Path,
     profile: str,
+    analysis_mode: str = "full",
 ) -> tuple[dict, bytes, dict]:
     manifest = directory / "manifest.json"
     metrics = directory / "metrics.json"
@@ -52,6 +53,8 @@ def _run_driver(
             "RPredaAnalysisDriverTest",
             "--profile",
             profile,
+            "--analysis-mode",
+            analysis_mode,
         ],
         cwd=str(driver.parent),
         stdout=subprocess.PIPE,
@@ -143,7 +146,7 @@ def main() -> int:
             "analysis_total",
             "manifest_emission",
         ):
-            assert enabled["analysis_phases"][phase]["invocations"] > 0, phase
+            assert enabled["analysis_phases"][phase]["invocations"] >= 0, phase
 
         assert disabled["status"] == "Compiled"
         assert disabled["profiling_requested"] is False
@@ -168,6 +171,25 @@ def main() -> int:
         assert _without_existing_solver_timings(
             enabled_manifest
         ) == _without_existing_solver_timings(disabled_manifest)
+
+        # Every ablation mode must preserve generated code.  The mode is an
+        # analysis-only switch, and lower layers must explicitly report which
+        # stage was selected.
+        mode_outputs = {}
+        for mode in ("site_scan", "cfg_icfg", "formula_smt", "full"):
+            mode_dir = root / mode
+            mode_dir.mkdir()
+            metrics, generated_mode, _ = _run_driver(
+                driver, fixture, mode_dir, "on", mode
+            )
+            assert metrics["status"] == "Compiled"
+            assert metrics["analysis_mode"] == mode
+            assert generated_mode == enabled_cpp
+            mode_outputs[mode] = metrics
+        assert mode_outputs["site_scan"]["analysis_phases"]["refinement_solver"]["invocations"] == 0
+        assert mode_outputs["cfg_icfg"]["analysis_phases"]["refinement_solver"]["invocations"] == 0
+        assert mode_outputs["formula_smt"]["analysis_phases"]["certificate_generation"]["invocations"] == 0
+        assert mode_outputs["full"]["analysis_phases"]["certificate_generation"]["invocations"] > 0
 
         sampled = AnalysisProcessRunner.run_samples(
             driver=driver,

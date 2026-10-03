@@ -370,6 +370,12 @@ bool CRuntimeInterface::EmitRelayToShards(uint32_t opCode, const uint8_t* args_s
 	return m_pExecutionContext->EmitBroadcastToShards(rvm::CONTRACT_SET_SCOPE(m_contractStack.back().cvId, rvm::Scope::Shard), rvm::OpCode(opCode), &args, 1);
 }
 
+void CRuntimeInterface::SetRelayOriginMetadata(uint32_t siteOrdinal)
+{
+	if(m_pExecutionContext != nullptr)
+		m_pExecutionContext->SetRelayOriginMetadata(siteOrdinal);
+}
+
 uint32_t CRuntimeInterface::CrossCall(uint64_t cvId, int64_t templateContractImportSlot, uint32_t opCode, const void **ptrs, uint32_t numPtrs)
 {
 	if (!ContractHasTemplate(cvId, templateContractImportSlot))

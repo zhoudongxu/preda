@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "defaults": {"seed": 88, "order": 2},
+  "workloads": {
+    "TokenParallelOCC": {
+      "dataset": "Token",
+      "case": "parallel-occ",
+      "performance_fixture": "fixtures/TokenParallelOCC.prdts",
+      "correctness_fixture": "fixtures/TokenParallelOCC.prdts",
+      "performance_parameters": {"count": 100, "addresses": 128},
+      "correctness_parameters": {"count": 100, "addresses": 128},
+      "expected_runtime_features": {"relay_activity": true, "generic_batch": true, "verified_reserve": true},
+      "measured_source_transaction_offset": 0
+    },
+    "BallotParallelOCC": {
+      "dataset": "Ballot",
+      "case": "parallel-occ",
+      "performance_fixture": "fixtures/BallotParallelOCC.prdts",
+      "correctness_fixture": "fixtures/BallotParallelOCC.prdts",
+      "performance_parameters": {"count": 100, "addresses": 128},
+      "correctness_parameters": {"count": 100, "addresses": 128},
+      "expected_runtime_features": {"relay_activity": true, "generic_batch": true, "verified_reserve": true},
+      "measured_source_transaction_offset": 0
+    },
+    "MillionPixelParallelOCC": {
+      "dataset": "MillionPixel",
+      "case": "parallel-occ",
+      "performance_fixture": "fixtures/MillionPixelParallelOCC.prdts",
+      "correctness_fixture": "fixtures/MillionPixelParallelOCC.prdts",
+      "performance_parameters": {"count": 100, "addresses": 128},
+      "correctness_parameters": {"count": 100, "addresses": 128},
+      "expected_runtime_features": {"relay_activity": true, "generic_batch": true, "verified_reserve": true},
+      "measured_source_transaction_offset": 0
+    },
+    "KittyParallelOCC": {
+      "dataset": "Kitty",
+      "case": "parallel-occ",
+      "performance_fixture": "fixtures/KittyParallelOCC.prdts",
+      "correctness_fixture": "fixtures/KittyParallelOCC.prdts",
+      "performance_parameters": {"count": 100, "addresses": 128},
+      "correctness_parameters": {"count": 100, "addresses": 128},
+      "expected_runtime_features": {"relay_activity": true, "generic_batch": true, "verified_reserve": true},
+      "measured_source_transaction_offset": 0
+    },
+    "AirDropParallelOCC": {
+      "dataset": "AirDrop",
+      "case": "parallel-occ",
+      "performance_fixture": "fixtures/AirDropParallelOCC.prdts",
+      "correctness_fixture": "fixtures/AirDropParallelOCC.prdts",
+      "performance_parameters": {"count": 100, "addresses": 128},
+      "correctness_parameters": {"count": 100, "addresses": 128},
+      "expected_runtime_features": {"relay_activity": true, "generic_batch": true, "verified_reserve": true},
+      "measured_source_transaction_offset": 0
+    }
+  }
+}

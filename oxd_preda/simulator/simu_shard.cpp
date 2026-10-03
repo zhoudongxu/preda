@@ -3,6 +3,11 @@
 #include "simu_global.h"
 #include "chain_simu.h"
 
+#ifdef RPREDA_ENABLE_BOUND_RELAY_MANIFEST
+#include "../runtime/relay_plan/RelayPlanLoader.h"
+#include <algorithm>
+#endif
+
 #ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
 #include "relay_optimization/RelayReservePlanner.h"
 
@@ -16,7 +21,9 @@
 #ifdef RPREDA_ENABLE_RUNTIME_TRACE
 #include "relay_trace/RelayManifestLoader.h"
 
+#include <algorithm>
 #include <exception>
+#include <limits>
 #include <optional>
 #endif
 
@@ -28,6 +35,54 @@
 
 namespace oxd
 {
+
+#ifdef RPREDA_ENABLE_BOUND_RELAY_MANIFEST
+namespace
+{
+
+void PopulateRelayOriginMetadata(
+	SimuTxn* txn,
+	const std::string& moduleId,
+	const std::string& functionId,
+	uint32_t sourceOpcode,
+	uint32_t siteOrdinal,
+	const std::string& siteId) noexcept
+{
+	if(txn == nullptr || moduleId.empty() || functionId.empty())
+		return;
+	if(siteOrdinal == relay_plan::InvalidRelaySiteOrdinal)
+		return;
+	const size_t moduleSize = std::min(
+		moduleId.size(),
+		SimuTxn::RelayOriginModuleCapacity - 1);
+	const size_t functionSize = std::min(
+		functionId.size(),
+		SimuTxn::RelayOriginFunctionCapacity - 1);
+	const size_t siteSize = std::min(
+		siteId.size(),
+		SimuTxn::RelayOriginSiteCapacity - 1);
+	if(moduleSize == 0 || functionSize == 0 ||
+		moduleSize > std::numeric_limits<uint16_t>::max() ||
+		functionSize > std::numeric_limits<uint16_t>::max() ||
+		siteSize > std::numeric_limits<uint16_t>::max())
+		return;
+	memcpy(txn->RelayOriginModule, moduleId.data(), moduleSize);
+	memcpy(txn->RelayOriginFunction, functionId.data(), functionSize);
+	if(siteSize != 0)
+		memcpy(txn->RelayOriginSite, siteId.data(), siteSize);
+	txn->RelayOriginModule[moduleSize] = '\0';
+	txn->RelayOriginFunction[functionSize] = '\0';
+	txn->RelayOriginSite[siteSize] = '\0';
+	txn->RelayOriginModuleSize = static_cast<uint16_t>(moduleSize);
+	txn->RelayOriginFunctionSize = static_cast<uint16_t>(functionSize);
+	txn->RelayOriginSiteSize = static_cast<uint16_t>(siteSize);
+	txn->RelayOriginOpcode = sourceOpcode;
+	txn->RelayOriginSiteOrdinal = siteOrdinal;
+	txn->RelayOriginMetadataValid = 1;
+}
+
+} // namespace
+#endif
 
 #ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
 namespace
@@ -419,6 +474,75 @@ SimuTxn* SimuShard::_CreateRelayTxn(rvm::ContractInvokeId ciid, rvm::OpCode opco
 	txn->Gas = 0;
 	txn->GasRedistributionWeight = gas_redistribution_weight;
 
+#ifdef RPREDA_ENABLE_BOUND_RELAY_MANIFEST
+	// Carry source identity with the relay itself. Trace builds obtain the
+	// ordinal from the marker stack; optimization-only builds receive the same
+	// ordinal through SetRelayOriginMetadata emitted by the compiler.
+	const bool hasTraceMarker =
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+		!_RelayTraceMarkerStack.empty();
+#else
+		false;
+#endif
+	if(_RelayOriginMetadataPending || hasTraceMarker)
+	{
+		uint32_t siteOrdinal = _RelayOriginSiteOrdinal;
+		std::string moduleIdentity;
+		std::string sourceFunctionId;
+		std::string siteId;
+		const auto* sourceDeployed = _pTxn == nullptr
+			? nullptr
+			: GetContractDeployed(
+				rvm::CONTRACT_UNSET_SCOPE(_pTxn->Contract));
+		if(sourceDeployed != nullptr)
+		{
+			moduleIdentity = relay_plan::RelayPlanLoader::RuntimeHashIdentity(
+				sourceDeployed->Module);
+			const auto sourcePlan = _pSimulator->LookupRelayPlan(
+				moduleIdentity,
+				_pTxn == nullptr ? 0U : static_cast<uint32_t>(_pTxn->Op));
+			if(sourcePlan.function != nullptr)
+				sourceFunctionId = sourcePlan.function->sourceFunctionId;
+			if(sourcePlan.loadResult && sourcePlan.loadResult->manifest)
+			{
+				const auto site =
+					sourcePlan.loadResult->manifest->sitesByOrdinal.find(
+						siteOrdinal);
+				if(site != sourcePlan.loadResult->manifest->sitesByOrdinal.end())
+					siteId = site->second.id;
+			}
+		}
+#ifdef RPREDA_ENABLE_RUNTIME_TRACE
+		if(hasTraceMarker)
+		{
+			const auto& marker = _RelayTraceMarkerStack.back();
+			moduleIdentity = GetRelayTraceModuleIdentity(marker.module);
+			siteOrdinal = marker.ordinal;
+			relay_trace::ManifestRelaySite site;
+			if(_pSimulator->ResolveRelayTraceSite(
+				marker.module,
+				marker.ordinal,
+				site))
+				siteId = site.id;
+			_pSimulator->ResolveRelayTraceFunction(
+				sourceDeployed == nullptr
+					? marker.module
+					: sourceDeployed->Module,
+				_pTxn == nullptr ? 0U : static_cast<uint32_t>(_pTxn->Op),
+				sourceFunctionId);
+		}
+#endif
+		PopulateRelayOriginMetadata(
+			txn,
+			moduleIdentity,
+			sourceFunctionId,
+			_pTxn == nullptr ? 0U : static_cast<uint32_t>(_pTxn->Op),
+			siteOrdinal,
+			siteId);
+		_RelayOriginMetadataPending = false;
+	}
+#endif
+
 	ASSERT(txn->ArgsSerializedSize == args_serialized->DataSize);
 	memcpy(txn->SerializedData, args_serialized->DataPtr, args_serialized->DataSize);
 
@@ -612,7 +736,206 @@ void SimuShard::_AppendRelayEmission(
 		RelayOptimizationNowNs() - generationBeginNs,
 		std::memory_order_relaxed);
 }
+
+namespace
+{
+
+relay_optimization::RelaySchedulerTask MakeRelaySchedulerTask(
+	const SimuTxn* txn,
+	uint32_t destinationShard)
+{
+	relay_optimization::RelaySchedulerTask task;
+	if(txn == nullptr)
+		return task;
+
+	task.originateHeight = txn->OriginateHeight;
+	task.originShard = txn->OriginateShardIndex;
+	task.destinationShard = destinationShard;
+	task.sourceOrder = txn->OriginateShardOrder;
+	task.estimatedWork = 1;
+	task.remainingDepth = 1;
+	task.sourceOpcode = txn->RelayOriginOpcode;
+	task.relaySiteOrdinal = txn->RelayOriginSiteOrdinal;
+	task.globalRelay = txn->GetScope() == rvm::Scope::Global;
+	task.broadcastRelay = txn->IsBroadcast();
+	const bool metadataSizesValid =
+		txn->RelayOriginMetadataValid != 0 &&
+		txn->RelayOriginModuleSize > 0 &&
+		txn->RelayOriginModuleSize <
+			SimuTxn::RelayOriginModuleCapacity &&
+		txn->RelayOriginFunctionSize > 0 &&
+		txn->RelayOriginFunctionSize <
+			SimuTxn::RelayOriginFunctionCapacity &&
+		txn->RelayOriginSiteSize > 0 &&
+		txn->RelayOriginSiteSize < SimuTxn::RelayOriginSiteCapacity;
+	if(metadataSizesValid)
+	{
+		task.moduleId.assign(
+			txn->RelayOriginModule,
+			txn->RelayOriginModuleSize);
+		task.functionId.assign(
+			txn->RelayOriginFunction,
+			txn->RelayOriginFunctionSize);
+		task.relaySiteId.assign(
+			txn->RelayOriginSite,
+			txn->RelayOriginSiteSize);
+	}
+	// A non-trace build has no source identity, so target-key heuristics alone
+	// remain insufficient for a certificate-backed reorder.
+	task.opaqueRelay = !metadataSizesValid;
+	task.targetKnown = !task.globalRelay && !task.broadcastRelay &&
+		txn->Target.target_size != 0;
+	if(task.targetKnown)
+	{
+		task.targetScopeKey.push_back(
+			static_cast<char>(txn->Target.target_size));
+		task.targetScopeKey.append(
+			reinterpret_cast<const char*>(&txn->Target.u512),
+			txn->Target.target_size);
+	}
+	task.stableId = std::to_string(task.originateHeight) + ":" +
+		std::to_string(task.originShard) + ":" +
+		std::to_string(task.sourceOrder) + ":" +
+		std::to_string(static_cast<uint32_t>(txn->Op)) + ":" +
+		task.targetScopeKey;
+	return task;
+}
+
+} // namespace
+
+SimuTxn* SimuShard::_PopRelayTxn()
+{
+	auto* metrics = _pSimulator->GetRelayOptimizationMetrics();
+	const auto schedulerMode =
+		_pSimulator->GetRelayOptimizationConfig().schedulerMode;
+	if(schedulerMode == relay_optimization::RelaySchedulerMode::FIFO)
+	{
+		SimuTxn* result = _PendingRelayTxns.Pop();
+		if(result != nullptr)
+		{
+			metrics->schedulerSelectionCalls.fetch_add(
+				1,
+				std::memory_order_relaxed);
+		}
+		return result;
+	}
+
+	const relay_optimization::RelayScheduler scheduler(schedulerMode);
+	relay_optimization::RelaySchedulerDecision decision;
+	const uint64_t decisionBeginNs = RelayOptimizationNowNs();
+	SimuTxn* result = _PendingRelayTxns.PopSelected(
+		[&](const std::vector<SimuTxn*>& ready)
+		{
+			std::vector<relay_optimization::RelaySchedulerTask> tasks;
+			tasks.reserve(ready.size());
+			for(const SimuTxn* txn : ready)
+				tasks.push_back(
+					MakeRelaySchedulerTask(txn, _ShardIndex));
+
+			relay_optimization::RelaySchedulerCertificateView view;
+			// A certificate view is valid only for one source module/function/
+			// opcode. Mixed prefixes stay on the conservative FIFO path.
+			if(schedulerMode ==
+				relay_optimization::RelaySchedulerMode::
+					CertificateGuidedPriority &&
+				!tasks.empty() && !tasks.front().moduleId.empty() &&
+				!tasks.front().functionId.empty())
+			{
+				const auto& first = tasks.front();
+				bool sameSource = true;
+				for(const auto& task : tasks)
+				{
+					if(task.moduleId != first.moduleId ||
+						task.functionId != first.functionId ||
+						task.sourceOpcode != first.sourceOpcode)
+					{
+						sameSource = false;
+						break;
+					}
+				}
+				if(sameSource)
+				{
+					auto lookup = _pSimulator->LookupRelayPlan(
+						first.moduleId,
+						first.sourceOpcode);
+					if(lookup.loadResult && lookup.loadResult->manifest &&
+						lookup.function != nullptr)
+					{
+						const auto& manifest =
+							*lookup.loadResult->manifest;
+						for(auto& task : tasks)
+						{
+							if(task.relaySiteId.empty())
+							{
+								auto site = manifest.sitesByOrdinal.find(
+									task.relaySiteOrdinal);
+								if(site != manifest.sitesByOrdinal.end())
+									task.relaySiteId = site->second.id;
+							}
+						}
+						auto certificate =
+							manifest.parallelCertificatesByFunction.find(
+								first.functionId);
+						if(certificate !=
+							manifest.parallelCertificatesByFunction.end())
+						{
+							view.function = &certificate->second;
+							view.bindingTrusted =
+								manifest.bindingTrusted &&
+								lookup.function->bindingTrusted;
+							view.functionOpcodeTrusted =
+								lookup.function->functionOpcodeTrusted;
+							view.optimizationEligible =
+								lookup.function->optimizationEligible;
+						}
+					}
+				}
+			}
+			decision = scheduler.Choose(tasks, view);
+			return decision.selectedIndex;
+		});
+	metrics->schedulerDecisionTimeNs.fetch_add(
+		RelayOptimizationNowNs() - decisionBeginNs,
+		std::memory_order_relaxed);
+	if(result != nullptr)
+	{
+		metrics->schedulerSelectionCalls.fetch_add(
+			1,
+			std::memory_order_relaxed);
+		if(decision.reordered)
+		{
+			metrics->schedulerReorders.fetch_add(
+				1,
+				std::memory_order_relaxed);
+		}
+		if(decision.certificateUsed)
+		{
+			metrics->schedulerCertificateUses.fetch_add(
+				1,
+				std::memory_order_relaxed);
+		}
+		if(decision.reason !=
+			relay_optimization::RelaySchedulerDecisionReason::Priority)
+		{
+			metrics->schedulerFallbacks.fetch_add(
+				1,
+				std::memory_order_relaxed);
+		}
+		else
+		{
+			metrics->schedulerPrioritySelections.fetch_add(
+				1,
+				std::memory_order_relaxed);
+		}
+	}
+	return result;
+}
 #endif
+void SimuShard::SetRelayOriginMetadata(uint32_t siteOrdinal)
+{
+	_RelayOriginSiteOrdinal = siteOrdinal;
+	_RelayOriginMetadataPending = true;
+}
 
 bool SimuShard::EmitRelayToScope(rvm::ContractInvokeId ciid, const rvm::ScopeKey* key, rvm::OpCode opcode, const rvm::ConstData* args_serialized, uint32_t gas_redistribution_weight)
 {
@@ -2176,7 +2499,13 @@ void SimuShard::_BlockCreationRoutine()
 
 		// executing txns
 		// relay txns first
-		while (SimuTxn* t = _TotalGasBurnt < gas_limit ? _PendingRelayTxns.Pop() : nullptr)
+		while (SimuTxn* t = _TotalGasBurnt < gas_limit ?
+#ifdef RPREDA_ENABLE_RUNTIME_OPTIMIZATION
+			_PopRelayTxn()
+#else
+			_PendingRelayTxns.Pop()
+#endif
+			: nullptr)
 		{
 			if (!async)
 			{

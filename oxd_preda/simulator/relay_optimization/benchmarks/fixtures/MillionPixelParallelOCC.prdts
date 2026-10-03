@@ -1,0 +1,15 @@
+random.reseed $~seed$
+allocate.address $~addresses$
+chain.gaslimit 65536
+
+chain.deploy @0 ../../../contracts/MillionPixel.prd
+
+txn_parallel[] = MillionPixel.occupy_parallel*$~count$ @random {
+    x:1, y:2, ownerStatisticsKey:70000, sender:"$@0$"
+}
+
+chain.run
+chain.info
+
+viz.uint_scope #32 MillionPixel:all
+viz.block #all

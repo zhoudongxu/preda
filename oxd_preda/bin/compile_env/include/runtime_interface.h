@@ -278,6 +278,7 @@ namespace prlrt {
 	V(bool, EmitRelayToGlobal, uint32_t opCode, const uint8_t* args_serialized, uint32_t args_size)\
 	V(bool, EmitRelayToShards, uint32_t opCode, const uint8_t* args_serialized, uint32_t args_size)\
 	V(bool, EmitRelayDeferred, uint32_t opCode, const uint8_t* args_serialized, uint32_t args_size)\
+	V(void, SetRelayOriginMetadata, uint32_t siteOrdinal)\
 	V(bool, HashToString, const void* pData, uint32_t dataLen, char* out) \
 	V(uint32_t, CrossCall, uint64_t cvId, int64_t templateContractImportSlot, uint32_t opCode, const void** ptrs, uint32_t numPtrs)\
 	V(uint32_t, InterfaceCall, uint64_t cvId, int64_t interfaceContractImportSlot, uint32_t slotIdx, uint32_t funcIdx, const void** ptrs, uint32_t numPtrs)\
@@ -371,4 +372,3 @@ struct IRuntimeInterface {
 #undef PREDA_INTERFACE_METHOD_V
 #endif
 }
-

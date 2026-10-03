@@ -163,6 +163,16 @@ private:
 
 struct PredaTranspilerOptions {
 	bool bDisableDebugPrint = false;
+	// Analysis-only mode. Full keeps the historical compiler behavior.
+	// The other modes are used by the standalone evaluation driver to measure
+	// the incremental contribution of each static-analysis layer.
+	enum class RelayAnalysisMode : uint32_t {
+		SiteScan = 0,
+		CfgIcfg = 1,
+		FormulaSmt = 2,
+		Full = 3,
+	};
+	RelayAnalysisMode relayAnalysisMode = RelayAnalysisMode::Full;
 };
 
 }

@@ -1,0 +1,15 @@
+random.reseed $~seed$
+allocate.address $~addresses$
+chain.gaslimit 65536
+
+chain.deploy @1 ../../../contracts/Ballot.prd
+
+txn_parallel[] = Ballot.vote_parallel*$~count$ @random {
+    choice:true, voter:"$@1$", statistics:"$@2$",
+    yesStatistics:"$@3$", noStatistics:"$@4$", amount:1
+}
+
+stopwatch.restart
+chain.run
+stopwatch.report
+chain.info

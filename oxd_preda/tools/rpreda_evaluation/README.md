@@ -81,7 +81,50 @@ For a fast audit of already-retained raw traces, pass
 `--reuse-artifacts <semantic-run-root>`. Such a run is marked `Reused` in the
 per-benchmark provenance and should not be presented as newly executed data.
 
-## Denominators
+## PREDA-native four-layer ablation
+
+The analysis driver accepts `--analysis-mode site_scan|cfg_icfg|formula_smt|full`.
+All four modes use the same profiling-enabled, Z3-enabled binary, with runtime
+tracing and runtime optimization disabled. The modes respectively collect relay
+sites, add CFG/ICFG/effect/summary analysis, add Formula IR and SMT queries, and
+add parallel/resource certificates. They do not select a runtime scheduler.
+
+Run one mode at a time, with a separate output/work directory per mode:
+
+```bash
+export LD_LIBRARY_PATH="$(pwd)/bin/bin_release:/path/to/z3/lib:${LD_LIBRARY_PATH:-}"
+for mode in site_scan cfg_icfg formula_smt full; do
+  python3 oxd_preda/tools/rpreda_evaluation/CoverageScalabilityRunner.py ablation \
+    --analysis-mode "$mode" --warmups 3 --repetitions 5 \
+    --output-root "results/ablation/$mode" \
+    --work-root "results/ablation/$mode/work" || exit 1
+done
+python3 oxd_preda/tools/rpreda_evaluation/AblationReport.py \
+  --run-root results/ablation --output-root results/ablation_report
+```
+
+The report checks retained raw processes and phase activation. It keeps the
+original summaries and includes output-variable points, without turning a
+solver timeout into a successful proof. It checks proof-input stability
+separately from solver/certificate output stability. The report's source-depth
+field is unavailable for `site_scan`, which builds no synchronous call graph.
+
+Use end-to-end process time or driver pipeline time for a four-mode cost table.
+The `analysis_total` timer starts after collection; it is not entered in
+`site_scan`. Its zero value therefore does not mean that scanning costs zero.
+Report the original stability warnings and mode order. Sequential mode runs
+are susceptible to host drift and do not establish a causal speedup.
+
+## Denominators (coverage and scalability)
+
+The separate [`shared_queries`](shared_queries/README.md) study adds a fixed
+semantic-query denominator, independently constructed source-level answers,
+four mode-local answer adapters, and paired incremental-effectiveness tables.
+It complements the cost ablation; solver-goal counts and certificate-object
+counts are not used as correctness labels. Run instructions and the precise
+query semantics are in that directory. Existing contract slices, authored
+parallel extensions, source mutants, and controlled programs are reported
+separately. This study does not measure runtime scheduling performance.
 
 - Static real-program totals deduplicate by the manifest-bound `module_id`.
   AirDrop is a `Token.transfer_n` workload, so it remains an RQ3 row but does
